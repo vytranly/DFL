@@ -65,4 +65,4 @@ Proposed — chờ Gate G1. Giá trị η (và μ theo SPEC QS-2) được đi�
 - $\mathrm{Acc}^{loc}$ thưởng cho thiên lệch cục bộ (ở #C = 1, một model chỉ đoán lớp của chính node đạt 100%), nên luôn báo cáo kèm $\mathrm{Acc}_i$ và $\mathrm{Acc}^{loc}$ của B2, và không dùng riêng nó để xếp hạng topology.
 - Sai số chuẩn của tập con 2,000 ảnh khoảng 0.4–0.5 điểm % ở mức accuracy 95–97%, nên R@97 chỉ là độ đo phụ.
 - Schema kết quả có thêm `f1_macro_std`, `f1_macro_min` và macro-F1 của từng node ở đánh giá cuối (Q3; SPEC §5.3; ADR-008).
-- Ngưỡng sanity SAN-1…4 (SPEC §9.3, QS-3) phải đạt trước khi chạy E1 và E2.
+- Ngưỡng sanity SAN-1…4 (SPEC §9.3; nhóm chốt các số ở P1.8, ghi ở `CONSTRAINTS.md` R7) phải đạt trước khi chạy E1 và E2.

@@ -1,6 +1,6 @@
 # SPEC — Đề 2: Non-IID × Decentralized Federated Learning
 
-> **Trạng thái:** Draft 0.1, chờ nhóm duyệt (Gate G1) · **Ngày:** 2026-09-30
+> **Trạng thái:** Draft 0.2, chờ nhóm duyệt (Gate G1) · **Ngày:** 2026-09-30 · 0.2 (P1.8): chốt QS-3 và QS-5; kiểm tra kiến trúc bằng import-linter; thêm `CONSTRAINTS.md` và `Makefile`
 > **Nguồn:** `docs/KE_HOACH_DE_TAI_2.md` v0.2 (viết tắt **KH**) · `docs/HANDOFF_GUIDELINE.md` (**H**) · `docs/decisions/OPEN_QUESTIONS.md` (**OQ**) · `CLAUDE.md`.
 > **Thứ tự ưu tiên khi mâu thuẫn:** ADR đã Accepted và `CONSTRAINTS.md` > SPEC > KH > H. Gặp mâu thuẫn chưa được giải quyết trong SPEC thì dừng và hỏi (H§3.0), không tự chọn một cách hiểu.
 > Chỗ ghi **(QS-k)** đang dùng giá trị mặc định, chờ nhóm quyết ở §11.2.
@@ -78,7 +78,8 @@ Hai cách chia tùy chọn trong KH §3.2 — P2' (shards) và P4 ($p_{major}$) 
 | networkx | 3.7 | Topology, spectral gap |
 | numpy | 2.5.3 | `Generator` (PCG64), `SeedSequence` |
 | pandas · matplotlib · pyyaml | 3.0.6 · 3.11.2 · 6.0.3 | Phân tích · hình · cấu hình (chỉ `yaml.safe_load`) |
-| pytest · pytest-cov · ruff | 9.1.1 · 7.1.0 · 0.16.9 | Dev. ruff: dòng ≤ 110, py312, lint E, F, W, I, B, UP; loại `docs/` |
+| pytest · pytest-cov · ruff | 9.1.1 · 7.1.0 · 0.16.9 | Dev. ruff: dòng ≤ 110, py312, lint E, F, W, I, B, UP cộng các luật sàn của `CONSTRAINTS.md`; loại `docs/` |
+| import-linter | 2.15 | Dev, kiểm ranh giới import theo §3.2 (`lint-imports`) |
 | scikit-learn | 1.9.1 | Dev, chỉ làm oracle cho macro-F1 trong test |
 | setuptools | ≥ 80 | Build backend, layout `src/` |
 
@@ -145,10 +146,11 @@ ruff check . && ruff format --check .
 pytest -q tests/unit
 pytest -q tests/integration tests/e2e      # từ T10–T11; hiện chưa có test nên pytest trả mã 5
 
-# Kiểm tra theo chi phí — Makefile ở P1.8 (mẫu H§5.5)
-make check-fast   # ruff + unit, vài giây
-make check-task   # unit + integration + coverage ≥ 80%, dưới 90 s; chạy trước mỗi commit
-make check-full   # toàn bộ test + smoke e2e vào build/smoke (không đụng results/); chạy ở mỗi checkpoint
+# Kiểm tra theo chi phí — Makefile (P1.8); nội dung và lý do ở CONSTRAINTS.md
+make check-fast   # sàn + ruff + import-linter + unit, vài giây
+make check-task   # như trên + integration + coverage ≥ 80%; dưới 90 s (chỉ cảnh báo); trước mỗi commit
+make check-full   # như trên + mọi test (gồm smoke e2e từ T11) + pip check; ở mỗi checkpoint
+make check-inv    # T-INV-1…12 có đủ và xanh; bắt buộc từ C3 và trước mọi lượt Tier 1
 
 # Dữ liệu — T03: tải MNIST vào data/ một lần (cần mạng; laptop demo phải tải trước)
 python -m dfl download mnist
@@ -184,7 +186,7 @@ Các lệnh `run`, `sweep`, `analysis.plots` đã có trong CLAUDE.md. `download
 ```text
 non_iid-dfl/
 ├── CLAUDE.md  SPEC.md  README.md  pyproject.toml     # đã có
-├── CONSTRAINTS.md  Makefile                          # P1.8
+├── CONSTRAINTS.md  Makefile                          # có từ P1.8
 ├── requirements.lock                                 # QS-1: pip freeze trên máy chủ, dùng cho code_version
 ├── configs/
 │   ├── base.yaml                                     # mặc định KH §3.5
@@ -297,9 +299,10 @@ def metropolis_hastings(graph: nx.Graph) -> np.ndarray:
 - **Quy ước:** Arrange-Act-Assert; tên test mô tả hành vi; mỗi test một hành vi; tên file test không trùng giữa các thư mục (pytest import theo tên file); seed cố định; dung sai số thực ghi rõ; so khớp "trùng từng bit" dùng `torch.equal` / `np.array_equal`; không tải dữ liệu qua mạng (dataset giả cùng shape); không phụ thuộc thời gian thực.
 - **Oracle và tham chiếu:** `tests/reference/` chứa hàm chia NIID-Bench sao từ `docs/spikes/`, tham số hóa theo mảng nhãn (golden cho T-INV-8); FedAvg có server viết ngay trong test (T-INV-3); `sklearn.metrics.f1_score(average="macro")` (T-INV-10).
 - **TDD:** test FAIL trước, PASS sau. T-INV-1…4, 11, 12 phải có trước khi viết engine (H§7).
+- **Tên test bất biến:** `test_t_inv_<k>_<hành vi>`, ví dụ `test_t_inv_4_node_order_does_not_change_result`, để `make check-inv` kiểm được đủ 12 ID.
 - **Kiểm tra thống kê:** chỉ T-INV-1 (phần gossip) được so theo sai số lấy mẫu: hai phía, ±4 sai số chuẩn, t ≤ 3, seed cố định để không flaky.
-- **Coverage:** ≥ 80% dòng cho `src/dfl` (trừ `cli.py`) và cho `analysis/` (QS-5); ngưỡng nằm trong `CONSTRAINTS.md` (P1.8) và không được hạ để qua kiểm tra.
-- **Test kiến trúc:** ENG-6, ENG-7 (§9.4).
+- **Coverage:** ≥ 80% dòng cho `src/dfl` (trừ `cli.py`) và cho `analysis/` (nhóm chốt QS-5 ở P1.8); ngưỡng ghi trong `CONSTRAINTS.md` và `fail_under` của `pyproject.toml`, không được hạ để qua kiểm tra.
+- **Kiểm tra kiến trúc:** import-linter (ENG-6, ENG-7, §9.4), cấu hình ở `[tool.importlinter]` trong `pyproject.toml`.
 
 Mẫu test (dùng hàm ở §6):
 
@@ -412,7 +415,7 @@ Cả 12 test phải tồn tại và xanh trước khi chạy bất kỳ lượt 
 
 ### 9.3 Sanity, tái lập và toàn vẹn (KH §5.3)
 
-Ngưỡng có số sẽ được chép sang `CONSTRAINTS.md` ở P1.8 (QS-3).
+Ngưỡng có số do nhóm chốt ở P1.8 (QS-3) và được ghi trong `CONSTRAINTS.md` (R7).
 
 - **SAN-1** (E0b) B1 tập trung: accuracy trên đủ 10,000 ảnh test ≥ 98.5% (trung bình 3 seed).
 - **SAN-2** (E0b) DFedAvg-FC-IID kém B1 không quá 1.0 điểm % (so trung bình qua seed).
@@ -430,12 +433,12 @@ Ngưỡng có số sẽ được chép sang `CONSTRAINTS.md` ở P1.8 (QS-3).
 ### 9.4 Kỹ thuật
 
 - **ENG-1** `make check-task` xanh trước mỗi commit; `make check-full` xanh ở mỗi checkpoint C1–C5.
-- **ENG-2** Coverage dòng ≥ 80% cho `src/dfl` (trừ `cli.py`) và `analysis/` (QS-5).
+- **ENG-2** Coverage dòng ≥ 80% cho `src/dfl` (trừ `cli.py`) và `analysis/` (chốt ở P1.8).
 - **ENG-3** `ruff check .` và `ruff format --check .` sạch.
 - **ENG-4** `python -m dfl run --config configs/profiles/smoke.yaml --out build/smoke` xong dưới 60 s trên máy chủ và sinh đủ 4 file đúng schema §5.3.
 - **ENG-5** `make check-task` xong dưới 90 s.
-- **ENG-6** Test kiến trúc (chạy trong tiến trình con): sau khi import `dfl.data.partition`, `dfl.data.heterogeneity`, `dfl.network.topology`, `dfl.network.mixing`, `dfl.network.transport`, `sys.modules` không có `torch`.
-- **ENG-7** Test kiến trúc (phân tích tĩnh): import nội bộ của `src/dfl/**` và `analysis/**` khớp hướng phụ thuộc §3.2; `src/` không gọi RNG toàn cục (`np.random.<hàm>` ngoài `default_rng`/`Generator`/`SeedSequence`, `random.*`, `torch.manual_seed`).
+- **ENG-6** Module thuần không nạp torch, kể cả gián tiếp: contract `pure-no-torch` của import-linter (`lint-imports`) cho `dfl.contracts` và `dfl.network`; `dfl.data.partition`, `dfl.data.heterogeneity` được thêm ở T04. Riêng `dfl.contracts` còn có test chạy trong tiến trình con (`tests/unit/test_contracts_smoke.py`).
+- **ENG-7** Hướng phụ thuộc §3.2 được kiểm bằng các contract `layers`, `no-analysis-in-src`, `analysis-reads-only` của import-linter. Cấm RNG toàn cục, kiểm bằng ruff `NPY002`, `S311` và `make check-floor` (`torch.manual_seed` trong `src/`).
 - **ENG-8** Unit và integration test không truy cập mạng và không cần MNIST thật.
 - **ENG-9** Sweep: bỏ qua `run_id` đã có attempt `ok`; chạy lại được attempt lỗi; từ chối khi `src/`, `configs/` hay file khóa có thay đổi chưa commit; commit chỉ đổi `docs/`, `tasks/`, `analysis/` hay `configs/` không làm đổi `code_version`; `--dry-run` in đúng số lượt tổng / đã ok / sẽ chạy.
 - **ENG-10** `run` và `sweep` chỉ ghi vào `results/` khi cây sạch; khi ghi ra `--out` ngoài `results/`, trường `dirty` trong manifest phản ánh đúng trạng thái cây.
@@ -467,7 +470,7 @@ SPEC được ưu tiên hơn KH ở các điểm dưới đây. KH sẽ được
 | 8 | §4.7: chỉ sweep từ chối khi cây bẩn | `run` cũng vậy khi ghi vào `results/`; `--out` ra `build/` thì được, manifest ghi `dirty: true` | `code_version` lấy từ commit nên không phản ánh thay đổi chưa commit (QS-7) |
 | 9 | §3.2: "lưu ma trận node × lớp" (chưa nói lưu ở đâu) | Lưu trong `manifest.json` | P7 sinh được từ `results/` |
 | 10 | (chưa có) | CLI `describe`, `download`, `sweep --dry-run`, `analysis.aggregate` | M2 cần P7 và spectral gap trước khi có engine; demo không cần mạng; quy tắc "lưới > 10 lượt" (QS-7) |
-| 11 | (chưa có) | Test kiến trúc ENG-6, ENG-7 (thêm `network/transport.py` vào nhóm không nạp torch, vì payload là đối tượng mờ); `analysis` kiểm tra biến cố định (INT-2); đối chiếu JS trên MNIST thật với bảng KH §3.2 (REQ-02) | Kiểm được hướng phụ thuộc, REQ-12 và cách chia trên nhãn thật |
+| 11 | (chưa có) | Kiểm tra kiến trúc ENG-6, ENG-7 bằng import-linter (thêm `network/transport.py` vào nhóm không nạp torch, vì payload là đối tượng mờ); `analysis` kiểm tra biến cố định (INT-2); đối chiếu JS trên MNIST thật với bảng KH §3.2 (REQ-02) | Kiểm được hướng phụ thuộc, REQ-12 và cách chia trên nhãn thật |
 | 12 | §3.4, ADR-006: μ ∈ {0.1, 1}, lập luận ở η = 0.05 | Nếu η chọn ở E0a khác 0.05 thì giữ cường độ ημτ ∈ {0.1, 1} ở τ = 20 (QS-2) | H5 và lý do loại μ = 0.01 đều dựa trên ημτ |
 
 ---
@@ -487,9 +490,9 @@ SPEC được ưu tiên hơn KH ở các điểm dưới đây. KH sẽ được
 |---|---|---|---|---|
 | QS-1 | File nào là "file khóa phụ thuộc" trong `code_version`? | `requirements.lock` = `pip freeze --exclude-editable` trên máy chủ, commit vào repo, tạo lại mỗi khi đổi phụ thuộc | `pyproject.toml`: không thêm file, nhưng mọi sửa cấu hình ruff/pytest/coverage sẽ làm toàn bộ kết quả thành stale (Tier 1 + 2 khoảng 44–57 giờ-CPU) | ADR-008, T12 |
 | QS-2 | Nếu E0a chọn η ≠ 0.05, DFedProx giữ gì? | Giữ cường độ ημτ ∈ {0.1, 1} ở τ = 20, tức μ = {0.1, 1} × 0.05/η; ghi vào ADR-007 cùng η | Giữ μ ∈ {0.1, 1} như ADR-006 (khi η = 0.01, μ = 0.1 gần như không có tác dụng — đúng lý do đã loại μ = 0.01) | ADR-006/007, E3a, E3b, H5 |
-| QS-3 | Ngưỡng sanity có số | SAN-2 ≤ 1.0 điểm %; SAN-3 ≥ 20 điểm %; SAN-4 ≤ 1.0 điểm % | Giá trị khác (KH chỉ ghi "khoảng 1 điểm %", "thấp hơn rõ rệt") | §9.3, `CONSTRAINTS.md`, T14 |
+| QS-3 | Ngưỡng sanity có số | **Đã chốt (P1.8, 2026-09-30):** SAN-2 ≤ 1.0 điểm %; SAN-3 ≥ 20 điểm %; SAN-4 ≤ 1.0 điểm % | — | §9.3, `CONSTRAINTS.md` (R7), T14 |
 | QS-4 | Độ đo suy ra đặt ở đâu? | `analysis/convergence.py`; bỏ `src/dfl/metrics/convergence.py` và `communication.py` | Giữ cây KH §4.6 (mỗi lần sửa code R@x/AUC làm toàn bộ kết quả thành stale) | §3, §5, T15 |
-| QS-5 | Coverage có tính `analysis/` không? | Có: ≥ 80% cho cả `src/dfl` (trừ `cli.py`) và `analysis/`; thêm `pythonpath = ["."]` vào cấu hình pytest | Chỉ `src/dfl` như KH §5.1 (code R@x, AUC, CI, kiểm định H2 không bị ràng buộc coverage) | `CONSTRAINTS.md`, Makefile (P1.8), T15–T16 |
+| QS-5 | Coverage có tính `analysis/` không? | **Đã chốt (P1.8, 2026-09-30):** có, ≥ 80% cho cả `src/dfl` (trừ `cli.py`) và `analysis/`; đã thêm `pythonpath = ["."]` vào cấu hình pytest | — | `CONSTRAINTS.md`, `pyproject.toml` |
 | QS-6 | Ranh giới module | `contracts`/`config`/`seeding` là nền tảng dùng chung, không có id; `cli`, `__main__`, sweep, Observer thuộc `sim`; bốn module lá không import lẫn nhau | Thêm một id riêng (ví dụ `core`) | §3, P1.7 |
 | QS-7 | CLI bổ sung | `describe`, `download`, `sweep --dry-run`, `analysis.aggregate`, `--out` (cho phép cây bẩn khi ghi ngoài `results/`, manifest ghi `dirty: true`) | Bỏ bớt (ví dụ vẽ P7 bằng một script riêng) | §4, T05, T11, T12 |
 | QS-8 | Demo trên laptop | 2 lượt ring vs FC, α = 0.1, N = 20, ngân sách khoảng 400 bước, MNIST tải sẵn, tổng ≤ 5 phút; chốt thông số ở T13 sau khi đo trên laptop thật. Laptop chạy hệ điều hành gì? (Makefile không chạy trên Windows; demo chỉ cần lệnh `python -m`) | Chỉ trình chiếu hình có sẵn, không chạy trực tiếp | §5.2, ENG-11, T11, T13 |

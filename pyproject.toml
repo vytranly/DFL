@@ -22,6 +22,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+    "import-linter==2.15",
     "pytest==9.1.1",
     "pytest-cov==7.1.0",
     "ruff==0.16.9",
@@ -38,12 +39,70 @@ target-version = "py312"
 extend-exclude = ["docs"]
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "B", "UP"]
+# E, F, W, I, B, UP là bộ luật gốc. Các luật sau giữ "sàn" của CONSTRAINTS.md bằng luật có sẵn của ruff.
+select = [
+    "E", "F", "W", "I", "B", "UP",
+    "PGH", "RUF100",   # F3: noqa / type: ignore phải ghi mã luật cụ thể; không để noqa thừa
+    "FIX", "ERA",      # F4: không TODO / FIXME / XXX / HACK; không code bị comment-out
+    "S110", "S112",    # F4: không nuốt lỗi bằng except rỗng
+    "S301", "S506",    # F6: không unpickle dữ liệu ngoài; chỉ yaml.safe_load
+    "NPY002", "S311",  # F7: không dùng RNG toàn cục (numpy.random kiểu cũ, module random)
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra"
+# Để test import được analysis/, vốn nằm ngoài src/.
+pythonpath = ["."]
 
 [tool.coverage.run]
-source = ["src/dfl"]
+source = ["src/dfl", "analysis"]
 omit = ["src/dfl/cli.py"]
+
+[tool.coverage.report]
+# CONSTRAINTS.md, "Ngưỡng có số": coverage dòng ≥ 80% cho src/dfl và analysis/.
+fail_under = 80
+
+# Ranh giới import theo capability map (SPEC §3.2), kiểm bằng `lint-imports` (CONSTRAINTS.md).
+[tool.importlinter]
+root_packages = ["dfl", "analysis"]
+include_external_packages = true
+# Import dưới `if TYPE_CHECKING:` không chạy lúc runtime nên không tính (contracts.py chỉ import torch ở đó).
+exclude_type_checking_imports = true
+
+[[tool.importlinter.contracts]]
+id = "layers"
+name = "Hướng phụ thuộc một chiều của capability map (SPEC §3.2)"
+type = "layers"
+# "|": các module cùng tầng không được import lẫn nhau; ":": được import lẫn nhau; "(...)": tầng tùy chọn.
+layers = [
+    "dfl.sim : (dfl.cli) : (dfl.__main__)",
+    "dfl.data | dfl.network | dfl.learning | dfl.metrics | dfl.io",
+    "dfl.contracts : (dfl.config) : (dfl.seeding)",
+]
+
+[[tool.importlinter.contracts]]
+id = "no-analysis-in-src"
+name = "src/dfl không bao giờ import analysis (SPEC §3.2)"
+type = "forbidden"
+source_modules = ["dfl"]
+forbidden_modules = ["analysis"]
+
+[[tool.importlinter.contracts]]
+id = "analysis-reads-only"
+name = "analysis chỉ được import dfl.io và dfl.contracts (SPEC §3.2)"
+type = "forbidden"
+source_modules = ["analysis"]
+forbidden_modules = [
+    "dfl.sim", "dfl.cli", "dfl.__main__", "dfl.data", "dfl.network",
+    "dfl.learning", "dfl.metrics", "dfl.config", "dfl.seeding",
+]
+
+[[tool.importlinter.contracts]]
+id = "pure-no-torch"
+name = "Module thuần không nạp torch, kể cả gián tiếp (SPEC §3.2, ENG-6)"
+type = "forbidden"
+# T04 thêm "dfl.data.partition", "dfl.data.heterogeneity" khi hai file đó tồn tại
+# (import-linter báo lỗi nếu source_modules có module chưa tồn tại).
+source_modules = ["dfl.contracts", "dfl.network"]
+forbidden_modules = ["torch", "torchvision"]

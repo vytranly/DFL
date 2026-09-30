@@ -10,7 +10,7 @@ Tách từ bản tóm tắt ở `docs/KE_HOACH_DE_TAI_2.md` §10 (P1.6), cập n
 | [ADR-004](ADR-004-smallcnn-no-batchnorm-plain-sgd.md) | SmallCNN 46,730 tham số, không BatchNorm, SGD thuần, minibatch có hoàn lại | Proposed | — |
 | [ADR-005](ADR-005-metropolis-hastings-mixing.md) | Trọng số MH; ablation uniform và size-corrected; size-weighted chỉ trên FC | Proposed | — |
 | [ADR-006](ADR-006-single-atc-gossip-sgd-loop.md) | Một vòng ATC tham số (τ, μ, $c_i$); τ·R = 4,000; khởi tạo chung | Proposed | A3, QS-2 |
-| [ADR-007](ADR-007-evaluation-protocol.md) | Giao thức đánh giá, chọn lr, seed, thống kê, ngân sách | Proposed | Q3, QĐ-2, QS-2, QS-3; η điền sau E0a |
+| [ADR-007](ADR-007-evaluation-protocol.md) | Giao thức đánh giá, chọn lr, seed, thống kê, ngân sách | Proposed | Q3, QĐ-2, QS-2; η điền sau E0a |
 | [ADR-008](ADR-008-results-format-and-code-version.md) | Định dạng kết quả, `code_version`, độ đo suy ra ở `analysis/` | Proposed | QS-1, QS-4, QS-7 |
 | [ADR-009](ADR-009-random-pairwise-gossip-schedule.md) | Random gossip theo lịch chung trên $K_N$; thêm T3b trên cạnh ER | Proposed | — |
 
