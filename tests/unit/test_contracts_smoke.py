@@ -50,33 +50,38 @@ RECORD_KEYS = {
         "status",
         "messages_total",
         "bytes_total",
-        "final_acc_per_node_full_test",
-        "final_acc_local_per_node_full_test",
-        "final_f1_macro_per_node_full_test",
-        "final_acc_avg_model_full_test",
+        "final_eval_split",
+        "final_eval_size",
+        "final_acc_per_node",
+        "final_acc_local_per_node",
+        "final_f1_macro_per_node",
+        "final_acc_avg_model",
     },
+    "SummaryDiverged": {"status", "diverged_at_round", "reason", "messages_total", "bytes_total"},
     "SummaryFailed": {"status", "error", "messages_total", "bytes_total"},
     "ManifestRecord": {
         "run_id",
         "code_version",
+        "git_commit",
         "dirty",
-        "experiment",
+        "env_match",
         "attempt",
         "config",
         "seed",
         "child_seeds",
+        "partition_retries",
         "versions",
         "machine",
         "cpu_threads",
         "created_at",
         "spectral_gap",
-        "consensus_weights",
+        "objective_weights",
         "objective_shift_tv",
         "node_class_counts",
     },
 }
 
-VALUE_OBJECTS = ["Snapshot", "CommCounters", "NodeDataset", "EvalResult"]
+VALUE_OBJECTS = ["PartitionResult", "Snapshot", "CommCounters", "NodeDataset", "EvalResult"]
 
 
 def _fake_with(members: set[str]) -> object:
@@ -108,10 +113,10 @@ def test_record_schema_has_exactly_the_spec_keys(name: str, keys: set[str]) -> N
     assert record.__required_keys__ == keys
 
 
-def test_summary_record_is_the_union_of_ok_and_failed_variants() -> None:
+def test_summary_record_is_the_union_of_ok_diverged_and_failed_variants() -> None:
     variants = typing.get_args(contracts.SummaryRecord.__value__)
 
-    assert variants == (contracts.SummaryOk, contracts.SummaryFailed)
+    assert variants == (contracts.SummaryOk, contracts.SummaryDiverged, contracts.SummaryFailed)
 
 
 @pytest.mark.parametrize("name", VALUE_OBJECTS)

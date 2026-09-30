@@ -8,9 +8,9 @@ Chi tiết: docs/KE_HOACH_DE_TAI_2.md · SPEC.md · docs/decisions/ · CONSTRAIN
 Python 3.12 · torch 2.14.0 · torchvision 0.29.0 · networkx 3.x · numpy 2.x · pandas · matplotlib · pyyaml · pytest · ruff · import-linter
 
 ## Commands
-- Cài đặt (CPU): `python3.12 -m venv .venv && . .venv/bin/activate && pip install torch==2.14.0 torchvision==0.29.0 --index-url https://download.pytorch.org/whl/cpu && pip install -e ".[dev]"`
+- Cài đặt (CPU): `python3.12 -m venv .venv && . .venv/bin/activate && pip install torch==2.14.0 torchvision==0.29.0 --index-url https://download.pytorch.org/whl/cpu && pip install -e ".[dev]"` (từ T02, khi đã có `requirements.lock`: chạy thêm `pip install -r requirements.lock` trước lệnh cuối và thêm `-c requirements.lock` vào lệnh cuối; SPEC §4)
 - Kiểm tra nhanh / theo task / đầy đủ: `make check-fast` · `make check-task` · `make check-full` (test bất biến: `make check-inv`, bắt buộc từ C3)
-- Chạy một lượt: `python -m dfl run --config configs/profiles/smoke.yaml`
+- Chạy một lượt: `python -m dfl run --config configs/profiles/smoke.yaml --out build/smoke` (không có `--out` thì ghi vào results/)
 - Chạy lưới: `python -m dfl sweep --experiment configs/experiments/e1_noniid.yaml --workers 4`
 - Vẽ hình: `python -m analysis.plots --results results/ --out figures/`
 

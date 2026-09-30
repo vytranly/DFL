@@ -90,12 +90,13 @@ forbidden_modules = ["analysis"]
 
 [[tool.importlinter.contracts]]
 id = "analysis-reads-only"
-name = "analysis chỉ được import dfl.io và dfl.contracts (SPEC §3.2)"
+# analysis tự đọc JSON/JSONL bằng code của mình: sửa code đọc không được làm đổi code_version (ADR-008).
+name = "analysis chỉ được import dfl.contracts (SPEC §3.2)"
 type = "forbidden"
 source_modules = ["analysis"]
 forbidden_modules = [
     "dfl.sim", "dfl.cli", "dfl.__main__", "dfl.data", "dfl.network",
-    "dfl.learning", "dfl.metrics", "dfl.config", "dfl.seeding",
+    "dfl.learning", "dfl.metrics", "dfl.io", "dfl.config", "dfl.seeding",
 ]
 
 [[tool.importlinter.contracts]]
@@ -106,3 +107,12 @@ type = "forbidden"
 # (import-linter báo lỗi nếu source_modules có module chưa tồn tại).
 source_modules = ["dfl.contracts", "dfl.network"]
 forbidden_modules = ["torch", "torchvision"]
+
+[[tool.importlinter.contracts]]
+id = "no-dev-deps"
+# Gói chỉ có trong [dev] không nằm trong requirements.lock và bị bỏ qua khi kiểm môi trường (SPEC §5.3),
+# nên code chạy và analysis không được dùng chúng (SPEC ENG-7).
+name = "Code chạy và analysis không import gói chỉ có trong nhóm dev (SPEC ENG-7)"
+type = "forbidden"
+source_modules = ["dfl", "analysis"]
+forbidden_modules = ["scipy", "sklearn", "joblib", "pytest", "_pytest"]

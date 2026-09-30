@@ -4,7 +4,7 @@
 Proposed — chờ Gate G1.
 
 ## Date
-2026-09-30
+2026-09-30 (cập nhật theo hai vòng phản biện P1.9 cùng ngày)
 
 ## Context
 - REQ-08 yêu cầu các thuật toán tổng hợp FedAvg (hoặc Gossip Learning), FedSGD và FedProx, ở đây trong bối cảnh phi tập trung.
@@ -14,21 +14,21 @@ Proposed — chờ Gate G1.
 - Koloskova et al. 2020: tốc độ hội tụ phụ thuộc vào tỉ lệ p/τ giữa tham số trộn và số bước cục bộ (DIGEST §2.5).
 - Bản nháp của nhóm mô tả thứ tự tổng hợp rồi mới huấn luyện (combine-then-adapt), xem comment C9502 trong `docs/đath1_revised.docx`.
 - A3: mọi node cùng $w^0$ theo seed chung. Badie-Modiri et al. gọi đây là "coordinated initialisation" và lấy khởi tạo không phối hợp làm tiền đề (DIGEST §2.8).
-- Nguồn: KH §3.4, §3.5, §10; SPEC §9.1 (REQ-08), §10 (điểm 12), §11.2 (QS-2); OQ A3.
+- Nguồn: KH §3.4, §3.5, §10; SPEC §6, §9.1 (REQ-08), §10 (điểm 12), §11.2 (QS-2); OQ A3; `docs/decisions/REVIEW-P1.9.md`.
 
 ## Decision
-- **Một vòng lặp Adapt-Then-Combine (ATC)** cho mọi thuật toán:
-  1. *Adapt:* node $i$ xuất phát từ $w_i^t$, chạy τ bước SGD với mất mát $c_i\,\ell(w)+\frac{\mu}{2}\lVert w-w_i^t\rVert^2$. Anchor $w_i^t$ là bản clone + detach, không có gradient (G6). Mặc định $c_i=1$.
-  2. *Gửi:* mỗi node tạo đúng một snapshot sở hữu riêng của $w_i^{t+\frac12}$ và gửi tới các láng giềng qua Transport (ADR-002).
-  3. *Combine:* $w_i^{t+1}=\sum_j W^{(t)}_{ij}\,w_j^{t+\frac12}$, cộng theo id người gửi tăng dần; chỉ ghi sau khi mọi node đã tổng hợp xong.
-  4. *Đo:* Observer đo drift trước tổng hợp và các độ đo còn lại sau tổng hợp (ADR-007).
+- **Một vòng lặp Adapt-Then-Combine (ATC)** cho mọi thuật toán. Mọi node chạy đủ cả bốn bước mỗi round:
+  1. *Adapt:* node $i$ xuất phát từ $w_i^t$, chạy τ bước SGD với mất mát $c_i\,\ell(w)+\frac{\mu}{2}\lVert w-w_i^t\rVert^2$. Anchor $w_i^t$ là bản clone + detach, không có gradient (G6). Mặc định $c_i=1$. Node luôn chạy bước này, kể cả khi round đó nó không gửi hay nhận message nào (node không được ghép ở gossip, ADR-009), nên mọi node có cùng τ·R bước cục bộ.
+  2. *Gửi:* mỗi node tạo đúng một snapshot sở hữu riêng của $w_i^{t+\frac12}$ và gửi tới các láng giềng của round đó qua Transport (ADR-002).
+  3. *Combine:* $w_i^{t+1}=\sum_j W^{(t)}_{ij}\,w_j^{t+\frac12}$, cộng theo id người gửi tăng dần, ghi ra bộ đệm mới; chỉ ghi vào model sau khi mọi node đã tổng hợp xong. Node không có láng giềng trong round đó có $W_{ii}=1$, tức $w_i^{t+1}=w_i^{t+\frac12}$.
+  4. *Đo:* Observer đo drift trước tổng hợp và các độ đo còn lại sau tổng hợp (ADR-007). Accuracy chỉ đo sau tổng hợp, nên phần tụt accuracy của model cục bộ trong round (lớn dần theo τ) không được thấy; đây là hạn chế khi so các τ (SPEC INT-4).
 - **Các thuật toán là những điểm trong không gian (τ, μ):**
-  - D-PSGD (Lian et al. 2017): τ = 1, μ = 0, R = 4,000 — tương tự phi tập trung gần nhất của FedSGD.
+  - D-PSGD (Lian et al. 2017): τ = 1, μ = 0, R = 4,000. Đây là tương tự phi tập trung gần nhất của FedSGD, nhưng khác FedSGD gốc ở hai điểm: dùng minibatch B = 32 thay vì full-batch, và trọng số MH thay vì $n_k/n$. Cách hiểu này nên được GVHD xác nhận (SPEC Q8).
   - DFedAvg (Sun et al. 2022, không momentum): τ = 20, μ = 0, R = 200 — thuật toán chính của E1 và E2.
   - DFedProx (Li et al. 2020): τ = 20 với μ ∈ {0.1, 1}, tức ημτ ∈ {0.1, 1} ở η = 0.05; thêm μ = 1 ở τ = 50 (ημτ = 2.5).
-  - Quét τ ∈ {1, 5, 20, 50} với μ = 0: τ = 5 và 50 chạy ở E3b; τ = 1 lấy từ E3a (D-PSGD); τ = 20 lấy từ E0b/E1 (DFedAvg).
+  - Quét τ ∈ {1, 5, 20, 50} với μ = 0: τ = 5 và 50 chạy ở E3b; τ = 1 lấy từ E3a (D-PSGD); τ = 20 lấy từ E0b/E1 (DFedAvg). Mọi τ được so trên cùng seed {0, 1, 2} và cùng lưới mốc đánh giá (ADR-007).
 - **Ngân sách:** tổng số bước cục bộ τ·R = 4,000 cố định cho mọi điều kiện; η dùng chung cho mọi τ (ADR-007).
-- **Khởi tạo:** mọi node dùng cùng $w^0$, sinh từ seed chung (A3).
+- **Khởi tạo:** mọi node dùng cùng $w^0$, sinh từ luồng init của seed chung (A3). $w^0$ được lấy mẫu tường minh từ `torch.Generator` của luồng init rồi chép vào mọi tham số, không dựa vào RNG toàn cục của torch mà các lớp `nn` dùng khi khởi tạo. Việc tạo module không được tiêu thụ RNG toàn cục (`skip_init` hoặc `fork_rng`, SPEC §6); T-INV-5 kiểm trạng thái RNG toàn cục không đổi, và khác seed thì khác w⁰ ở mọi tensor.
 - **Nếu E0a chọn η ≠ 0.05** (SPEC QS-2, đang dùng mặc định): giữ cường độ ημτ ∈ {0.1, 1} ở τ = 20, tức μ = {0.1, 1} × 0.05/η, và ghi μ vào ADR-007 cùng với η.
 
 ## Alternatives Considered
@@ -54,8 +54,8 @@ Proposed — chờ Gate G1.
 - Kết luận: không chọn làm mặc định. Khởi tạo chung được ghi là hạn chế trong báo cáo; ablation khởi tạo độc lập (dùng hệ số hiệu chỉnh của bài) là phần mở rộng.
 
 ## Consequences
-- Ít code, một đường đi cho mọi thuật toán. Kiểm bằng T-INV-3 (FC + size-weighted tương đương FedAvg), T-INV-7 (μ = 0 tương đương SGD; gradient prox đúng) và T-INV-4 (thứ tự duyệt không ảnh hưởng kết quả).
+- Ít code, một đường đi cho mọi thuật toán. Kiểm bằng T-INV-3 (FC + size-weighted tương đương FedAvg), T-INV-7 (μ = 0 tương đương SGD; gradient prox đúng) và T-INV-4 (thứ tự duyệt không ảnh hưởng kết quả; snapshot không bị sửa).
 - Mọi so sánh giữa thuật toán dùng trục số bước cục bộ và trục byte, không dùng round (G10). D-PSGD cần 4,000 round và gửi nhiều message gấp 20 lần DFedAvg ở τ = 20.
-- η dùng chung có thể bất lợi cho D-PSGD. E0a quét thêm η cho τ = 1; nếu η tốt nhất của τ = 1 khác η chung từ 2 lần trở lên thì chạy thêm 12 lượt D-PSGD với η riêng (Tier 2).
-- Hạn chế cần nêu trong báo cáo: khởi tạo chung (A3); D-PSGD ở dạng ATC; lr dùng chung cho τ ≠ 20.
-- Phụ thuộc SPEC QS-2 (μ khi η ≠ 0.05).
+- η dùng chung có thể bất lợi cho hai đầu τ = 1 và τ = 50. E0a quét thêm η cho cả hai. Nếu η tốt nhất của τ = 1 (hoặc τ = 50) khác η chung, chạy thêm 12 lượt với η riêng cho giá trị τ đó, làm kết quả bổ sung ở Tier 2 (ADR-007).
+- Hạn chế cần nêu trong báo cáo: khởi tạo chung (A3); D-PSGD ở dạng ATC và khác FedSGD gốc; lr dùng chung cho mọi τ.
+- Phụ thuộc SPEC QS-2 (μ khi η ≠ 0.05) và Q8 (cách hiểu FedSGD).

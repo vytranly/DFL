@@ -14,7 +14,7 @@ RUFF ?= $(if $(wildcard $(VENV_BIN)ruff),$(VENV_BIN)ruff,ruff)
 LINT_IMPORTS ?= $(if $(wildcard $(VENV_BIN)lint-imports),$(VENV_BIN)lint-imports,lint-imports)
 PY_DIRS := src analysis tests
 # F5 (ratchet): số test thu thập được không được giảm. Chỉ được tăng; cập nhật ở mỗi checkpoint.
-MIN_TESTS := 32
+MIN_TESTS := 34
 # T1: ngân sách thời gian của check-task; vượt thì chỉ cảnh báo, không chặn.
 TASK_BUDGET_S := 90
 
@@ -54,6 +54,8 @@ check-floor:
 	  echo "✗ F6: torch.load(..., weights_only=False)"; fail=1; fi; \
 	if grep -rnE --include='*.py' 'torch\.manual_seed' src; then \
 	  echo "✗ F7: RNG toàn cục torch.manual_seed trong src/"; fail=1; fi; \
+	if grep -rnE --include='*.py' '(default_rng|SeedSequence|Generator)\(' src | grep -v '^src/dfl/seeding\.py:'; then \
+	  echo "✗ F7: tạo Generator/SeedSequence ngoài src/dfl/seeding.py"; fail=1; fi; \
 	n=$$($(PY) -m pytest -q --collect-only tests 2>/dev/null | tail -1 | grep -oE '^[0-9]+'); \
 	if [ "$${n:-0}" -lt $(MIN_TESTS) ]; then \
 	  echo "✗ F5: thu thập được $${n:-0} test, ít hơn MIN_TESTS = $(MIN_TESTS)"; fail=1; fi; \
