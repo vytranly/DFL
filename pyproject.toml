@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=80"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dfl"
+version = "0.1.0"
+description = "Mô phỏng Decentralized Federated Learning để đo ảnh hưởng của dữ liệu Non-IID (Đề 2 — ĐATH HK261)"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+# Ghim theo docs/KE_HOACH_DE_TAI_2.md §4.8. torch/torchvision nên cài bản CPU trước
+# (xem README) để pip không kéo bản CUDA nặng vài GB từ PyPI.
+dependencies = [
+    "torch==2.14.0",
+    "torchvision==0.29.0",
+    "networkx==3.7",
+    "numpy==2.5.3",
+    "pandas==3.0.6",
+    "matplotlib==3.11.2",
+    "pyyaml==6.0.3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==9.1.1",
+    "pytest-cov==7.1.0",
+    "ruff==0.16.9",
+    "scikit-learn==1.9.1",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+# docs/spikes chứa script khảo sát (không phải code sản phẩm) và là bản gốc của hàm tham chiếu cho test golden.
+extend-exclude = ["docs"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.coverage.run]
+source = ["src/dfl"]
+omit = ["src/dfl/cli.py"]
