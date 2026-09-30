@@ -47,6 +47,6 @@ Khi có trả lời của GVHD: điền vào hàng Q1 và Q2 (cột Trả lời,
 
 ## Cần cập nhật ở pha 1B (P1.5–P1.6)
 
-- Kế hoạch §7 và SPEC: phân vai 3 người (QĐ-1).
-- §3.5 và SPEC: thêm profile `demo` (QĐ-3).
-- ADR-002: ghi phương án dự phòng T22 theo Q1. ADR-003: ghi thứ tự mở rộng QĐ-4. ADR-006: ghi hạn chế A3. ADR-007: macro-F1 theo Q3 và ngân sách QĐ-2.
+- Kế hoạch §7 và SPEC: phân vai 3 người (QĐ-1). — SPEC: xong (P1.5, SPEC §3.1). Kế hoạch §7: chờ cập nhật sau khi SPEC được duyệt (SPEC §10).
+- §3.5 và SPEC: thêm profile `demo` (QĐ-3). — SPEC: xong (P1.5, SPEC §5.2). Kế hoạch §3.5: chờ cập nhật sau khi SPEC được duyệt.
+- ADR-002: ghi phương án dự phòng T22 theo Q1. ADR-003: ghi thứ tự mở rộng QĐ-4. ADR-006: ghi hạn chế A3. ADR-007: macro-F1 theo Q3 và ngân sách QĐ-2. — Xong (P1.6, `docs/decisions/ADR-00N-*.md`, trạng thái Proposed).
