@@ -103,14 +103,14 @@ Code cho phần mở rộng nếu viết sau E0a sẽ làm đổi `code_version`
 
 | Module id | Mã nguồn | Trách nhiệm | Không được | Phụ trách (QĐ-1) | Task (KH §8) |
 |---|---|---|---|---|---|
-| `data` | `src/dfl/data/{datasets,partition,heterogeneity}.py` | Nạp MNIST bằng torchvision thành tensor trong RAM, chuẩn hóa, tách validation 5k phân tầng; P0–P3 đúng thuật toán NIID-Bench (min_size = 64); hoán vị vị trí node theo seed; JS, TV, số lớp ≥ 5%, CV(n), lệch mục tiêu, ma trận node × lớp | `partition`/`heterogeneity` import torch; biết topology hay model | TV1 | T03–T05 |
-| `network` | `src/dfl/network/{topology,mixing,transport}.py` | T0–T4, T3b (T5 tùy chọn); `graph_at(round)` là hàm thuần của (seed, round); ER lấy mẫu lại tới khi liên thông; MH / uniform / size-weighted; kiểm tra ngẫu nhiên hàng/kép; spectral gap; trọng số mục tiêu π (`objective_weights`, ADR-005); Transport in-memory + CommLedger, nơi duy nhất đếm message và byte (tổng và theo từng node, kể cả server ảo có chỉ số N của B3/E1c), đọc số byte từ `Snapshot.nbytes` | Import torch; tổng hợp model; copy payload theo số láng giềng; message node tự gửi cho mình | TV2 | T06–T08 |
-| `learning` | `src/dfl/learning/{models,local_train}.py` | SmallCNN 46,730 tham số (không BatchNorm, không dropout); τ bước SGD (momentum 0, weight decay 0), minibatch B = 32 lấy có hoàn lại, số hạng prox μ với anchor = $w_i^t$ (clone + detach), hệ số mất mát $c_i$; ngẫu nhiên qua `torch.Generator` riêng từng node | Truy cập node khác, Transport hay topology | TV2 (QS-9: đề xuất TV1) | T09 |
-| `metrics-io` | `src/dfl/metrics/{classification,consensus}.py`, `src/dfl/io/{run_logger,manifest}.py` | Độ đo trong lúc chạy: $\mathrm{Acc}_i$, $\mathrm{Acc}^{loc}_i$, $\mathrm{Acc}^{eff}$, macro-F1 (từ ma trận nhầm lẫn), drift trước tổng hợp, consensus distance sau tổng hợp; ghi manifest/rounds/timing/summary theo attempt; tính `code_version`, `run_id` | Tự đếm byte (INV-2); tiêu thụ RNG của huấn luyện (INV-5); ghi đè attempt cũ; ghi thời gian vào `rounds.jsonl` (INV-6) | TV2 (QS-9: đề xuất TV1 làm phần độ đo của T09) | T09–T11 |
-| `sim` | `src/dfl/sim/{node,engine,observer,sweep}.py`, `src/dfl/cli.py`, `src/dfl/__main__.py` | Trạng thái node; vòng ATC; Observer theo lịch đánh giá (trước và sau tổng hợp); baseline B1–B3, trong đó B3 và E1c đi qua đường server (ADR-005); lắp ráp một lượt từ cấu hình; sweep idempotent, mỗi lượt một tiến trình con mới (§5.2); CLI `run`, `sweep`, `describe`, `download`; `TorchDistTransport` nếu làm T22 (phải import torch nên đặt ở đây, không ở `network`) | Đưa đại lượng toàn cục vào huấn luyện (INV-1); đọc model của node khác ngoài inbox | TV2 (T10–T11), TV3 (T12) | T10–T12 |
-| `analysis` | `analysis/{aggregate,convergence,stats,plots}.py` (ngoài `src/`, nên sửa không làm đổi `code_version`) | Tự đọc JSON/JSONL của `results/` bằng code riêng; gom các lượt thành DataFrame/CSV; độ đo suy ra từ `rounds.jsonl` (R@x, AUC, độ dao động và mức sụt theo từng node); CI (phân phối t), kiểm định H2; P1–P9, bảng T1; từ chối trộn `code_version`, lượt `dirty` hay lệch môi trường, so sánh lệch biến cố định hoặc lệch tập seed (INT-2); chế độ `--draft` cho kết quả smoke và demo | Import bất cứ gì của `dfl` ngoài `dfl.contracts`; sửa hay lọc số liệu | TV3 (T15–T16); TV1 phân tích E1/E1c/E4 | T15–T16 |
+| `data` | `src/dfl/data/{datasets,partition,heterogeneity}.py` | Nạp MNIST bằng torchvision thành tensor trong RAM, chuẩn hóa, tách validation 5k phân tầng; P0–P3 đúng thuật toán NIID-Bench (min_size = 64); hoán vị vị trí node theo seed; JS, TV, số lớp ≥ 5%, CV(n), lệch mục tiêu, ma trận node × lớp | `partition`/`heterogeneity` import torch; biết topology hay model | TV1 | T03, T04a, T04b, T05a |
+| `network` | `src/dfl/network/{topology,mixing,transport}.py` | T0–T4, T3b (T5 tùy chọn); `graph_at(round)` là hàm thuần của (seed, round); ER lấy mẫu lại tới khi liên thông; MH / uniform / size-weighted; kiểm tra ngẫu nhiên hàng/kép; spectral gap; trọng số mục tiêu π (`objective_weights`, ADR-005); Transport in-memory + CommLedger, nơi duy nhất đếm message và byte (tổng và theo từng node, kể cả server ảo có chỉ số N của B3/E1c), đọc số byte từ `Snapshot.nbytes` | Import torch; tổng hợp model; copy payload theo số láng giềng; message node tự gửi cho mình | TV2 | T06, T07, T08 |
+| `learning` | `src/dfl/learning/{models,local_train}.py` | SmallCNN 46,730 tham số (không BatchNorm, không dropout); τ bước SGD (momentum 0, weight decay 0), minibatch B = 32 lấy có hoàn lại, số hạng prox μ với anchor = $w_i^t$ (clone + detach), hệ số mất mát $c_i$; ngẫu nhiên qua `torch.Generator` riêng từng node | Truy cập node khác, Transport hay topology | TV1 (QS-9) | T09a |
+| `metrics-io` | `src/dfl/metrics/{classification,consensus}.py`, `src/dfl/io/{run_logger,manifest}.py` | Độ đo trong lúc chạy: $\mathrm{Acc}_i$, $\mathrm{Acc}^{loc}_i$, $\mathrm{Acc}^{eff}$, macro-F1 (từ ma trận nhầm lẫn), drift trước tổng hợp, consensus distance sau tổng hợp; ghi manifest/rounds/timing/summary theo attempt; tính `code_version`, `run_id` | Tự đếm byte (INV-2); tiêu thụ RNG của huấn luyện (INV-5); ghi đè attempt cũ; ghi thời gian vào `rounds.jsonl` (INV-6) | TV1: độ đo (T09b); TV3: io (T11a) (QS-9) | T09b, T11a |
+| `sim` | `src/dfl/sim/{node,engine,observer,sweep}.py`, `src/dfl/cli.py`, `src/dfl/__main__.py` | Trạng thái node; vòng ATC; Observer theo lịch đánh giá (trước và sau tổng hợp); baseline B1–B3, trong đó B3 và E1c đi qua đường server (ADR-005); lắp ráp một lượt từ cấu hình; sweep idempotent, mỗi lượt một tiến trình con mới (§5.2); CLI `run`, `sweep`, `describe`, `download`; `TorchDistTransport` nếu làm T22 (phải import torch nên đặt ở đây, không ở `network`) | Đưa đại lượng toàn cục vào huấn luyện (INV-1); đọc model của node khác ngoài inbox | TV2: engine, `run`, baseline, hiệu năng, T22 (T10a–c, T11b, T11c, T13); TV1: `describe` dữ liệu (T05a); TV3: `describe` topology, sweep (T08b, T12) | T05a, T08b, T10a–T13 |
+| `analysis` | `analysis/{aggregate,convergence,stats,plots}.py` (ngoài `src/`, nên sửa không làm đổi `code_version`) | Tự đọc JSON/JSONL của `results/` bằng code riêng; gom các lượt thành DataFrame/CSV; độ đo suy ra từ `rounds.jsonl` (R@x, AUC, độ dao động và mức sụt theo từng node); CI (phân phối t), kiểm định H2; P1–P9, bảng T1; từ chối trộn `code_version`, lượt `dirty` hay lệch môi trường, so sánh lệch biến cố định hoặc lệch tập seed (INT-2); chế độ `--draft` cho kết quả smoke và demo | Import bất cứ gì của `dfl` ngoài `dfl.contracts`; sửa hay lọc số liệu | TV3; TV1 phân tích E1, E1c, E4a, E4 | T05b, T14a, T15a–c, T16a–b |
 
-**Nền tảng dùng chung** (không phải module id, QS-6): `src/dfl/contracts.py` (Protocol / TypedDict / dataclass, không có logic — P1.7), `config.py` (dataclass + `yaml.safe_load` + kiểm tra kiểu và giá trị cấu hình), `seeding.py` (nơi duy nhất tạo `SeedSequence`/`Generator`; mỗi luồng ngẫu nhiên có spawn_key cố định, §6). Nền tảng không import module nào ở bảng trên.
+**Nền tảng dùng chung** (không phải module id, QS-6): `src/dfl/contracts.py` (Protocol / TypedDict / dataclass, không có logic — P1.7), `config.py` (dataclass + `yaml.safe_load` + kiểm tra kiểu và giá trị cấu hình), `seeding.py` (nơi duy nhất tạo `SeedSequence`/`Generator`; mỗi luồng ngẫu nhiên có spawn_key cố định, §6). Nền tảng không import module nào ở bảng trên. TV3 phụ trách nền tảng (T02a–c, QS-9). Mã task theo `tasks/todo.md`.
 
 ### 3.2 Hướng phụ thuộc (import một chiều, không có vòng)
 
@@ -227,9 +227,10 @@ non_iid-dfl/
 │   ├── learning/{models,local_train}.py              # learning
 │   ├── metrics/{classification,consensus}.py         # metrics-io
 │   ├── io/{run_logger,manifest}.py                   # metrics-io
-│   └── sim/{node,engine,observer,sweep}.py           # sim
-├── analysis/{aggregate,convergence,stats,plots}.py   # analysis (ngoài src/: sửa không làm đổi code_version)
+│   └── sim/{node,engine,observer,sweep,run,describe}.py   # sim (run: lắp một lượt; describe: lệnh describe)
+├── analysis/{aggregate,checks,convergence,stats,sanity,plots,provenance}.py   # analysis (ngoài src/: sửa không làm đổi code_version)
 ├── tests/
+│   ├── conftest.py                                   # fixture autouse kiểm RNG toàn cục (§7)
 │   ├── unit/  integration/  e2e/                     # file test_<chủ đề>.py, tên không trùng giữa các thư mục
 │   └── reference/                                    # hàm chia dữ liệu tham chiếu (sao từ docs/spikes/) cho test golden
 ├── data/        # .gitignore với mẫu có neo `/data/` (không trùng src/dfl/data/) — MNIST tải bằng torchvision
@@ -237,7 +238,7 @@ non_iid-dfl/
 ├── build/       # .gitignore — smoke, demo, describe, coverage
 ├── figures/     # chỉ sinh bằng script; có commit
 ├── docs/        # đề tài, research/, KH, H, decisions/ (ADR, OPEN_QUESTIONS), experiments/{E<k>.md, CODE_VERSIONS.md},
-│                #   spikes/, report/
+│                #   spikes/, report/, PERF.md (T13), DEMO.md (T26), VALIDATION.md (T25)
 └── tasks/{plan.md,todo.md,SESSION_LOG.md}
 ```
 
@@ -349,7 +350,7 @@ def metropolis_hastings(graph: nx.Graph) -> np.ndarray:
 
 - **Quy ước:** Arrange-Act-Assert; tên test mô tả hành vi; mỗi test một hành vi; tên file test không trùng giữa các thư mục (pytest import theo tên file); seed cố định; dung sai số thực ghi rõ; so khớp "trùng từng bit" dùng `torch.equal` / `np.array_equal`; không tải dữ liệu qua mạng (dataset giả cùng shape); không phụ thuộc thời gian thực.
 - **Oracle và tham chiếu:** `tests/reference/` chứa hàm chia NIID-Bench sao từ `docs/spikes/`, tham số hóa theo mảng nhãn (golden cho T-INV-8); FedAvg có server viết ngay trong test (T-INV-3); `sklearn.metrics.f1_score(average="macro")` (T-INV-10).
-- **TDD:** test FAIL trước, PASS sau. T-INV-1…4, 11, 12 phải có trước khi viết engine (H§7).
+- **TDD:** test FAIL trước, PASS sau. Engine được viết qua ba task T10a–c (`tasks/todo.md`), và mỗi task viết T-INV của mình trước rồi mới viết code: T10a có T-INV-2, 4; T10b có T-INV-1, 3; T10c có T-INV-11, 12. Như vậy không dòng code engine nào có trước test bất biến của chính nó (H§7). Không commit test đỏ (CONSTRAINTS F1, F2).
 - **Tên test bất biến:** `test_t_inv_<k>_<hành vi>`, ví dụ `test_t_inv_4_node_order_does_not_change_result`, để `make check-inv` kiểm được đủ 12 ID.
 - **Kiểm tra thống kê:** chỉ T-INV-1 (phần gossip) được so theo sai số lấy mẫu: hai phía, ±4 sai số chuẩn, t ≤ 3, seed cố định để không flaky.
 - **RNG toàn cục trong mọi test tích hợp:** `tests/conftest.py` có một fixture `autouse` kiểm `torch.get_rng_state()` giống hệt trước và sau mỗi test trong `tests/integration/` và `tests/e2e/` (T-INV-5, §6). Mỗi đường code có ít nhất một test tích hợp, để fixture này thấy được nó: B1, B1-4k, B2, đường server của B3; P0–P3 (và P2'); T0–T4, T3b; prox (μ > 0); uniform; size-corrected.
@@ -570,11 +571,11 @@ Ngưỡng có số do nhóm chốt ở P1.8 (QS-3); đối chứng của SAN-2 c
 
 ## 10. Khác biệt so với KH v0.2 và H
 
-SPEC được ưu tiên hơn KH và H ở các điểm dưới đây (yêu cầu của đề thì không bị ghi đè). KH sẽ được cập nhật theo bảng này sau khi SPEC được duyệt. Các dòng 13–23 được thêm ở vòng phản biện 1 của P1.9, các dòng 24–30 ở vòng 2, các dòng 31–37 ở vòng 3 (`docs/decisions/REVIEW-P1.9.md`).
+SPEC được ưu tiên hơn KH và H ở các điểm dưới đây (yêu cầu của đề thì không bị ghi đè). KH sẽ được cập nhật theo bảng này sau khi SPEC được duyệt. Các dòng 13–23 được thêm ở vòng phản biện 1 của P1.9, các dòng 24–30 ở vòng 2, các dòng 31–37 ở vòng 3 (`docs/decisions/REVIEW-P1.9.md`), các dòng 38–39 ở P2.1 (`tasks/plan.md`).
 
 | # | KH v0.2 | SPEC | Lý do |
 |---|---|---|---|
-| 1 | §7: phân vai cho 4 người | 3 người: TV1 `data` + phân tích; TV2 `network`, `learning`, `metrics-io`, engine; TV3 sweep, `analysis`, thí nghiệm, báo cáo | QĐ-1 |
+| 1 | §7: phân vai cho 4 người | 3 người (QS-9, chốt ở P2.1): TV1 `data`, `learning`, độ đo và phân tích E1/E1c/E4; TV2 `network`, engine, `run`, baseline, hiệu năng, T22; TV3 nền tảng, io, sweep, `analysis`, thí nghiệm, báo cáo | QĐ-1; giảm tải cho TV2 trên đường găng (`tasks/plan.md`) |
 | 2 | A2, §3.5, §3.7, §9: có nhánh GPU / Colab | Chỉ CPU: bỏ cờ tất định cho GPU, cấu hình đánh giá 10k trên GPU và ước tính thời gian GPU | QĐ-5, Q4 |
 | 3 | §3.5: profile `smoke`, `fast`, `full` | Thêm profile `demo` và `configs/experiments/demo.yaml` | QĐ-3 |
 | 4 | §4.7: chỉ có `f1_macro_mean` | Thêm `f1_macro_std`, `f1_macro_min`; macro-F1 từng node ở đánh giá cuối | Q3 |
@@ -611,6 +612,8 @@ SPEC được ưu tiên hơn KH và H ở các điểm dưới đây (yêu cầu
 | 35 | §3.7 thứ tự cắt, và bẫy G19 (đối chứng E1c) | Nếu phải cắt E1c thì H6 ghi "chưa kết luận (cắt vì ngân sách)", và G19 chỉ còn được giảm thiểu bằng việc báo cáo TV lệch mục tiêu kèm mọi kết quả Non-IID | Thứ tự cắt đã chốt ở ADR-007; lệch khỏi bẫy phải được ghi (đầu SPEC) |
 | 36 | §2.3, §3.8: kiểm định cho H1–H7 | Mỗi giả thuyết có đúng một phép so sánh chính, khai báo trước trong thẻ; phần còn lại chỉ để khám phá (EXP-4) | Nhiều phép so sánh làm tăng xác suất kết luận sai (INT-4) |
 | 37 | §3.2: P2' (shards) tùy chọn | Cài sẵn P2' ở T04b, chỉ dùng trong `describe`, không chạy trong lưới trừ khi GVHD hay nhóm yêu cầu (QS-11) | Nếu GVHD muốn dạng shards cho "pathological partition" (Q9), thêm lượt sau E0a mà không phải đổi `code_version` |
+| 38 | H P3.3: viết cả sáu T-INV của engine trước rồi mới viết engine | Engine chia ba task T10a–c; mỗi task viết T-INV của mình trước (§7) | Gộp lại thì vượt khoảng 300 dòng một task; test đỏ không commit được (CONSTRAINTS F1, F2) |
+| 39 | §4.6: cây thư mục dự kiến | Thêm `sim/run.py`, `sim/describe.py`, `analysis/{checks,sanity,provenance}.py`, `tests/conftest.py`, `configs/experiments/e4a_quantity.yaml`, `docs/{PERF,DEMO,VALIDATION}.md`, `docs/report/` (§5.1) | Logic không được nằm trong `cli.py`; mỗi task tối đa 5 file (`tasks/plan.md` K8) |
 
 ---
 
@@ -637,7 +640,7 @@ SPEC được ưu tiên hơn KH và H ở các điểm dưới đây (yêu cầu
 | QS-6 | Ranh giới module | `contracts`/`config`/`seeding` là nền tảng dùng chung, không có id; `cli`, `__main__`, sweep, Observer thuộc `sim`; bốn module lá không import lẫn nhau | Thêm một id riêng (ví dụ `core`) | §3, P1.7 |
 | QS-7 | CLI bổ sung | `describe`, `download`, `sweep --dry-run`, `analysis.aggregate`, `--out` (chỉ `run --out` được chạy khi cây bẩn, manifest ghi `dirty: true`; `sweep` luôn đòi cây sạch) | Bỏ bớt (ví dụ vẽ P7 bằng một script riêng) | §4, T05, T11, T12 |
 | QS-8 | Demo trên laptop | 2 lượt ring vs FC, α = 0.1, N = 20, ngân sách khoảng 400 bước, MNIST tải sẵn, tổng ≤ 5 phút; chốt thông số ở T13 sau khi đo trên laptop thật. Laptop chạy hệ điều hành gì? (Makefile không chạy trên Windows; demo chỉ cần lệnh `python -m`) | Chỉ trình chiếu hình có sẵn, không chạy trực tiếp | §5.2, ENG-11, T11, T13 |
-| QS-9 | Tải công việc của TV2: T06–T11, cả đường găng tới M3, đang dồn cho một người | TV1 nhận thêm T09 (learning + độ đo) sau khi xong T05; TV2 giữ T06–T08, T10–T11 | Giữ phân vai QĐ-1 | §3.1, KH §7, pha 2 (tasks/todo.md) |
+| QS-9 | Tải công việc của TV2: T06–T11, cả đường găng tới M3, đang dồn cho một người | **Đã chốt (P2.1, 2026-09-30):** TV1 nhận T09a, T09b; TV3 nhận nền tảng (T02a–c) và io (T11a); TV2 giữ T06–T08, T10a–c, T11b, T11c, T13, T22 | Giữ phân vai QĐ-1 | §3.1, §10 dòng 1, `tasks/plan.md` |
 | QS-10 | Tới hết tuần 5 GVHD vẫn chưa trả lời Q1 thì làm gì với T22? | **Đã chốt (2026-09-30):** vẫn chạy lưới bằng mô phỏng đơn tiến trình. T22 làm ngay sau T13 (TV2, tuần 8–10), không còn là tùy chọn, để có bản đa tiến trình khi bảo vệ. T22 viết ở cây làm việc hằng ngày; lưới chạy từ worktree riêng nên không bị ảnh hưởng (§5.3) | Giữ T22 là mở rộng tùy chọn, chấp nhận rủi ro REQ-01 bị hiểu khác | ASSUMPTIONS 1, ADR-002, §1.4 |
 | QS-11 | Có cài sẵn P2' (shards của McMahan) trước E0a không? | **Đã chốt (2026-09-30):** có, cài ở T04b, chỉ dùng trong `describe`, không chạy trong lưới trừ khi GVHD hay nhóm yêu cầu. Code phải có trước E0a thì mới thêm lượt sau được mà không đổi `code_version` | Không cài; nếu GVHD muốn shards sau E0a thì phải đổi `code_version` và chạy lại | §1.4, REQ-02, T04b |
 
