@@ -116,3 +116,11 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - Quyết định mới: sửa mâu thuẫn giữa SPEC §8 (đóng băng src/) và QS-10 (T22 ở tuần 8–10) theo hướng quyết định đã duyệt
 - Câu hỏi mở: như phiên #10; G1 (GVHD) chưa có
 - Việc tiếp theo: P3.0 — T02a (được làm trước G1, theo tasks/plan.md §11)
+
+## 2026-09-30 — Phiên #12 — T02a Seeding (TV3)
+- Trạng thái: T02a ✅ · T02b ⏳ chưa bắt đầu. Làm trước G1, vì T02a thuộc nhóm task ít phụ thuộc quyết định của GVHD (tasks/plan.md §11)
+- File đã đổi: src/dfl/seeding.py, tests/unit/test_seeding.py, tasks/todo.md, tasks/SESSION_LOG.md
+- Kiểm chứng: RED (ImportError, chưa có module) → GREEN; `make check-task` → 50 passed, coverage 100%, 5 contract import-linter giữ, sàn F7 đạt
+- Quyết định mới (không cần ADR): `seeding.py` import torch để dựng `torch.Generator`, nên các module thuần (network, data.partition, data.heterogeneity) không import nó mà nhận Generator qua tham số do sim truyền (giữ contract pure-no-torch). ID luồng ghim bằng test. Seed của torch.Generator là `generate_state(1, uint64)` của SeedSequence, nằm trong dải của manual_seed. API đã đối chiếu tài liệu numpy 2.5 và torch 2.14 (URL trong docstring)
+- Câu hỏi mở: không
+- Việc tiếp theo: T02b (config + YAML base/smoke), T02c (cần QS-1), T07 (TV2), T04a (TV1)

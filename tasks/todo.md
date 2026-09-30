@@ -28,7 +28,7 @@
 
 ## Tuần 3 — Nền tảng (ba người song song)
 
-- [ ] **T02a · Seeding** — TV3 · S · ∥ T02b, T02c, T07, T04a
+- [x] **T02a · Seeding** — TV3 · S · ∥ T02b, T02c, T07, T04a
   - Mô tả: `src/dfl/seeding.py` là nơi duy nhất tạo `SeedSequence`/`Generator` (SPEC §6).
     - Hằng số ID luồng: PARTITION, PLACEMENT, GRAPH, INIT, BATCH, B1_BATCH, GOSSIP, GOSSIP_ER; cùng `DATA_SEED` cho luồng dữ liệu cố định.
     - Hàm trả về `numpy.random.Generator` và `torch.Generator` cho từng luồng.
