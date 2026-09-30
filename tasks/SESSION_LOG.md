@@ -124,3 +124,11 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - Quyết định mới (không cần ADR): `seeding.py` import torch để dựng `torch.Generator`, nên các module thuần (network, data.partition, data.heterogeneity) không import nó mà nhận Generator qua tham số do sim truyền (giữ contract pure-no-torch). ID luồng ghim bằng test. Seed của torch.Generator là `generate_state(1, uint64)` của SeedSequence, nằm trong dải của manual_seed. API đã đối chiếu tài liệu numpy 2.5 và torch 2.14 (URL trong docstring)
 - Câu hỏi mở: không
 - Việc tiếp theo: T02b (config + YAML base/smoke), T02c (cần QS-1), T07 (TV2), T04a (TV1)
+
+## 2026-09-30 — Phiên #13 — P2.2 vòng 1: reconcile reviewer nội bộ
+- Trạng thái: P2.2 vòng 1 xong (cross-model X1–X16, nội bộ F1–F29; tasks/plan.md §14). Vòng 2 chờ nhóm quyết
+- File đã đổi: tasks/todo.md (46 task; tách T04b thành T04b và T04c, T11b thành T11b và T11d; T22 thành task đầy đủ; TV1 nhận T14a, T16b, T16c; task thí nghiệm có hai commit; SAN-5 nằm trong quy trình thí nghiệm; quy tắc đặt tên T-INV và quy tắc sửa `contracts.py`), tasks/plan.md, tasks/SESSION_LOG.md
+- Kiểm chứng: script kiểm cấu trúc todo.md sạch (46 task, T-INV-1…12 mỗi cái đúng một chủ); `make check-task` xanh
+- Quyết định mới: không đổi SPEC ở lượt này
+- Câu hỏi mở: có chạy P2.2 vòng 2 không; QS-1 (chặn T02c → T11a)
+- Việc tiếp theo: T02b

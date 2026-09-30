@@ -6,7 +6,7 @@
 
 ## 1. Tổng quan
 
-Kế hoạch biến SPEC thành 43 task cỡ S hoặc M, mỗi task chạm tối đa 5 file (không tính `tasks/todo.md`, `tasks/SESSION_LOG.md`) và khoảng 300 dòng diff. Công việc chia ba lát dọc: lát dữ liệu (C1), lát mạng (C2), lát chạy trọn một lượt (C3, mốc M3). Sau đó tới công cụ thí nghiệm, lưới Tier 1 (C4), Tier 2 (C5, mốc M4), báo cáo và thẩm định. Hai task rủi ro cao nhất được đưa lên sớm. T07 (mixing) làm ngay đầu tuần 3, không đợi topology. Engine (T10a) bắt đầu ngay khi có transport, với một trainer giả theo Protocol, không đợi T09. Mọi code trong `src/` phải xong trước E0a, vì từ E0a `code_version` bị đóng băng (ADR-008).
+Kế hoạch biến SPEC thành 46 task cỡ S hoặc M (gồm T22), mỗi task chạm tối đa 5 file (không tính `tasks/todo.md`, `tasks/SESSION_LOG.md`) và khoảng 300 dòng diff. Công việc chia ba lát dọc: lát dữ liệu (C1), lát mạng (C2), lát chạy trọn một lượt (C3, mốc M3). Sau đó tới công cụ thí nghiệm, lưới Tier 1 (C4), Tier 2 (C5, mốc M4), báo cáo và thẩm định. Hai task rủi ro cao nhất được đưa lên sớm. T07 (mixing) làm ngay đầu tuần 3, không đợi topology. Engine (T10a) bắt đầu ngay khi có transport, với một trainer giả theo Protocol, không đợi T09. Mọi code trong `src/` phải xong trước E0a, vì từ E0a `code_version` bị đóng băng (ADR-008).
 
 ## 2. Điều kiện trước khi bắt đầu pha 3
 
@@ -58,7 +58,7 @@ flowchart TB
   subgraph W3["Tuần 3 — nền tảng"]
     T02a["T02a seeding"]; T02b["T02b config"]; T02c["T02c lock + eol"]
     T07["T07 mixing ⚠ · T-INV-9"]; T06["T06 topology"]
-    T04a["T04a heterogeneity"]; T03["T03 datasets"]; T04b["T04b partition · T-INV-8"]
+    T04a["T04a heterogeneity"]; T03["T03 datasets"]; T04b["T04b partition · T-INV-8"]; T04c["T04c placement + P2'"]
   end
   subgraph W4["Tuần 4 — C1, C2"]
     T05a["T05a describe: dữ liệu"]; T05b["T05b P7"]
@@ -68,7 +68,7 @@ flowchart TB
   subgraph W56["Tuần 5–6 — C3"]
     T09b["T09b độ đo · T-INV-10"]; T10b["T10b gossip + server · T-INV-1, 3"]
     T10c["T10c observer · T-INV-11, 12"]; T11a["T11a manifest + logger"]
-    T11b["T11b dfl run · T-INV-5"]; T11c["T11c baseline"]
+    T11b["T11b dfl run · T-INV-5"]; T11d["T11d quy tắc results/"]; T11c["T11c baseline + biến thể"]
     T15a["T15a analysis: đọc + kiểm"]; T15b["T15b R@x, AUC"]; T15c["T15c thống kê"]; T14a["T14a sanity + chọn η"]
   end
   subgraph W7["Tuần 7"]
@@ -89,16 +89,18 @@ flowchart TB
   T02c --> T11a
   T07 --> T06 & T08b & T10a
   T06 --> T08 & T08b & T10a
-  T04a --> T04b
+  T04a --> T04b --> T04c
   T03 --> T05a & T11b
-  T04b --> T05a & T11b
+  T04c --> T05a & T11b
   T05a --> T05b & T08b
   T08 --> T10a
   T10a --> T10b --> T10c
   T09b --> T10c
   T10b --> T11c
   T09a & T10c & T11a --> T11b
-  T11b --> T11c & T12 & T16a
+  T11b --> T11c & T11d & T16a
+  T11d --> T12 & T13
+  T11b --> T22["T22 TorchDist (Q1/QS-10)"]
   T11c --> T13
   T12 --> T13
   T05b & T15a & T15b --> T16a
@@ -129,20 +131,21 @@ flowchart TB
 | T01 | T01 ✅ (commit `2789c5c`) | Đã xong ở P1.1 |
 | T02 | T02a seeding · T02b config · T02c `requirements.lock` + `.gitattributes` | Gộp thì quá 5 file (2 module, 2 test, YAML). T02c là việc mới của P1.9 (CONSTRAINTS "Kích hoạt theo task"), phụ thuộc QS-1 và cần mạng |
 | T03 | T03 (thêm `cli.py`, `__main__.py`, lệnh `download`) | SPEC §4 đặt `download` ở T03; đây là lúc tạo khung CLI |
-| T04 | T04a heterogeneity · T04b partition + placement (+ P2' theo QS-11) | T-INV-8 cần JS, nên heterogeneity đi trước. Mỗi file được thêm vào contract `pure-no-torch` khi nó tồn tại (import-linter báo lỗi với module chưa có). P2' cài sẵn trước E0a để thêm lượt sau này mà không đổi `code_version` |
+| T04 | T04a heterogeneity · T04b partition P0–P3 · T04c placement + P2' (QS-11) | T-INV-8 cần JS, nên heterogeneity đi trước. Mỗi file được thêm vào contract `pure-no-torch` khi nó tồn tại (import-linter báo lỗi với module chưa có). P2' cài sẵn trước E0a để thêm lượt sau này mà không đổi `code_version` |
 | T05 | T05a `describe` phần dữ liệu (`sim`) · T05b P7 (`analysis`) | Vẽ hình thuộc `analysis` (capability map); `src/dfl` chỉ ghi dữ liệu |
 | (mới) | T08b `describe` phần topology | Mốc M2 cần bảng spectral gap sinh từ code; tách khỏi T07 để T07 gọn và làm được sớm |
 | T06, T07 | Giữ; T07 không còn phụ thuộc T06 | K2 |
 | T08 | T08 + hàm tạo snapshot ở `sim/node.py` | K4: T-INV-6 trọn trong một task |
 | T09 | T09a model + huấn luyện cục bộ (T-INV-7) · T09b độ đo + Evaluator + consensus (T-INV-10) | Gộp thì quá 5 file; T09b không phụ thuộc T09a nên làm song song được |
 | T10 | T10a · T10b · T10c | K3 |
-| T11 | T11a manifest + logger · T11b `dfl run` + smoke (T-INV-5) · T11c baseline B1, B1-4k, B2, B3 | Gộp thì quá 5 file và khoảng 300 dòng. T11a độc lập với engine nên làm song song được |
+| T11 | T11a manifest + logger · T11b `dfl run` + smoke (T-INV-5) · T11d quy tắc ghi `results/`, phân kỳ, lỗi · T11c baseline và biến thể trộn | Gộp thì quá 5 file và khoảng 300 dòng. T11a độc lập với engine nên làm song song được |
 | T12, T13 | Giữ; T13 chốt lịch đánh giá, tập con, số luồng trước E0a | SPEC §3.3, ADR-007 |
 | T14 | T14a lệnh sanity + chọn η · T14b E0a · T14c E0b | E0a phải xong và ghi η vào ADR-007 trước E0b (SPEC §8) |
 | T15 | T15a đọc + kiểm INT-2/3/6 · T15b R@x, AUC, dao động, sụt · T15c thống kê + quy tắc quyết định | Định nghĩa độ đo phải có test và commit trước lượt Tier 1 đầu tiên (SPEC §8) |
 | T16 | T16a khung + PROVENANCE + `--draft` + P1, P7 · T16b P2–P5 · T16c P6, P8, P9, T1 | Gộp thì quá dài (P2.2: bảy hình trong một task vượt khoảng 300 dòng); T16b làm trong lúc E0b chạy, vì E1 cần P2, P4 |
 | T17–T20 | Mỗi nhóm E là một task: Tier 1 (T17a E1, T18a E2, T19a E3a, T20a E4a), Tier 2 (T19b E3b, T17b E1c, T20b E4, T18b E2b), T19c lượt có điều kiện | K6; cắt Tier 2 không để lại task dở |
-| T21–T23 | Mở rộng, chỉ làm sau M4 (Ask first); không chi tiết ở đây | SPEC §1.4. T22 thành bắt buộc nếu Q1 yêu cầu (§11) |
+| T21, T23 | Mở rộng, chỉ làm sau M4 (Ask first); không chi tiết ở đây | SPEC §1.4 |
+| T22 | Task đầy đủ, lịch theo Q1 hoặc QS-10 | Q1 có thể làm nó bắt buộc; QS-10 lên lịch ở tuần 8–10 trên nhánh chính |
 | (mới) | T26 demo trên laptop | ENG-11, QS-8; KH chỉ có demo ở tuần 12 mà không có task |
 | T24, T25 | Giữ | |
 
@@ -150,12 +153,12 @@ flowchart TB
 
 | Tuần | TV1 | TV2 | TV3 | Mốc |
 |---|---|---|---|---|
-| 3 | T04a → T03 → T04b | T07 → T06 | T02a, T02b, T02c | |
+| 3 | T04a → T03 → T04b → T04c | T07 → T06 | T02a, T02b, T02c | |
 | 4 | T05a → T09a | T08 → T10a | T05b, T08b | C1 (đầu tuần 4); C2 = **M2** (cuối tuần 4) |
 | 5 | T09b | T10b → T10c | T11a, T15b, T15c | |
-| 6 | Dự phòng; soạn thẻ E1, E4a | T11b → T11c | T15a → T14a | C3 = **M3** (cuối tuần 6) |
+| 6 | T14a; soạn thẻ E1, E4a | T11b → T11c | T15a, T11d | C3 = **M3** (cuối tuần 6) |
 | 7 | Soạn thẻ E1c, E4 | T13 | T12 → T16a → T14b (E0a, cuối tuần) | |
-| 8 | Phân tích E1 | Sửa lỗi nếu có; T22 nếu QS-10 giữ mặc định (ở nhánh chính, không ảnh hưởng worktree của lưới) | T14c ∥ T16b, rồi T17a ∥ T16c, T19a, T20a | |
+| 8 | T16b (trong lúc E0b chạy), T16c; phân tích E1 | Sửa lỗi nếu có; T22 theo QS-10 (nhánh chính) | T14c, T17a, T19a, T20a | |
 | 9 | Phân tích E1, E4a | T25 chuẩn bị (REP-1 thử) | T18a (và phần còn lại của T19a, T20a) | C4 (đủ Tier 1) |
 | 10 | Phân tích E1c, E4 | | T19b → T17b → T20b → T18b (→ T19c) | C5 = **M4** |
 | 11 | T26 | T25 | T24 (cả nhóm viết) | **M5** (G3) |
@@ -178,7 +181,7 @@ Mỗi checkpoint làm theo H P3.8:
 |---|---|---|---|
 | C1 | T05a, T05b | `python -m dfl describe --config configs/base.yaml --seeds 20 --out build/describe --check-req02`, rồi vẽ P7 vào `build/describe` | Kiểm JS trên MNIST thật theo REQ-02 (mã thoát 0); hình chưa vào `figures/`, vì PROVENANCE chỉ có từ T16a (INT-1) |
 | C2 (M2) | T08, T08b | Bảng spectral gap sinh từ code, so với KH §3.3 (ring 0.0326, FC 1, ER trung bình khoảng 0.20) | |
-| C3 (M3) | T11c | `python -m dfl run --config configs/profiles/fast.yaml --out build/fast` cho ring và FC trên IID | `make check-inv` xanh đủ 12 T-INV; P3.7 (`test-engineer`); cài thử và chạy smoke trên laptop demo (phát hiện sớm QS-8) |
+| C3 (M3) | T11c, T11d | `python -m dfl run --config configs/profiles/fast.yaml --out build/fast` cho ring và FC trên IID | `make check-inv` xanh đủ 12 T-INV; P3.7 (`test-engineer`); cài thử và chạy smoke trên laptop demo (phát hiện sớm QS-8) |
 | C4 | T18a, T19a, T20a (đủ 197 lượt của Tier 1) | Hình Tier 1 từ `results/` | SAN-1…5 đã đạt; sao lưu `results/`; Tier 2 chỉ mở sau C4 |
 | C5 (M4) | T19b, T17b, T20b, T18b, T19c | Toàn bộ P1–P9, T1 | Doubt-driven cho mỗi kết luận chính (INT-5); P3.7 lần hai; sao lưu `results/` |
 
@@ -304,6 +307,36 @@ Skill `doubt-driven-development`. ARTIFACT: `tasks/todo.md`. CONTRACT: SPEC §9 
 
 Sau khi sửa, một script kiểm lại `todo.md`: 43 task; mỗi task ≤ 3 gạch chấp nhận, ≤ 5 file, cỡ đúng theo số file; mọi mã task được nhắc tới đều tồn tại; không có vòng phụ thuộc; không task nào được đánh dấu song song với task mà nó phụ thuộc, kể cả gián tiếp; mỗi T-INV-1…12 thuộc đúng một task.
 
-**Reviewer nội bộ:** lúc commit P2.2 vẫn đang chạy; kết quả được reconcile ở commit sau.
+**Reviewer nội bộ (F1–F29, trên bản `todo.md` trước khi sửa theo cross-model).** Đối chiếu với bản hiện tại:
+- Đã được sửa bởi cross-model: F6 (size-corrected), F9 (P2/P4 cho E1), F10 (phần Ξ), F22 (phần kiểm JS).
+- Đúng, sửa:
+  - F1: module thuần nhận Generator qua tham số, không import `seeding`.
+  - F2: task thí nghiệm có hai commit, thẻ trước, kết quả sau.
+  - F3: T22 thành task đầy đủ, lịch theo Q1/QS-10.
+  - F4: chỉ task chủ đặt tên `test_t_inv_k`; test thành phần ở task khác không dùng tên đó.
+  - F7: tách T11b thành T11b và T11d.
+  - F8: TV1 nhận T14a, T16b, T16c; ngưỡng ngân sách ở T13 là 3 tuần.
+  - F11: Evaluator nhận model qua tham số, và có test INV-5.
+  - F12: quy tắc sửa `contracts.py`; T11a có file này khi cần.
+  - F13: T12 thêm `--out` cho demo, đòi worktree, kiểm start method.
+  - F14: `cli.py` không import torch ở đầu file.
+  - F15: T13 chỉ xác nhận; đổi thì phải có ADR (Ask first).
+  - F16: μ tính từ η theo QS-2, không chọn bằng lượt chạy.
+  - F17: SAN-5 nằm trong quy trình thí nghiệm, nên chạy ở mọi nhóm.
+  - F18: thêm bytes@x, tải lớn nhất, và độ đo của REQ-09 vào T15b.
+  - F19: B1 có τ·R = 17,200 và lịch riêng.
+  - F21: T10c có `node.py`.
+  - F22: dung sai cho ER.
+  - F23: C5 xử lý trường hợp Tier 2 bị cắt; quy tắc sửa `src/` ở T25.
+  - F24: tách T04b thành T04b và T04c.
+  - F27: phạm vi của fixture.
+  - F28: tách phụ thuộc của T19c.
+- Nhiễu một phần: F5. `make check-inv` đã có từ P1.8 và kiểm đủ 12 ID; reviewer không thấy Makefile. Đã thêm quy tắc đặt tên vào đầu `todo.md`.
+- Đã xét: F20 (rủi ro G1, đã có ở §11).
+- Trade-off: F26 (test dùng scipy có sẵn qua scikit-learn trong dev; `analysis` không import scipy); F29 (một số tiêu chí gói nhiều điều kiện nhỏ trong một gạch, mỗi gạch dẫn tới đúng mục SPEC tương ứng).
+
+Kiểm lại bằng script: 46 task; đủ trường, ≤ 3 gạch chấp nhận, ≤ 5 file, cỡ đúng theo số file; không có vòng phụ thuộc; không task nào song song với thứ nó phụ thuộc; mỗi T-INV-1…12 thuộc đúng một task.
+
+Kết thúc vòng 1: cả hai reviewer đều có phát hiện mức cao, và tất cả đã được xử lý. Vòng 2 (tối đa theo P2.2) cần nhóm quyết.
 
 **Gate G2 (2026-09-30):** đủ ba điều kiện — mọi task có tiêu chí chấp nhận, lệnh kiểm chứng, phụ thuộc, ≤ 5 file (kiểm bằng script); có C1–C5, người phụ trách, và chủ cho T-INV-1…12; nhóm đã nói "duyệt".
