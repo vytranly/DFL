@@ -6,7 +6,7 @@
 
 ## 1. Tổng quan
 
-Kế hoạch biến SPEC thành 42 task cỡ S hoặc M, mỗi task chạm tối đa 5 file (không tính `tasks/todo.md`, `tasks/SESSION_LOG.md`) và khoảng 300 dòng diff. Công việc chia ba lát dọc: lát dữ liệu (C1), lát mạng (C2), lát chạy trọn một lượt (C3, mốc M3). Sau đó tới công cụ thí nghiệm, lưới Tier 1 (C4), Tier 2 (C5, mốc M4), báo cáo và thẩm định. Hai task rủi ro cao nhất được đưa lên sớm. T07 (mixing) làm ngay đầu tuần 3, không đợi topology. Engine (T10a) bắt đầu ngay khi có transport, với một trainer giả theo Protocol, không đợi T09. Mọi code trong `src/` phải xong trước E0a, vì từ E0a `code_version` bị đóng băng (ADR-008).
+Kế hoạch biến SPEC thành 43 task cỡ S hoặc M, mỗi task chạm tối đa 5 file (không tính `tasks/todo.md`, `tasks/SESSION_LOG.md`) và khoảng 300 dòng diff. Công việc chia ba lát dọc: lát dữ liệu (C1), lát mạng (C2), lát chạy trọn một lượt (C3, mốc M3). Sau đó tới công cụ thí nghiệm, lưới Tier 1 (C4), Tier 2 (C5, mốc M4), báo cáo và thẩm định. Hai task rủi ro cao nhất được đưa lên sớm. T07 (mixing) làm ngay đầu tuần 3, không đợi topology. Engine (T10a) bắt đầu ngay khi có transport, với một trainer giả theo Protocol, không đợi T09. Mọi code trong `src/` phải xong trước E0a, vì từ E0a `code_version` bị đóng băng (ADR-008).
 
 ## 2. Điều kiện trước khi bắt đầu pha 3
 
@@ -35,7 +35,7 @@ Kế hoạch biến SPEC thành 42 task cỡ S hoặc M, mỗi task chạm tối
 - **K6 — Mỗi nhóm thí nghiệm là một task riêng.**
   - Tier 1 chạy trước. Tier 2 chạy theo thứ tự ngược với thứ tự cắt của ADR-007: E3b → E1c → E4 → E2b.
   - Lưới hơn 10 lượt phải trình kết quả `--dry-run` cho nhóm trước khi chạy (Ask first). Thẻ tiền đăng ký phải được commit trước khi chạy (EXP-1).
-- **K7 — Đóng băng code từ E0a.** Mọi task sửa `src/` (T02a–T13) phải xong trước T14b. Sau E0a chỉ còn task `analysis/`, cấu hình thí nghiệm và tài liệu. Một bản sửa lỗi sau E0a buộc chạy lại mọi lượt đã có, tức khoảng 64 giờ-lõi với Tier 1 (ADR-007, ADR-008).
+- **K7 — Đóng băng code của lưới từ E0a.** Mọi task sửa `src/` dùng cho lưới (T02a–T13) phải xong trước T14b. Sau E0a chỉ còn task `analysis/`, cấu hình thí nghiệm và tài liệu. Ngoại lệ duy nhất là T22: nó được commit vào nhánh chính, không dùng cho lưới, vì mọi sweep của lưới chạy từ worktree của commit lưới (SPEC §8). Một bản sửa lỗi sau E0a buộc chạy lại mọi lượt đã có, tức khoảng 64 giờ-lõi với Tier 1 (ADR-007, ADR-008).
 - **K8 — File mới ngoài cây SPEC §5.1** (cần sửa SPEC sau khi duyệt, O3):
   - `sim/run.py`: lắp một lượt từ cấu hình. Code này không được nằm trong `cli.py`, vì `cli.py` bị loại khỏi coverage (SPEC §10 dòng 6).
   - `sim/describe.py`: lệnh `describe`.
@@ -75,7 +75,7 @@ flowchart TB
     T12["T12 sweep"]; T13["T13 hiệu năng"]; T16a["T16a khung hình + P1"]; T14b["T14b E0a"]
   end
   subgraph W89["Tuần 8–9 — Tier 1, C4"]
-    T14c["T14c E0b"]; T17a["T17a E1"]; T19a["T19a E3a"]; T20a["T20a E4a"]; T16b["T16b P2–P9, T1"]; T18a["T18a E2"]
+    T14c["T14c E0b"]; T17a["T17a E1"]; T19a["T19a E3a"]; T20a["T20a E4a"]; T16b["T16b P2–P5"]; T16c["T16c P6, P8, P9, T1"]; T18a["T18a E2"]
   end
   subgraph W10["Tuần 10 — Tier 2, C5"]
     T19b["T19b E3b"]; T17b["T17b E1c"]; T20b["T20b E4"]; T18b["T18b E2b"]; T19c["T19c có điều kiện"]
@@ -105,14 +105,15 @@ flowchart TB
   T15a & T15b --> T14a
   T12 & T13 & T14a --> T14b --> T14c
   T14c --> T17a & T19a & T20a
-  T15c & T16a --> T17a
-  T16a & T15c --> T16b
-  T16b --> T19a & T18a
+  T15c & T16a & T16b --> T17a
+  T16a & T15c --> T16b --> T16c
+  T16c --> T19a & T18a
+  T16b --> T18a
   T17a --> T18a
   T18a --> T19b & T17b & T18b
   T19a --> T19b
   T17a --> T17b
-  T20a & T17b & T18a --> T20b
+  T20a & T17b & T18a & T11c --> T20b
   T19b --> T19c
   T19b & T17b & T20b & T18b & T19c --> T24
   T12 & T16a --> T26
@@ -139,7 +140,7 @@ flowchart TB
 | T12, T13 | Giữ; T13 chốt lịch đánh giá, tập con, số luồng trước E0a | SPEC §3.3, ADR-007 |
 | T14 | T14a lệnh sanity + chọn η · T14b E0a · T14c E0b | E0a phải xong và ghi η vào ADR-007 trước E0b (SPEC §8) |
 | T15 | T15a đọc + kiểm INT-2/3/6 · T15b R@x, AUC, dao động, sụt · T15c thống kê + quy tắc quyết định | Định nghĩa độ đo phải có test và commit trước lượt Tier 1 đầu tiên (SPEC §8) |
-| T16 | T16a khung + PROVENANCE + `--draft` + P1, P7 · T16b P2–P6, P8, P9, T1 | Gộp thì quá dài |
+| T16 | T16a khung + PROVENANCE + `--draft` + P1, P7 · T16b P2–P5 · T16c P6, P8, P9, T1 | Gộp thì quá dài (P2.2: bảy hình trong một task vượt khoảng 300 dòng); T16b làm trong lúc E0b chạy, vì E1 cần P2, P4 |
 | T17–T20 | Mỗi nhóm E là một task: Tier 1 (T17a E1, T18a E2, T19a E3a, T20a E4a), Tier 2 (T19b E3b, T17b E1c, T20b E4, T18b E2b), T19c lượt có điều kiện | K6; cắt Tier 2 không để lại task dở |
 | T21–T23 | Mở rộng, chỉ làm sau M4 (Ask first); không chi tiết ở đây | SPEC §1.4. T22 thành bắt buộc nếu Q1 yêu cầu (§11) |
 | (mới) | T26 demo trên laptop | ENG-11, QS-8; KH chỉ có demo ở tuần 12 mà không có task |
@@ -154,8 +155,8 @@ flowchart TB
 | 5 | T09b | T10b → T10c | T11a, T15b, T15c | |
 | 6 | Dự phòng; soạn thẻ E1, E4a | T11b → T11c | T15a → T14a | C3 = **M3** (cuối tuần 6) |
 | 7 | Soạn thẻ E1c, E4 | T13 | T12 → T16a → T14b (E0a, cuối tuần) | |
-| 8 | Phân tích E1 | Sửa lỗi nếu có; T22 nếu QS-10 giữ mặc định (ở cây làm việc, không ảnh hưởng worktree của lưới) | T14c, T17a, T19a, T20a, T16b | |
-| 9 | Phân tích E1, E4a | T25 chuẩn bị (REP-1 thử) | T18a | C4 |
+| 8 | Phân tích E1 | Sửa lỗi nếu có; T22 nếu QS-10 giữ mặc định (ở nhánh chính, không ảnh hưởng worktree của lưới) | T14c ∥ T16b, rồi T17a ∥ T16c, T19a, T20a | |
+| 9 | Phân tích E1, E4a | T25 chuẩn bị (REP-1 thử) | T18a (và phần còn lại của T19a, T20a) | C4 (đủ Tier 1) |
 | 10 | Phân tích E1c, E4 | | T19b → T17b → T20b → T18b (→ T19c) | C5 = **M4** |
 | 11 | T26 | T25 | T24 (cả nhóm viết) | **M5** (G3) |
 | 12 | Thuyết trình, demo, dự phòng | | | **M6** |
@@ -175,10 +176,10 @@ Mỗi checkpoint làm theo H P3.8:
 
 | Checkpoint | Sau | Lệnh demo | Thêm |
 |---|---|---|---|
-| C1 | T05a, T05b | `python -m dfl describe --config configs/base.yaml --seeds 20 --out build/describe`, rồi vẽ P7 | Kiểm JS trên MNIST thật theo REQ-02 |
+| C1 | T05a, T05b | `python -m dfl describe --config configs/base.yaml --seeds 20 --out build/describe --check-req02`, rồi vẽ P7 vào `build/describe` | Kiểm JS trên MNIST thật theo REQ-02 (mã thoát 0); hình chưa vào `figures/`, vì PROVENANCE chỉ có từ T16a (INT-1) |
 | C2 (M2) | T08, T08b | Bảng spectral gap sinh từ code, so với KH §3.3 (ring 0.0326, FC 1, ER trung bình khoảng 0.20) | |
 | C3 (M3) | T11c | `python -m dfl run --config configs/profiles/fast.yaml --out build/fast` cho ring và FC trên IID | `make check-inv` xanh đủ 12 T-INV; P3.7 (`test-engineer`); cài thử và chạy smoke trên laptop demo (phát hiện sớm QS-8) |
-| C4 | T18a (và T19a, T20a nếu đã xong) | Hình Tier 1 E0–E2 từ `results/` | SAN-1…4 đã đạt; sao lưu `results/` |
+| C4 | T18a, T19a, T20a (đủ 197 lượt của Tier 1) | Hình Tier 1 từ `results/` | SAN-1…5 đã đạt; sao lưu `results/`; Tier 2 chỉ mở sau C4 |
 | C5 (M4) | T19b, T17b, T20b, T18b, T19c | Toàn bộ P1–P9, T1 | Doubt-driven cho mỗi kết luận chính (INT-5); P3.7 lần hai; sao lưu `results/` |
 
 ## 8. T-INV → task (mỗi test đúng một chủ)
@@ -213,7 +214,7 @@ Tên test theo dạng `test_t_inv_<k>_<hành vi>` (SPEC §7). `make check-inv` b
 | REQ-07 | T06, T07, T08b, T18a | T-INV-9 | P3, P8 |
 | REQ-08 | T09a, T10b, T19a | T-INV-3, T-INV-7 | P9 |
 | REQ-09 | T10c, T11b, T15a | e2e smoke, T-INV-11 | P1, P4, P6 |
-| REQ-10 | T05b, T16a, T16b | e2e vẽ hình (T16a) | P1–P9, T1 |
+| REQ-10 | T05b, T16a, T16b, T16c | e2e vẽ hình (T16a) | P1–P9, T1 |
 | REQ-11 | T24 | Duyệt ở G1 và khi review báo cáo | Sơ đồ |
 | REQ-12 | T11c, T14a, T14c | SAN-1…4 | E0b |
 | REQ-13 | T15c, T24 | INT-4, INT-5 | Bảng khuyến nghị |
@@ -245,6 +246,7 @@ Tiêu chí kỹ thuật và toàn vẹn:
 | Laptop demo chưa rõ hệ điều hành (QS-8) | Thấp | Cài thử ở C3; T26 đo thời gian thật |
 | SPEC còn 3 bản sửa mức cao (vòng 3 của P1.9) chưa được phản biện lại | Trung bình | Nhóm quyết có phản biện riêng từng phần hay không (REVIEW-P1.9, mục STOP); nếu SPEC đổi thì sửa kế hoạch tại chỗ trước G2 |
 | Agent đọc H và làm theo chỗ H lệch SPEC | Thấp | K10; mô tả task ghi rõ chỗ lệch (T06, T12) |
+| G1 (GVHD) trễ, hoặc GVHD yêu cầu đổi thiết kế cơ bản sau khi pha 3 đã bắt đầu | Trung bình | Pha 3 chỉ bắt đầu sau G1 (§2). Nếu G1 trễ, chỉ làm trước các task ít phụ thuộc vào quyết định của GVHD: T02a–c, T07, T04a. Q1 có phương án dự phòng (T22, QS-10) |
 
 ## 12. Câu hỏi mở
 
@@ -275,4 +277,33 @@ Còn mở:
 
 ## 14. Phản biện kế hoạch (P2.2)
 
-_(điền sau khi chạy)_
+Skill `doubt-driven-development`. ARTIFACT: `tasks/todo.md`. CONTRACT: SPEC §9 (Success Criteria), KH §5.2, quy tắc cỡ task ở KH §8, và ràng buộc của nhóm. Tối đa 2 vòng.
+
+### Vòng 1
+
+**Cross-model (thủ công, X1–X16).** Dòng đầu của câu trả lời chỉ là đoạn suy luận bị cắt dở của model kia, không phải một phát hiện.
+
+| ID | Mức | Tóm tắt | Phân loại | Xử lý |
+|---|---|---|---|---|
+| X1 | cao | T17a vẽ P2, P4 nhưng chỉ phụ thuộc T16a (P1, P7); T16b được đánh dấu song song với T17a | đúng, sửa | Tách T16 thành T16b (P2–P5) và T16c (P6, P8, P9, T1); T17a phụ thuộc T16b; T16b làm trong lúc E0b chạy |
+| X2 | cao | T-INV-1 của T10b cần Ξ trong `metrics/consensus.py` (T09b), mà T10b chạy song song T09b | một phần nhiễu, sửa câu chữ | Test tự tính Ξ bằng công thức RMS làm oracle độc lập, nên không cần T09b; đã ghi rõ trong T10b |
+| X3 | cao | Lệnh kiểm chứng của các task thí nghiệm chỉ có `--dry-run`, vốn không chạy gì | đúng, sửa | Thêm "quy trình thí nghiệm" ở đầu `todo.md`: trình `--dry-run`, chạy sweep từ worktree, chạy lại `--dry-run` phải báo 0 lượt sẽ chạy, rồi mới chạy analysis; mọi task thí nghiệm dẫn tới quy trình này |
+| X4 | cao | Observer (T10c) không nêu việc đánh giá từng node, nên `rounds.jsonl` có thể thiếu `acc_per_node` | đúng, sửa | T10c gọi Evaluator cho mọi node ở mỗi mốc; tiêu chí mới: `RoundRecord` đủ trường; phản biện engine chuyển sang phần kiểm chứng |
+| X5 | cao | T13 được đánh dấu song song với T12, mà T13 lại phụ thuộc T12 | đúng, sửa | Bỏ dấu song song. Script kiểm phụ thuộc còn thấy T12 bị đánh dấu song song với T13 (lỗi cùng loại, chiều ngược lại); đã sửa luôn |
+| X6 | cao | Không có quy tắc chọn η riêng của B1, dù SAN-1 cần nó | đúng, sửa | T14a chọn η của B1 (accuracy validation lớn nhất, hòa thì xét AUC); T14b ghi η của B1 vào ADR-007 |
+| X7 | cao | T22 làm ở tuần 8–10 sẽ sửa `src/` sau E0a, trái quy tắc đóng băng | đúng (mâu thuẫn giữa SPEC §8 và QS-10), sửa | Viết lại quy tắc: code của lưới đóng băng ở một commit, mọi sweep chạy từ worktree của commit đó; code mới trên nhánh chính (T22) không được dùng cho lưới (SPEC §8, ADR-008, K7) |
+| X8 | cao | Lượt phân kỳ dừng sớm nên có ít mốc hơn; luật "lưới khác lưới chuẩn thì báo lỗi" sẽ làm analysis sập | đúng, sửa | T15b nhận lượt `diverged` có lưới là phần đầu của lưới chuẩn: R@x "không đạt", AUC "không xác định", đếm vào "k/n seed phân kỳ" |
+| X9 | trung bình | T16b gom bảy hình và bảng T1, vượt khoảng 300 dòng | đúng, sửa | Tách như X1 |
+| X10 | trung bình | C4 cho phép mở Tier 2 khi T19a, T20a (Tier 1) chưa xong | đúng, sửa | C4 đòi đủ Tier 1 (T18a, T19a, T20a) |
+| X11 | trung bình | T08b tính message/round mà không dùng CommLedger, thành hai nguồn số liệu | một phần đúng, sửa câu chữ | Ghi rõ 2·\|E\| là thuộc tính đồ thị, không phải phép đếm chi phí; chi phí chỉ do CommLedger đếm, và T-INV-6 kiểm hai số khớp nhau |
+| X12 | trung bình | C1 vẽ P7 trong khi PROVENANCE và `--draft` chỉ có từ T16a | đúng, sửa | P7 ở C1 và T05b chỉ ghi vào `build/`, không vào `figures/` |
+| X13 | trung bình | Kiểm JS trên MNIST thật ở T05a chỉ đối chiếu bằng mắt | đúng, sửa | Thêm cờ `--check-req02` (bảng KH §3.2 để trong `configs/reference/`), trả mã lỗi khác 0 khi sai; hàm so sánh có unit test |
+| X14 | trung bình | Không task nào nối size-corrected (`loss_scale` = $n_i/\bar n$) và uniform vào cấu hình, nên E4 sẽ thiếu code sau khi đóng băng | đúng, sửa | T11c thêm hai biến thể trộn; T20b phụ thuộc T11c |
+| X15 | thấp | Nhiều task 3–4 file bị gán cỡ S, trái quy tắc KH §8 (S là 1–2 file) | đúng, sửa | Gán lại cỡ theo số file bằng script (9 task đổi cỡ) |
+| X16 | thấp | G1 chưa đạt mà việc của tuần 3 đã lên lịch | đúng, ghi rủi ro | Thêm dòng rủi ro ở §11: nếu G1 trễ, chỉ làm trước các task ít phụ thuộc quyết định của GVHD (T02a–c, T07, T04a) |
+
+Sau khi sửa, một script kiểm lại `todo.md`: 43 task; mỗi task ≤ 3 gạch chấp nhận, ≤ 5 file, cỡ đúng theo số file; mọi mã task được nhắc tới đều tồn tại; không có vòng phụ thuộc; không task nào được đánh dấu song song với task mà nó phụ thuộc, kể cả gián tiếp; mỗi T-INV-1…12 thuộc đúng một task.
+
+**Reviewer nội bộ:** lúc commit P2.2 vẫn đang chạy; kết quả được reconcile ở commit sau.
+
+**Gate G2 (2026-09-30):** đủ ba điều kiện — mọi task có tiêu chí chấp nhận, lệnh kiểm chứng, phụ thuộc, ≤ 5 file (kiểm bằng script); có C1–C5, người phụ trách, và chủ cho T-INV-1…12; nhóm đã nói "duyệt".

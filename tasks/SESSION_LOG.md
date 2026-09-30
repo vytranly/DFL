@@ -108,3 +108,11 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - Quyết định mới (nhóm duyệt): phân vai QS-9 (TV1 nhận T09a–b; TV3 nhận T02a–c, T11a); engine tách T10a–c, mỗi task viết T-INV của nó trước; thêm file ngoài cây KH §4.6 (SPEC §10 dòng 39)
 - Câu hỏi mở: O4–O9 ở tasks/plan.md §12 (QS-1, hook mở rộng trước E0a, QS-8, Q1/Q2/Q9, sửa HANDOFF, QS-2)
 - Việc tiếp theo: P2.2 phản biện kế hoạch (tối đa 2 vòng); rồi chờ G1 (GVHD) trước khi bắt đầu pha 3
+
+## 2026-09-30 — Phiên #11 — P2.2 Phản biện kế hoạch (vòng 1) + Gate G2
+- Trạng thái: P2.2 vòng 1: cross-model thủ công (X1–X16) đã reconcile (tasks/plan.md §14); reviewer nội bộ vẫn chạy lúc commit, sẽ reconcile ở commit sau. Gate G2 ✅ (nhóm "duyệt")
+- File đã đổi: tasks/todo.md (quy trình thí nghiệm; tách T16 thành T16a–c; T10c đánh giá từng node; T14a chọn η của B1; T11c biến thể uniform và size-corrected; T15b lượt phân kỳ; T05a `--check-req02`; C1 vẽ P7 vào build/; C4 đòi đủ Tier 1; gán lại cỡ S/M theo số file), tasks/plan.md, SPEC.md §8 và ADR-008 (code của lưới đóng băng ở một commit, sweep chạy từ worktree; nhánh chính vẫn nhận T22), tasks/SESSION_LOG.md
+- Kiểm chứng: script kiểm todo.md: 43 task đủ trường, ≤ 3 gạch chấp nhận, ≤ 5 file, cỡ đúng; không có vòng phụ thuộc, không task song song với thứ nó phụ thuộc; T-INV-1…12 mỗi cái đúng một chủ; `make check-task` xanh
+- Quyết định mới: sửa mâu thuẫn giữa SPEC §8 (đóng băng src/) và QS-10 (T22 ở tuần 8–10) theo hướng quyết định đã duyệt
+- Câu hỏi mở: như phiên #10; G1 (GVHD) chưa có
+- Việc tiếp theo: P3.0 — T02a (được làm trước G1, theo tasks/plan.md §11)

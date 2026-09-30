@@ -99,7 +99,7 @@ Proposed — chờ Gate G1 (phụ thuộc SPEC QS-1, QS-4, QS-7).
 - Quy trình bắt buộc: commit trước khi chạy sweep. Đổi phụ thuộc thì tạo lại `requirements.lock` và chấp nhận mọi kết quả cũ thành stale.
 - Sửa code phân tích rồi vẽ hình lại là rẻ.
 - **Trade-off đã chấp nhận:** mọi thay đổi trong `src/`, kể cả docstring, làm đổi `code_version`.
-  - Vì vậy phải đóng băng `src/` từ E0a tới lượt Tier 2 cuối cùng.
+  - Vì vậy code của lưới được đóng băng ở một commit từ E0a tới lượt Tier 2 cuối cùng: mọi sweep của lưới chạy từ worktree của commit đó. Nhánh chính vẫn nhận code mới (ví dụ T22), nhưng code đó không được dùng cho lượt nào của lưới.
   - Một bản sửa lỗi phát hiện ở Tier 2 buộc chạy lại mọi ô Tier 1 được dùng lại, và đó là cách làm đúng, vì lỗi có thể đã ảnh hưởng các ô đó. Chạy lại Tier 1 tốn khoảng 64 giờ-lõi, vượt dự phòng 30%; khi đó áp dụng thứ tự cắt Tier 2 (ADR-007).
   - Phần mở rộng sau M4 thêm code vào `src/` (T22, T5, E6) phải tự chạy các ô tham chiếu của mình dưới `code_version` mới, không so trực tiếp với lưới lõi. E5 chỉ đổi N trong cấu hình, nên dùng được `code_version` của lưới lõi.
   - Laptop demo có thể khác phiên bản gói so với máy chủ. Kết quả demo vì vậy mang `env_match: false` và chỉ vẽ được ở chế độ `--draft`.
