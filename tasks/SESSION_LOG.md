@@ -267,3 +267,19 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - Quyết định mới: SPEC khớp plan §8 và todo (P2.2 vòng 2 đã chuyển T-INV-6 sang T10b). T08 giữ test thành phần của CommLedger, không mang tên T-INV
 - Câu hỏi mở: không
 - Việc tiếp theo: T09b (nhóm giao cho phiên này vì T10c cần Evaluator), rồi T10c
+
+## 2026-10-01 — Phiên #15 (tiếp) — T09b Độ đo phân loại + consensus + Evaluator (phiên này làm thay TV1, nhóm giao)
+- Trạng thái: T09b ✅ (nhóm chọn để phiên này làm T09b, vì T10c cần Evaluator)
+- File đã đổi: src/dfl/metrics/classification.py, src/dfl/metrics/consensus.py, tests/unit/test_classification.py, tests/unit/test_consensus.py (mới), tasks/todo.md, tasks/SESSION_LOG.md
+- Kiểm chứng:
+  - RED (ImportError: chưa có hai module) → GREEN, 23 test; `make check-task` → 239 passed, coverage 99.6% (hai module mới 100%)
+  - T-INV-10: macro-F1 khớp `f1_score(average="macro", labels=range(10), zero_division=0)` của scikit-learn 1.9 (sai số 1e-12) trên bốn ca: nhãn ngẫu nhiên, dự đoán chỉ một lớp, không bao giờ đoán lớp 7, lớp 9 vắng ở cả nhãn lẫn dự đoán; không có NaN. Acc^loc và Acc^eff khớp `accuracy_score` với trọng số từng mẫu q(y)/P_eval(y) (1e-12)
+  - Evaluator khớp sklearn trên dự đoán thật của từng model; acc(w̄) khớp model trung bình; chia batch không đổi kết quả; state và `torch.get_rng_state()` không đổi; state được nạp vào đúng model cấp phát sẵn (cùng tham số, cùng bộ nhớ)
+  - Ξ khớp ví dụ tính tay sqrt(14/3); bằng đúng 0 khi mọi model trùng nhau; bỏ qua tensor nguyên; tính bằng float64 (ca 10⁴ ± 2⁻¹¹ mà float32 tính sai)
+  - Đột biến trên bản sao `src/`, cả 6 bị bắt: macro-F1 chỉ trên lớp có mặt; Acc^eff dùng P_i; recall chia cho số lần đoán; Ξ bằng float32; trả Ξ²; tạo model mới mỗi lần đánh giá. Đột biến cuối lúc đầu không bị bắt, nên test model cấp phát sẵn được thêm điều kiện "model được giao đã nhận state"
+- Quyết định mới (không cần ADR):
+  - API cho T10c: `ClassificationEvaluator(model, x, y, *, label_distributions (N × 10), objective_weights (N), batch_size=1000)`, nhận model bất kỳ kiến trúc, ép x về dtype của model; `consensus_distance(states)` dùng cho cả drift (trên snapshot) và consensus distance (sau tổng hợp)
+  - Tập đánh giá phải có đủ 10 lớp, nếu không thì ValueError, để recall của mọi lớp xác định và Acc^loc bằng đúng accuracy có trọng số
+  - acc(w̄): trung bình từng tensor float qua các node (torch.mean, dtype của tensor); tensor nguyên lấy của node 0, vì không có trung bình có nghĩa
+- Câu hỏi mở: không
+- Việc tiếp theo: T10c (Observer, T-INV-11, T-INV-12, kiểm hữu hạn) rồi doubt-driven cho engine.py + node.py

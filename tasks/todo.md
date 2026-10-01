@@ -203,7 +203,7 @@
 
 ## Tuần 5–6 — Engine hoàn chỉnh, lát dọc đầu tiên (C3, M3)
 
-- [ ] **T09b · Độ đo phân loại + consensus + Evaluator** — TV1 (QS-9) · M · ∥ T10b, T11a
+- [x] **T09b · Độ đo phân loại + consensus + Evaluator** — TV1 (QS-9) · M · ∥ T10b, T11a
   - Mô tả:
     - `metrics/classification.py`: từ ma trận nhầm lẫn tính Acc, Acc^loc, Acc^eff, và macro-F1 dạng 2TP/(2TP + FP + FN) trên đủ 10 lớp.
     - Evaluator (cũng trong `classification.py`) nhận một model cấp phát sẵn làm tham số, không import `learning` (ENG-7), và nạp state bằng `load_state_dict`. P_i và π truyền vào lúc tạo đối tượng. Không tiêu thụ RNG.
