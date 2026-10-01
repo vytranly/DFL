@@ -210,3 +210,16 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - Sự cố: floor F7 bắt chuỗi tạo Generator trong docstring; sửa câu chữ, không sửa luật
 - Câu hỏi mở: không
 - Việc tiếp theo: T08 (P3.2)
+
+## 2026-10-01 — Phiên #15 (tiếp) — T08 Transport + CommLedger + snapshot (TV2)
+- Trạng thái: T08 ✅ — P3.2 xong (T06, T07, T08)
+- File đã đổi: src/dfl/network/transport.py, src/dfl/sim/node.py, tests/unit/test_transport.py, tests/unit/test_snapshot.py, tasks/todo.md, tasks/SESSION_LOG.md
+- Kiểm chứng: RED (ImportError) → GREEN, 26 test; `make check-task` → 175 passed, coverage 99.4%; `lint-imports` 5/5 contract giữ (transport.py không import torch)
+  - CommLedger: byte = Σ `nbytes`; tải = byte gửi + byte nhận; số đếm giữ qua `end_round`; message tự gửi bị từ chối và không bị tính
+  - Snapshot SmallCNN (shape theo ADR-004) có `nbytes` = 4 × 46,730; dtype khác tính đúng theo element_size; gửi 4 láng giềng = 4 × 186,920 byte
+  - Không copy payload (`is`); inbox chỉ chứa message của đúng node và round, chỉ đọc (MappingProxyType); `end_round` giải phóng tham chiếu (kiểm bằng weakref)
+  - Server ảo id N (B3/E1c): 2N message, tải lớn nhất là của server
+  - Theo H P3.2: gửi một message mỗi cạnh có hướng cho ring 40, FC 380, gossip 20. Đây là test thành phần; T-INV-6 qua engine vẫn thuộc T10b
+- Quyết định mới (không cần ADR): mỗi (người gửi, người nhận, round) chỉ một message, gửi lần hai thì ValueError (tránh ghi đè mà vẫn tính phí); gửi hoặc đọc inbox của round đã `end_round` thì RuntimeError (gọi sai thứ tự); id N chỉ hợp lệ khi `with_server=True`; thêm `node_bytes()` cho tải theo từng node
+- Câu hỏi mở: không
+- Việc tiếp theo: theo tasks/todo.md (T05a/T05b, T03, T08b…); cross-model P2.2 vòng 2 vẫn chờ kết quả của nhóm

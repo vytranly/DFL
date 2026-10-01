@@ -148,7 +148,7 @@
 
 - [ ] **Checkpoint C1** — sau T05a, T05b (plan §7): `make check-full`; chạy `describe --check-req02` và vẽ P7 trên MNIST thật vào `build/describe` (không vào `figures/`); review diff bằng `code-reviewer`; tăng `MIN_TESTS`; nhóm duyệt
 
-- [ ] **T08 · Transport + CommLedger + snapshot** — TV2 · M · ∥ T05a, T05b
+- [x] **T08 · Transport + CommLedger + snapshot** — TV2 · M · ∥ T05a, T05b
   - Mô tả:
     - `network/transport.py`: in-memory, không copy payload. CommLedger đếm message và byte, tổng và theo từng node, gồm cả gửi lẫn nhận. Nhận server ảo có chỉ số N; cấm node tự gửi cho mình.
     - `make_snapshot` trong `sim/node.py`: clone + detach, `nbytes` tính từ tensor thật.
