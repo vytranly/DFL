@@ -223,3 +223,19 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - Quyết định mới (không cần ADR): mỗi (người gửi, người nhận, round) chỉ một message, gửi lần hai thì ValueError (tránh ghi đè mà vẫn tính phí); gửi hoặc đọc inbox của round đã `end_round` thì RuntimeError (gọi sai thứ tự); id N chỉ hợp lệ khi `with_server=True`; thêm `node_bytes()` cho tải theo từng node
 - Câu hỏi mở: không
 - Việc tiếp theo: theo tasks/todo.md (T05a/T05b, T03, T08b…); cross-model P2.2 vòng 2 vẫn chờ kết quả của nhóm
+
+## 2026-10-01 — Phiên #15 (tiếp) — P3.3 bước 1 + T10a Engine ATC lõi (TV2)
+- Trạng thái: P3.3 bước 1 xong (subagent `test-engineer` thiết kế 22 test cho T10a–c, nhóm duyệt danh sách và thứ tự T10a → T10b → T10c); T10a ✅
+- File đã đổi: src/dfl/sim/node.py (`Node`, `combine`), src/dfl/sim/engine.py (mới), tests/conftest.py (mới), tests/integration/conftest.py (mới), tests/integration/test_engine_core.py (mới), tasks/todo.md, tasks/SESSION_LOG.md
+- Kiểm chứng:
+  - RED: conftest không import được `Node` (engine chưa có) → GREEN, 14 test tích hợp trong 1.7 s (chậm nhất 0.5 s); `make check-task` → 189 passed, coverage 99.5% (`sim/engine.py`, `sim/node.py` 100%)
+  - Đột biến trên bản sao `src/` trong scratchpad (repo không bị sửa), cả 7 đều bị bắt: snapshot là view (G22) và ghi ngay sau từng node (G2) → T-INV-4; cộng theo thứ tự inbox → T-INV-4 (ER); cộng "self trước" → test FC trùng từng bit; trộn buffer int → test buffer (G3); trainer học trên bản sao → T-INV-2; W của FC bất kể đồ thị → T-INV-2
+  - Fixture RNG (D6, cách mặc định): test thăm dò gọi `torch.rand` trong `tests/integration/` bị ERROR lúc teardown với thông báo T-INV-5; cùng test đó trong `tests/unit/` không bị kiểm. Đã xóa file thăm dò
+- Quyết định mới (không cần ADR):
+  - API: `Node(node_id, model, data, generator, loss_scale)` thay cho các dãy song song; `combine(own, inbox, weights_row)` là hàm thuần chỉ nhận snapshot của chính node và inbox (INV-1 theo chữ ký); engine duyệt theo thứ tự của dãy `nodes` được giao, không có tham số chỉ để test; `RoundResult(round_idx, weights chỉ đọc, train_losses, snapshots)`; `states()` trả bản sao
+  - Combine cộng theo id tăng dần trên các j có W_ij ≠ 0 (kể cả chính node); W khác 0 mà thiếu snapshot thì RuntimeError (có test với transport làm rơi message); tensor không phải float giữ giá trị của chính node
+  - Mọi test chạy torch một luồng (`pytest_configure` trong tests/conftest.py): máy chủ đang tải ~9/8 lõi, 8 luồng làm test tích hợp chậm ~5 lần (9 s so với 1.6 s); tài liệu torch yêu cầu gọi `set_num_threads` trước mọi phép tính, nên đặt ở hook cấu hình chứ không ở fixture
+  - Thêm ngoài danh sách đã duyệt: test transport làm rơi message và test kiểm `node_id`/kích thước lịch (phủ nhánh lỗi)
+- Lệch quy trình: diff ≈ 750 dòng (166 dòng `src/`, 580 dòng test và fixture dùng chung cho T10b, T10c), vượt mức ~300 dòng của P3.0; giữ một commit vì một task = một commit, như T04b
+- Câu hỏi mở: D5 (SPEC §9.2 ghi T-INV-6 "unit · T08", plan/todo ghi T10b) chờ nhóm cho sửa SPEC
+- Việc tiếp theo: T10b (test 9–16)

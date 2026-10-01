@@ -171,7 +171,7 @@
 
 - [ ] **Checkpoint C2 (M2)** — sau T08, T08b: `make check-full`; bảng spectral gap sinh từ code; review diff; tăng `MIN_TESTS`; nhóm duyệt
 
-- [ ] **T10a · Engine ATC lõi** ⚠ — TV2 · M · ∥ T09a
+- [x] **T10a · Engine ATC lõi** ⚠ — TV2 · M · ∥ T09a
   - Mô tả:
     - `sim/node.py` và `sim/engine.py` chạy một round ATC cho topology tĩnh:
       1. Adapt: τ bước qua `LocalTrainer`.
