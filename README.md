@@ -11,9 +11,10 @@ python3.12 -m venv .venv
 . .venv/bin/activate
 # Cài torch bản CPU trước; nếu không, pip sẽ kéo bản CUDA nặng vài GB từ PyPI.
 pip install torch==2.14.0 torchvision==0.29.0 --index-url https://download.pytorch.org/whl/cpu
-# Từ T02, khi đã có requirements.lock (chỉ gói chạy): pip install -r requirements.lock
-# rồi thêm -c requirements.lock vào lệnh dưới, để công cụ dev không đổi phiên bản gói chạy (SPEC §4).
-pip install -e ".[dev]"
+# Đúng phiên bản mọi gói chạy (requirements.lock chỉ gồm gói chạy, không có công cụ dev; SPEC §4).
+pip install -r requirements.lock
+# Công cụ dev; -c giữ nguyên phiên bản gói chạy.
+pip install -e ".[dev]" -c requirements.lock
 ```
 
 ## Lệnh

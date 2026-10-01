@@ -157,3 +157,15 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - Ghi chú: diff khoảng 430 dòng, vượt mốc khoảng 300 dòng; khoảng 90 dòng là bản tham chiếu sao gần nguyên từ spike, giữ cùng commit để test golden có tham chiếu
 - Câu hỏi mở: không
 - Việc tiếp theo: T04c (placement + P2', QS-11) rồi T05a
+
+## 2026-10-01 — Phiên #15 — QS-1 + T02c requirements.lock, .gitattributes (TV3)
+- Trạng thái: QS-1 chốt theo mặc định (file khóa chỉ gồm gói chạy); T02c ✅
+- File đã đổi: requirements.lock (mới, 24 gói), .gitattributes (mới), README.md, CLAUDE.md (lệnh cài đặt), SPEC.md (§4, QS-1 đã chốt), tasks/todo.md, tasks/SESSION_LOG.md
+- Kiểm chứng:
+  - `requirements.lock` sinh bằng `pip freeze --exclude-editable` trong một venv chỉ cài torch/torchvision bản CPU và `pip install -e .`; không chứa pytest, ruff, import-linter hay scikit-learn. Có setuptools vì torch khai báo nó là phụ thuộc
+  - Venv mới cài đúng SPEC §4 (`-r requirements.lock`, rồi `-e ".[dev]" -c requirements.lock`): `pip check` sạch, 95 test pass
+  - `.venv` hiện tại khớp file khóa ở mọi gói
+  - `git ls-files --eol`: mọi file văn bản là LF; `git add --renormalize .` không đổi nội dung file nào
+- Quyết định mới: QS-1 (nhóm, 2026-10-01). Sửa CLAUDE.md chỉ ở dòng lệnh cài đặt; nhóm xem diff
+- Câu hỏi mở: không
+- Việc tiếp theo: T04c, rồi T07, T06, T08 (P3.2)

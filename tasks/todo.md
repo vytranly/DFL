@@ -55,7 +55,7 @@
   - Phụ thuộc: T01
   - File: `src/dfl/config.py`, `tests/unit/test_config.py`, `configs/base.yaml`, `configs/profiles/smoke.yaml`
 
-- [ ] **T02c · `requirements.lock` + `.gitattributes`** — TV3 · M · ∥ T02a, T02b · cần QS-1
+- [x] **T02c · `requirements.lock` + `.gitattributes`** — TV3 · M · ∥ T02a, T02b · cần QS-1
   - Mô tả: sinh `requirements.lock` trong venv chỉ có gói chạy (SPEC §4); thêm `.gitattributes` (`* text=auto eol=lf`); sửa lệnh cài đặt trong README và CLAUDE.md sang `-r`/`-c requirements.lock`.
   - Chấp nhận:
     - Venv mới cài đúng §4 thì `pip check` sạch và `make check-full` xanh. File khóa không có pytest, ruff, import-linter hay scikit-learn.

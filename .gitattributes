@@ -1,0 +1,3 @@
+# Xuống dòng LF trong cây làm việc trên mọi máy (kể cả Windows với core.autocrlf), để code_version
+# không đổi theo nền tảng (SPEC §5.3, ADR-008; https://git-scm.com/docs/gitattributes).
+* text=auto eol=lf

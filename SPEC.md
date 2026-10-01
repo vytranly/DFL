@@ -147,7 +147,7 @@ Mốc theo KH §7: M2 cuối tuần 4, M3 cuối tuần 6, M4 cuối tuần 10. 
 Chạy từ gốc repo, trong `.venv`. Chú thích ở mỗi nhóm lệnh cho biết lệnh có từ task nào.
 
 ```bash
-# Cài đặt (CPU). Trước T02 chưa có requirements.lock: bỏ dòng `-r` và phần `-c requirements.lock`
+# Cài đặt (CPU)
 python3.12 -m venv .venv && . .venv/bin/activate
 pip install torch==2.14.0 torchvision==0.29.0 --index-url https://download.pytorch.org/whl/cpu
 pip install -r requirements.lock                   # đúng phiên bản mọi gói chạy (QS-1)
@@ -632,7 +632,7 @@ SPEC được ưu tiên hơn KH và H ở các điểm dưới đây (yêu cầu
 
 | ID | Câu hỏi | Mặc định đang dùng | Phương án khác | Ảnh hưởng |
 |---|---|---|---|---|
-| QS-1 | File nào là "file khóa phụ thuộc" trong `code_version`? | `requirements.lock` = `pip freeze --exclude-editable` trong một venv chỉ có gói chạy, trên máy chủ (§4); commit vào repo, tạo ở T02, tạo lại mỗi khi đổi phụ thuộc chạy. Công cụ dev không có trong file này, nên nâng chúng không làm kết quả thành stale. Cài đặt dùng `-r requirements.lock` và `-c requirements.lock` | `pyproject.toml`: không thêm file, nhưng mọi sửa cấu hình ruff/pytest/coverage sẽ làm toàn bộ kết quả thành stale (Tier 1 + 2 khoảng 92 giờ-lõi); hoặc `pip freeze` của venv dev: cùng nhược điểm khi nâng công cụ dev | ADR-008, T02, T12 |
+| QS-1 | File nào là "file khóa phụ thuộc" trong `code_version`? | **Đã chốt (2026-10-01):** `requirements.lock` = `pip freeze --exclude-editable` trong một venv chỉ có gói chạy, trên máy chủ (§4); commit vào repo, tạo ở T02, tạo lại mỗi khi đổi phụ thuộc chạy. Công cụ dev không có trong file này, nên nâng chúng không làm kết quả thành stale. Cài đặt dùng `-r requirements.lock` và `-c requirements.lock` | `pyproject.toml`: không thêm file, nhưng mọi sửa cấu hình ruff/pytest/coverage sẽ làm toàn bộ kết quả thành stale (Tier 1 + 2 khoảng 92 giờ-lõi); hoặc `pip freeze` của venv dev: cùng nhược điểm khi nâng công cụ dev | ADR-008, T02, T12 |
 | QS-2 | Nếu E0a chọn η ≠ 0.05, DFedProx giữ gì? | Giữ cường độ ημτ ∈ {0.1, 1} ở τ = 20, tức μ = {0.1, 1} × 0.05/η; ghi vào ADR-007 cùng η | Giữ μ ∈ {0.1, 1} như ADR-006 (khi η = 0.01, μ = 0.1 gần như không có tác dụng — đúng lý do đã loại μ = 0.01) | ADR-006/007, E3a, E3b, H5 |
 | QS-3 | Ngưỡng sanity có số | **Đã chốt (P1.8, 2026-09-30):** SAN-2 ≤ 1.0 điểm %; SAN-3 ≥ 20 điểm %; SAN-4 ≤ 1.0 điểm %. **Chốt thêm (P1.9, 2026-09-30):** đối chứng của SAN-2 là B1-4k (cùng η chung, 4,000 bước), không phải B1 | — | §9.3, `CONSTRAINTS.md` (R7), T14 |
 | QS-4 | Độ đo suy ra đặt ở đâu? | `analysis/convergence.py`; bỏ `src/dfl/metrics/convergence.py` và `communication.py` | Giữ cây KH §4.6 (mỗi lần sửa code R@x/AUC làm toàn bộ kết quả thành stale) | §3, §5, T15 |
