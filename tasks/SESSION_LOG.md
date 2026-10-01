@@ -169,3 +169,11 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - Quyết định mới: QS-1 (nhóm, 2026-10-01). Sửa CLAUDE.md chỉ ở dòng lệnh cài đặt; nhóm xem diff
 - Câu hỏi mở: không
 - Việc tiếp theo: T04c, rồi T07, T06, T08 (P3.2)
+
+## 2026-10-01 — Phiên #15 (tiếp) — T04c Hoán vị vị trí node + P2' (TV1)
+- Trạng thái: T04c ✅ — nhóm T04 xong (T04a, T04b, T04c)
+- File đã đổi: src/dfl/data/partition.py (`assign_positions`, `ShardsPartitioner`), tests/unit/test_partition_extras.py, tasks/todo.md, tasks/SESSION_LOG.md
+- Kiểm chứng: RED (AttributeError) → GREEN, 6 test; `make check-task` → 101 passed, coverage 99.7%
+- Quyết định mới (không cần ADR): mỗi hàm chỉ rút đúng một `rng.permutation` (placement: hoán vị N vị trí; P2': hoán vị 2N mảnh), và thứ tự rút được ghi trong docstring để test golden so được; P2' sắp chỉ số bằng `argsort(kind="stable")`
+- Câu hỏi mở: không
+- Việc tiếp theo: T07, T06, T08 (P3.2)

@@ -115,7 +115,7 @@
   - Phụ thuộc: T02a, T04a
   - File: `src/dfl/data/partition.py`, `tests/reference/niid_bench_reference.py`, `tests/unit/test_partition.py`, `pyproject.toml`
 
-- [ ] **T04c · Hoán vị vị trí node + P2' (shards)** — TV1 · S · ∥ T06
+- [x] **T04c · Hoán vị vị trí node + P2' (shards)** — TV1 · S · ∥ T06
   - Mô tả: hoán vị partition vào vị trí node bằng Generator của luồng placement (KH §3.2), và P2' (shards của McMahan) theo QS-11, chỉ dùng trong `describe`.
   - Chấp nhận:
     - Cùng Generator thì cùng hoán vị; hoán vị là một hoán vị hợp lệ của 0..N−1 và không đổi kích thước hay nhãn của các phần.

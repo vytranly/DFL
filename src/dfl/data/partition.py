@@ -157,3 +157,41 @@ class QuantityPartitioner:
             if min(len(p) for p in parts) >= self.min_size:
                 return _result(parts, attempt, self.min_size)
         raise _too_many_retries(f"quantity β = {self.beta}")
+
+
+@dataclass(frozen=True, slots=True)
+class ShardsPartitioner:
+    """P2', shards của McMahan et al. 2017; chỉ dùng trong `describe`, không chạy trong lưới (SPEC QS-11).
+
+    Sắp chỉ số theo nhãn (sắp xếp ổn định), cắt thành N × s mảnh gần bằng nhau (s = shards_per_node), rồi
+    rút một hoán vị của các mảnh: node i nhận các mảnh ở vị trí i·s … i·s + s − 1 của hoán vị đó.
+    Chỉ rút đúng một `rng.permutation`. Kích thước node đều; số lớp mỗi node có thể là 1 hoặc nhiều hơn 2,
+    nên P2' không tương đương #C = 2 (SPEC §1.4).
+    """
+
+    shards_per_node: int = 2
+    min_size: int = DEFAULT_MIN_SIZE
+
+    def __post_init__(self) -> None:
+        if self.shards_per_node < 1:
+            raise ValueError("shards_per_node phải ≥ 1")
+        _check_min_size(self.min_size)
+
+    def __call__(self, labels: np.ndarray, num_nodes: int, rng: np.random.Generator) -> PartitionResult:
+        _check_inputs(labels, num_nodes)
+        s = self.shards_per_node
+        shards = np.array_split(np.argsort(labels, kind="stable"), num_nodes * s)
+        order = rng.permutation(num_nodes * s)
+        parts = [np.concatenate([shards[j] for j in order[i * s : (i + 1) * s]]) for i in range(num_nodes)]
+        return _result(parts, 0, self.min_size)
+
+
+def assign_positions(result: PartitionResult, rng: np.random.Generator) -> PartitionResult:
+    """Gán các phần vào vị trí node bằng một hoán vị ngẫu nhiên (KH §3.2), để tránh cấu trúc nhân tạo.
+
+    Ví dụ: hai node kề nhau trên ring luôn khác nhãn. Vị trí p nhận phần `perm[p]`, với perm là đúng một
+    `rng.permutation(N)` của luồng placement. Cùng seed thì cùng hoán vị cho mọi topology, vì luồng
+    placement không phụ thuộc topology (G9).
+    """
+    perm = rng.permutation(len(result.parts))
+    return PartitionResult(parts=tuple(result.parts[int(i)] for i in perm), retries=result.retries)
