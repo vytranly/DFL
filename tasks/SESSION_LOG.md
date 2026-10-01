@@ -283,3 +283,18 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
   - acc(w̄): trung bình từng tensor float qua các node (torch.mean, dtype của tensor); tensor nguyên lấy của node 0, vì không có trung bình có nghĩa
 - Câu hỏi mở: không
 - Việc tiếp theo: T10c (Observer, T-INV-11, T-INV-12, kiểm hữu hạn) rồi doubt-driven cho engine.py + node.py
+
+## 2026-10-01 — Phiên #15 (tiếp) — Sửa kế hoạch theo trả lời Q1 của GVHD (đề xuất, chờ nhóm duyệt)
+- Trạng thái: GVHD trả lời Q1 lúc 17:27: "Cô cần các process chạy song song, mỗi node chạy độc lập. Các em có thể tạo dockers, số lượng ít cũng được. Chạy mấy mô hình đơn giản, sau mình sẽ tăng độ phức tạp lên xem communication cost sẽ thay đổi như thế nào." Kế hoạch đã sửa theo phương án ghi sẵn ở ADR-002 (mức bổ sung), cộng phần mới: Docker và thang model
+- File đã đổi: docs/decisions/ADR-010-multiprocess-node-runtime.md (mới), docs/decisions/ADR-011-model-complexity-ladder.md (mới), docs/decisions/ADR-002 (Status và mục Q1, theo quy tắc sửa ADR còn Proposed), docs/decisions/README.md, docs/decisions/OPEN_QUESTIONS.md (Q1 đã trả lời; Q10–Q13 mới; tin nhắn hỏi lại GVHD soạn sẵn), tasks/plan.md (K14, đồ thị, lịch tuần 5–9, ngân sách, rủi ro, câu hỏi mở), tasks/todo.md (T22a–c bắt buộc trước E0a; T09c; E8 = T27a–c; T13, T14b, T26 cập nhật), tasks/SESSION_LOG.md
+- Kiểm chứng:
+  - Máy chủ có Docker 29.4.0, Docker Compose v2.36.0; torch có gloo
+  - Bảng backend của torch 2.14 ghi gloo trên CPU có send/recv/barrier/gather; isend/irecv không có trong bảng, nên T22a kiểm lại
+  - Số tham số của M0–M3 kiểm bằng torch: 7,850 / 46,730 / 199,210 / 1,663,370
+  - Script kiểm cấu trúc todo: 54 task, không lỗi (≤ 3 gạch chấp nhận, ≤ 5 file, nhãn S/M theo số file, phụ thuộc có thật, không vừa ∥ vừa phụ thuộc)
+- Quyết định đề xuất (chờ nhóm duyệt, ADR ở trạng thái Proposed):
+  - ADR-010: mỗi node một tiến trình (tiến trình cục bộ cho test, container Docker 4–8 cho demo và E8), gloo, giao thức đồng bộ không có điều phối viên; bộ mô phỏng một tiến trình giữ lại cho lưới N = 20; T-INV-13 buộc hai runtime cho rounds.jsonl trùng từng byte
+  - ADR-011: thang M0 (logistic) → M1 SmallCNN → M2 2NN → M3 CNN McMahan; E8 = 4 model × {ring, gossip, FC} × {IID, α = 0.1} × 3 seed = 72 lượt, N = 8, trong Docker
+- Câu hỏi mở: Q10–Q13 gửi GVHD (OPEN_QUESTIONS.md); O13: các chỗ sửa SPEC, KH, Makefile, CONSTRAINTS (Ask first) chưa làm, chờ nhóm duyệt K14
+- Ghi chú: `docs/đath1.docx` đổi lúc 17:46 (55 KB → 297 KB) không do phiên này; không sửa, không commit
+- Việc tiếp theo: nhóm duyệt K14; gửi tin nhắn Q10–Q13; sửa SPEC/KH sau khi duyệt; hoàn tất T10c (reconcile phản biện vòng 2, xem build/review/P3.3-doubt-cycle2-result.md), rồi T22a

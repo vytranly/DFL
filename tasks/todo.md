@@ -1,6 +1,7 @@
 # Checklist triển khai — Đề 2 (Non-IID × DFL)
 
 > Kế hoạch, quyết định, đồ thị phụ thuộc, rủi ro: `tasks/plan.md`. Trạng thái: nhóm đã duyệt (Gate G2, 2026-09-30).
+> **Sửa đổi 2026-10-01 theo trả lời Q1 của GVHD** (cần tiến trình chạy song song, mỗi node độc lập; Docker; tăng độ phức tạp model để xem chi phí giao tiếp): T22a–T22c thành bắt buộc trước E0a; thêm T09c và E8 (T27a–c). Theo ADR-010, ADR-011 (Proposed). **Phần sửa đổi chờ nhóm duyệt** (tasks/plan.md K14).
 > **Cách làm một task** (H P3.0, lệnh `/build`):
 > 1. Chọn task chưa làm đầu tiên mà mọi phụ thuộc đã xong.
 > 2. Viết test FAIL trước, rồi code tối thiểu cho test PASS.
@@ -8,7 +9,7 @@
 > 4. Đánh dấu `[x]` và ghi `tasks/SESSION_LOG.md`.
 > 5. Commit đúng một commit, chỉ `git add` file của task. Ngoại lệ: task thí nghiệm có hai commit, xem quy trình thí nghiệm ở dưới.
 >
-> Test bất biến: chỉ task chủ của T-INV-k (plan §8) đặt tên test dạng `test_t_inv_<k>_…` (SPEC §7). Task khác có thể có test thành phần liên quan nhưng không dùng tên đó. `make check-inv` (có từ P1.8) kiểm đủ 12 ID.
+> Test bất biến: chỉ task chủ của T-INV-k (plan §8) đặt tên test dạng `test_t_inv_<k>_…` (SPEC §7). Task khác có thể có test thành phần liên quan nhưng không dùng tên đó. `make check-inv` (có từ P1.8) kiểm đủ 12 ID; thành 13 ID khi SPEC thêm T-INV-13 (ADR-010, Ask first).
 > Task nào cần thêm hay đổi schema trong `src/dfl/contracts.py` thì thêm file đó vào commit của mình và sửa `tests/unit/test_contracts_smoke.py` trước.
 >
 > "File" liệt kê tối đa 5 file, không tính `tasks/todo.md` và `tasks/SESSION_LOG.md`. Mọi task còn phải đạt Definition of Done (H§4.2).
@@ -27,7 +28,7 @@
 ## Điều kiện trước pha 3
 
 - [x] P1.9 đã commit (`07b183c`)
-- [ ] Gate G1: nhóm và GVHD duyệt SPEC, ADR-001…009 (Proposed → Accepted), trả lời Q1
+- [ ] Gate G1: nhóm và GVHD duyệt SPEC, ADR-001…011 (Proposed → Accepted). Q1 đã trả lời (2026-10-01); còn chờ Q10–Q13 (OPEN_QUESTIONS.md)
 - [x] Gate G2: nhóm duyệt `tasks/plan.md` và file này (2026-09-30)
 - [x] T01 — Dựng repo, pyproject, ruff, pytest, CLAUDE.md, README (commit `2789c5c`)
 
@@ -399,12 +400,12 @@
   - File: `src/dfl/sim/sweep.py`, `src/dfl/cli.py`, `tests/integration/test_sweep.py`, `src/dfl/contracts.py`, `tests/unit/test_contracts_smoke.py`
 
 - [ ] **T13 · Đo hiệu năng, chốt giao thức** — TV2 · M · ∥ T16a
-  - Mô tả: đo dưới tải thật (H P3.5): thời gian một bước, một lần đánh giá, một lượt fast và full; số luồng {1, 2, 4, 8} kết hợp số worker. Xác nhận lịch đánh giá, tập con và số luồng đã ghi ở `configs/base.yaml` (ADR-007) còn chạy vừa ngân sách, và tạo profile full. Muốn đổi bất kỳ thứ nào trong đó thì phải hỏi nhóm và có ADR mới (Ask first) trước E0a. Tối ưu nào cần sửa `src/` thì tách thành task riêng, có test, và phải xong trước T14b. Cập nhật ngân sách ở `tasks/plan.md` §10.
+  - Mô tả: đo dưới tải thật (H P3.5): thời gian một bước, một lần đánh giá, một lượt fast và full; số luồng {1, 2, 4, 8} kết hợp số worker. Đo thêm process runtime (N = 8, tiến trình cục bộ và Docker: thời gian một round, RAM) và thời gian một bước của M0–M3 (ADR-011), để chốt R của E8. Xác nhận lịch đánh giá, tập con và số luồng đã ghi ở `configs/base.yaml` (ADR-007) còn chạy vừa ngân sách, và tạo profile full. Muốn đổi bất kỳ thứ nào trong đó thì phải hỏi nhóm và có ADR mới (Ask first) trước E0a. Tối ưu nào cần sửa `src/` thì tách thành task riêng, có test, và phải xong trước T14b. Cập nhật ngân sách ở `tasks/plan.md` §10.
   - Chấp nhận:
     - `docs/PERF.md` có bảng đo (trước và sau mỗi tối ưu) và số lõi rảnh thực tế.
     - Ngân sách Tier 1 + 2 tính theo số đo mới. Đạt nếu Tier 1 + 2 vừa 3 tuần (tuần 8–10) với số lõi rảnh đo được; không đạt thì đề xuất cắt theo ADR-007 cho nhóm quyết. Không đổi lịch sau E0a.
   - Kiểm chứng: `make check-task`; lệnh đo ghi trong `docs/PERF.md` chạy lại được
-  - Phụ thuộc: T11c, T11d, T12
+  - Phụ thuộc: T11c, T11d, T12, T22c, T09c
   - File: `docs/PERF.md`, `configs/base.yaml`, `configs/profiles/full.yaml`, `tasks/plan.md`
 
 - [ ] **T16a · Khung vẽ hình + PROVENANCE + P1** — TV3 · M · ∥ T13
@@ -429,7 +430,7 @@
     - 24 run_id có attempt xong, cùng `code_version`; nhóm đã duyệt kết quả `--dry-run`, vì lưới hơn 10 lượt.
     - η chung, μ và η của B1 ghi vào ADR-007 trước khi chạy E0b; không lượt nào đánh giá trên test.
   - Kiểm chứng: quy trình thí nghiệm với `configs/experiments/e0a_lr.yaml`; `python -m analysis.select_lr --results results/`
-  - Phụ thuộc: T12, T13, T14a, T14e, T11e; T22a và T22b nếu Q1 yêu cầu P2P thật; G1 (ADR đã Accepted); `make check-inv` xanh; cây sạch
+  - Phụ thuộc: T12, T13, T14a, T14e, T11e, T22c, T09c (Q1 đã trả lời: đa tiến trình là code của lưới); G1 (ADR đã Accepted); `make check-inv` xanh; cây sạch
   - File: `docs/experiments/E0a.md`, `configs/experiments/e0a_lr.yaml`, `docs/experiments/CODE_VERSIONS.md`, `docs/decisions/ADR-007-evaluation-protocol.md`, `configs/base.yaml` (η, μ, η của B1 cho E0b trở đi)
 
 ## Tuần 8–9 — Tier 1 (C4)
@@ -564,7 +565,7 @@
 ## Tuần 11–12 — Demo, báo cáo, thẩm định (M5, M6)
 
 - [ ] **T26 · Demo trên laptop** — TV1 · M · ∥ T24
-  - Mô tả: `configs/profiles/demo.yaml` và `configs/experiments/demo.yaml` chạy 2 lượt, ring và FC ở α = 0.1. `docs/DEMO.md` ghi các bước: cài không dùng file khóa, tải MNIST trước, chạy sweep ra `build/demo`, vẽ hình bằng `--draft`. Đo thời gian trên laptop thật (QS-8).
+  - Mô tả: `configs/profiles/demo.yaml` và `configs/experiments/demo.yaml` chạy 2 lượt, ring và FC ở α = 0.1. Nếu laptop có Docker (QS-8, Q12) thì demo thêm một lượt nhỏ, mỗi node một container (`make check-docker`). `docs/DEMO.md` ghi các bước: cài không dùng file khóa, tải MNIST trước, chạy sweep ra `build/demo`, vẽ hình bằng `--draft`. Đo thời gian trên laptop thật (QS-8).
   - Chấp nhận:
     - ENG-11: cả chạy lẫn vẽ hình xong trong ≤ 5 phút trên laptop, không cần mạng.
     - Chạy được trên hệ điều hành của laptop; ghi `env_match: false` như dự kiến.
@@ -590,25 +591,86 @@
   - Phụ thuộc: T24, T26
   - File: `docs/VALIDATION.md`
 
-## T22a, T22b — theo Q1 và QS-10 (không thuộc phần mở rộng tùy chọn)
+## Đa tiến trình, Docker, thang model và E8 — bắt buộc theo trả lời Q1 (ADR-010, ADR-011; chờ nhóm duyệt)
 
-- [ ] **T22a · `TorchDistTransport` (gloo), chạy độc lập** — TV2 · S
-  - Mô tả: backend Transport đa tiến trình ở `dfl.sim/torchdist.py` (4–8 tiến trình, backend gloo, gửi/nhận tensor đã tuần tự hóa), cùng một harness test chạy một round ATC đa tiến trình trên MLP tí hon. Lịch: nếu Q1 yêu cầu P2P thật thì T22a và T22b phải xong trước T14b (tuần 6–7) và là code của lưới. Nếu tới hết tuần 5 chưa có trả lời thì làm ở tuần 8–10, ngay sau T13 (QS-10), chỉ trên nhánh chính, không vào nhánh `grid` (quy trình thí nghiệm, bước 0).
-  - Chấp nhận:
-    - Với N = 4 trên dữ liệu tổng hợp, một round đa tiến trình cho model khớp bản in-memory (allclose), và CommLedger đếm cùng số message, cùng số byte.
-    - Primitive gửi/nhận đã đối chiếu tài liệu torch 2.14 (ADR-002 ghi `isend`/`irecv` chưa kiểm); nếu không có trong tài liệu thì ghi UNVERIFIED và dùng `send`/`recv` theo thứ tự cố định.
-  - Kiểm chứng: `make check-task`; `pytest -q tests/integration/test_torchdist.py`
-  - Phụ thuộc: T10c; Q1 hoặc QS-10
-  - File: `src/dfl/sim/torchdist.py`, `tests/integration/test_torchdist.py`
+Các task `src/` dưới đây là code của lưới: phải xong trước T14b (E0a), để lưới, E8 và demo cùng một `code_version` (K7).
 
-- [ ] **T22b · Chọn backend đa tiến trình cho một lượt** — TV2 · M
-  - Mô tả: cấu hình `transport: torchdist` và đường chạy trong `sim/run.py`, để `python -m dfl run` chạy được một lượt nhỏ đa tiến trình (demo, phần kiến trúc của báo cáo).
+- [ ] **T22a · `TorchDistTransport` (gloo)** ⚠ — TV2 · M · ∥ T09c, T11a
+  - Mô tả: Transport cho một tiến trình node ở `sim/torchdist.py` (ADR-010).
+    - Mã hóa state thành một tensor liền (thứ tự khóa cố định) và giải mã lại.
+    - Mỗi round, trao đổi đúng một message với mỗi láng giềng của G_t theo thứ tự không deadlock: id nhỏ gửi trước. Dùng `isend`/`irecv` nếu kiểm được trên gloo; nếu không thì ghi UNVERIFIED và dùng `send`/`recv`.
+    - CommLedger đếm message và byte node gửi và nhận.
   - Chấp nhận:
-    - Một lượt smoke với `transport: torchdist` (N = 4) cho `rounds.jsonl` khớp bản in-memory trong sai số allclose; nếu Q1 không yêu cầu, lượt này không thuộc lưới.
-    - Lượt in-memory không đổi gì khi thêm backend: test T-INV và smoke e2e vẫn xanh.
-  - Kiểm chứng: `make check-full`; `pytest -q tests/integration/test_torchdist.py tests/e2e/test_smoke_run.py`
+    - Unit: mã hóa rồi giải mã trùng từng bit mọi tensor (float32, float64, int64); `nbytes` không đổi.
+    - Integration, 4 tiến trình cục bộ (`spawn`) trên ring và FC: mỗi node nhận đúng snapshot của láng giềng, trùng từng bit với cái đã gửi; số message và byte của từng node bằng InMemoryTransport trên cùng đồ thị; không tự gửi; không treo (có timeout).
+    - Primitive đã chọn có URL tài liệu torch 2.14, hoặc ghi UNVERIFIED kèm lý do (bảng backend không có `isend`/`irecv` cho gloo).
+  - Kiểm chứng: `make check-task`; `pytest -q tests/unit/test_torchdist_codec.py tests/integration/test_torchdist.py`
+  - Phụ thuộc: T10c
+  - File: `src/dfl/sim/torchdist.py`, `tests/unit/test_torchdist_codec.py`, `tests/integration/test_torchdist.py`
+
+- [ ] **T22b · Process runtime: mỗi node một tiến trình, cộng observer** ⚠ — TV2 · M
+  - Mô tả: `sim/process_runtime.py` (ADR-010).
+    - Vòng lặp của tiến trình node: cùng một round ATC bằng `Node`, `combine`, `make_snapshot` và TorchDistTransport; G_t tự tính từ seed chung (G18); kiểm hữu hạn; dừng mọi tiến trình khi phân kỳ hay lỗi.
+    - Vòng lặp của observer: nhận state và số đếm ở mốc đánh giá qua kênh đo (không tính phí), dựng RoundRecord, ghi kết quả bằng RunLogger.
+    - `python -m dfl run --runtime processes` khởi chạy N + 1 tiến trình cục bộ. TimingRecord thêm `comm_s`.
+  - Chấp nhận:
+    - T-INV-13 (khi SPEC đã thêm, Ask first): với smoke N = 4 trên ring, gossip và FC, `rounds.jsonl` trùng từng byte với bản in-process cùng cấu hình và seed.
+    - Một node phân kỳ thì mọi tiến trình dừng gọn (không treo), và SummaryDiverged có cùng `diverged_at_round` như bản in-process.
+    - Message và byte của lượt bằng bản in-process (T-INV-6 ở N = 4); kênh tới observer không được đếm.
+  - Kiểm chứng: `make check-task`; `pytest -q tests/integration/test_process_runtime.py`
   - Phụ thuộc: T22a, T11b
-  - File: `src/dfl/sim/run.py`, `src/dfl/config.py`, `tests/integration/test_torchdist.py`
+  - File: `src/dfl/sim/process_runtime.py`, `src/dfl/sim/run.py`, `src/dfl/contracts.py` (TimingRecord.comm_s), `tests/unit/test_contracts_smoke.py`, `tests/integration/test_process_runtime.py`
+
+- [ ] **T22c · Docker: mỗi node một container** — TV3 · M · ∥ T12
+  - Mô tả:
+    - `docker/Dockerfile`: python:3.12-slim, cài torch CPU và file khóa, chạy bằng user không phải root.
+    - `docker/compose.py`: sinh file Compose cho N node và một observer trên một bridge network; `data/` gắn chỉ đọc.
+    - `make check-docker` chạy smoke trong container và so với bản in-process (T-INV-13 trong Docker); ghi số byte mạng của container (`docker stats`).
+    - `docs/DOCKER.md`: build, chạy, tài nguyên.
+    - Thêm `make check-docker` vào bảng của CONSTRAINTS.md cần nhóm duyệt (Ask first).
+  - Chấp nhận:
+    - `make check-docker` (N = 4, smoke): `rounds.jsonl` trùng từng byte với bản in-process; byte mạng của container ≥ byte của CommLedger, và tỉ lệ được ghi lại.
+    - Image cài đúng file khóa (`pip check` sạch trong container); lúc chạy không cần mạng ngoài (MNIST gắn từ `data/`).
+    - Một lượt fast N = 8 trong Docker chạy xong; thời gian và RAM ghi vào `docs/DOCKER.md`.
+  - Kiểm chứng: `make check-docker` (chạy tay, ghi kết quả vào `docs/DOCKER.md`); `make check-task`; `pytest -q tests/unit/test_compose.py`
+  - Phụ thuộc: T22b
+  - File: `docker/Dockerfile`, `docker/compose.py`, `Makefile`, `docs/DOCKER.md`, `tests/unit/test_compose.py`
+
+- [ ] **T09c · Thang model M0–M3 (ADR-011)** — TV1 · M · ∥ T22a
+  - Mô tả: `learning/models.py` thêm M0 (logistic regression), M2 (2NN-MLP) và M3 (CNN của McMahan et al. 2017) bên cạnh SmallCNN, cùng `build_model(name, generator)`. Cấu hình có trường `model`; mặc định là SmallCNN, nên thí nghiệm lõi không đổi.
+  - Chấp nhận:
+    - Số tham số đúng 7,850 / 46,730 / 199,210 / 1,663,370; không có BatchNorm hay Dropout.
+    - Tạo model không đổi `torch.get_rng_state()`; khác seed thì khác w⁰ ở mọi tensor; đầu ra shape (B, 10).
+  - Kiểm chứng: `make check-task`; `pytest -q tests/unit/test_models.py`
+  - Phụ thuộc: T09a, T02b
+  - File: `src/dfl/learning/models.py`, `src/dfl/config.py`, `tests/unit/test_models.py`
+
+- [ ] **T27a · E8: thẻ tiền đăng ký + cấu hình** — TV3 · S · ∥ T14c
+  - Mô tả: thẻ `docs/experiments/E8.md` ghi H8 và quy tắc kết luận (ADR-011). `configs/experiments/e8_model_complexity.yaml` có lưới {M0, M1, M2, M3} × {T1, T3, T4} × {IID, α = 0.1} × 3 seed = 72 lượt, với N = 8, τ = 20, R theo T13, `runtime: processes`, `deploy: docker`. Thẻ được commit trên nhánh `grid` trước khi chạy (EXP-1).
+  - Chấp nhận:
+    - Thẻ có trước mọi lượt E8 trong lịch sử git.
+    - `--dry-run` báo 72 lượt, và nhóm đã duyệt, vì lưới hơn 10 lượt.
+  - Kiểm chứng: `python -m dfl sweep --experiment configs/experiments/e8_model_complexity.yaml --dry-run`
+  - Phụ thuộc: T22c, T09c, T14b
+  - File: `docs/experiments/E8.md`, `configs/experiments/e8_model_complexity.yaml`
+
+- [ ] **T27b · E8: chạy 72 lượt trong Docker** — TV3 · S · ∥ T17a, T19a
+  - Mô tả: chạy theo quy trình thí nghiệm, từ worktree của lưới, với `deploy: docker`; ghi tải của máy chủ trong lúc chạy. Chạy lại 2 ô M1 bằng in-process và so `rounds.jsonl` (T-INV-13 trên dữ liệu thật, N = 8).
+  - Chấp nhận:
+    - 72 run_id có attempt xong (`ok` hoặc `diverged`), cùng một `code_version`.
+    - Hai bản in-process trùng từng byte với bản Docker; số liệu `docker stats` được ghi lại.
+  - Kiểm chứng: quy trình thí nghiệm với `configs/experiments/e8_model_complexity.yaml`; `cmp` hai cặp `rounds.jsonl`
+  - Phụ thuộc: T27a
+  - File: `docs/experiments/E8.md`
+
+- [ ] **T27c · E8: phân tích, hình P10–P11** — TV1 · M · ∥ T18a
+  - Mô tả: `analysis/comm_cost.py` tính byte/round, `comm_s`, tỉ lệ giao tiếp trên tính toán theo số tham số và topology. Hai hình mới: P10 (byte/round và `comm_s` theo số tham số, trục log) và P11 (accuracy theo byte tích lũy). Kết luận H8 ghi vào thẻ.
+  - Chấp nhận:
+    - P10, P11 sinh bằng một lệnh từ `results/`, mỗi hình một `code_version`.
+    - Mỗi H8 có kết luận theo quy tắc ghi trong thẻ.
+  - Kiểm chứng: `make check-task`; `pytest -q tests/unit/test_comm_cost.py`; `python -m analysis.plots --results results/ --out figures/`
+  - Phụ thuộc: T27b, T16a
+  - File: `analysis/comm_cost.py`, `analysis/plots.py`, `tests/unit/test_comm_cost.py`, `docs/experiments/E8.md`
 
 ## Mở rộng — chỉ làm sau M4, và phải hỏi trước (SPEC §1.4, QĐ-4)
 

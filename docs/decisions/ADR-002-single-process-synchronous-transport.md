@@ -1,7 +1,7 @@
 # ADR-002: Mô phỏng đơn tiến trình, đồng bộ, message-passing qua giao diện Transport
 
 ## Status
-Proposed — chờ Gate G1 và câu trả lời Q1 của GVHD.
+Proposed — chờ Gate G1. GVHD đã trả lời Q1 ngày 2026-10-01 (cần tiến trình chạy song song, mỗi node độc lập): áp dụng phương án bổ sung ghi ở mục Consequences, xem ADR-010.
 
 ## Date
 2026-09-30 (cập nhật theo hai vòng phản biện P1.9 cùng ngày)
@@ -51,7 +51,7 @@ Proposed — chờ Gate G1 và câu trả lời Q1 của GVHD.
 - Chạy nhanh và tất định; kiểm được bằng T-INV-2, T-INV-4, T-INV-5, T-INV-12.
 - Chi phí giao tiếp là số đếm (message, byte, tải lớn nhất trên một node), không có thời gian truyền. Báo cáo phải nêu rõ điều này.
 - Giao diện Transport cho phép thêm backend đa tiến trình mà không phải sửa engine.
-- **Chờ Q1 — phương án đề xuất nếu GVHD yêu cầu P2P thật:**
+- **Q1 — phương án đã ghi sẵn trước khi GVHD trả lời** (GVHD trả lời ngày 2026-10-01; đang áp dụng qua ADR-010, mức "bổ sung"; Q10 hỏi lại GVHD có cần chạy cả lưới đa tiến trình không):
   - Hết tuần 3 (trước C2) chưa có trả lời thì nhóm hỏi lại GVHD. Hết tuần 5 (trước E0a ở tuần 7, đủ hai tuần cho T22) vẫn chưa có trả lời thì vẫn chạy lưới theo quyết định này, để không trễ lịch. Im lặng không phải là đồng ý: cách hiểu "P2P" vẫn là rủi ro của REQ-01 và được ghi trong mục hạn chế. Khi đó T22 làm ngay sau T13 (tuần 8–10), không còn là mở rộng tùy chọn (SPEC QS-10, nhóm chốt ngày 2026-09-30). T22 viết ở cây làm việc hằng ngày; lưới chạy từ worktree riêng nên không bị ảnh hưởng (ADR-008).
   - Giữ nguyên quyết định này cho lưới thí nghiệm (tất định, vừa ngân sách CPU).
   - Tạo một ADR mới *bổ sung* (không thay thế ADR này): T22 thành bắt buộc, gồm `TorchDistTransport` dùng gloo, 4–8 tiến trình, test tương đương với bản in-memory ở N = 4, dùng cho demo và phần kiến trúc của báo cáo.
