@@ -259,3 +259,11 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - Lệch quy trình: diff ≈ 630 dòng (147 dòng `src/`, 485 dòng test), vượt mức ~300 dòng của P3.0; giữ một commit như T10a
 - Câu hỏi mở: D5 (sửa SPEC §9.2: T-INV-6 là "integration · T10b" thay vì "unit · T08", và câu "T10b có T-INV-1, 3" ở §7) vẫn chờ nhóm cho phép; chưa sửa SPEC
 - Việc tiếp theo: T10c cần T09b (Evaluator, của TV1, chưa làm)
+
+## 2026-10-01 — Phiên #15 (tiếp) — D5: SPEC khớp chủ sở hữu T-INV-6 (TV2)
+- Trạng thái: nhóm cho phép sửa SPEC (D5, 2026-10-01)
+- File đã đổi: SPEC.md (§7: "T10b có T-INV-1, 3, 6"; §9.2: T-INV-6 "integration · T10b" thay vì "unit · T08"), tasks/SESSION_LOG.md
+- Kiểm chứng: diff chỉ gồm đúng hai chỗ trên; `make check-task` xanh
+- Quyết định mới: SPEC khớp plan §8 và todo (P2.2 vòng 2 đã chuyển T-INV-6 sang T10b). T08 giữ test thành phần của CommLedger, không mang tên T-INV
+- Câu hỏi mở: không
+- Việc tiếp theo: T09b (nhóm giao cho phiên này vì T10c cần Evaluator), rồi T10c
