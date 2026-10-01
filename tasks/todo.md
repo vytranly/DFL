@@ -105,7 +105,7 @@
   - Phụ thuộc: T02a, T02b
   - File: `src/dfl/data/datasets.py`, `src/dfl/cli.py`, `src/dfl/__main__.py`, `tests/unit/test_datasets.py`
 
-- [ ] **T04b · Partitioner P0–P3** — TV1 · M
+- [x] **T04b · Partitioner P0–P3** — TV1 · M
   - Mô tả: `data/partition.py`, chỉ dùng numpy, cài P0–P3 đúng NIID-Bench với min_size = 64. Lấy mẫu lại tối đa 1,000 lần, quá thì raise `ValueError`; #C = k với N < 10 cũng raise `ValueError`. Nhận `numpy.random.Generator` qua tham số, không import `seeding`. Test golden so với hàm tham chiếu sao từ spike (H P3.1); phép so này chỉ kiểm bản cài khớp spike (SPEC REQ-02).
   - Chấp nhận:
     - T-INV-8: rời nhau, phủ đủ, mọi node ≥ min_size; #C = k đúng k nhãn và mọi nhãn có chủ; golden trùng tuyệt đối; N < 10 báo lỗi.

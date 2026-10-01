@@ -103,9 +103,9 @@ forbidden_modules = [
 id = "pure-no-torch"
 name = "Module thuần không nạp torch, kể cả gián tiếp (SPEC §3.2, ENG-6)"
 type = "forbidden"
-# T04b thêm "dfl.data.partition" khi file đó tồn tại
+# Module mới chỉ được thêm khi file đã tồn tại
 # (import-linter báo lỗi nếu source_modules có module chưa tồn tại).
-source_modules = ["dfl.contracts", "dfl.network", "dfl.data.heterogeneity"]
+source_modules = ["dfl.contracts", "dfl.network", "dfl.data.heterogeneity", "dfl.data.partition"]
 forbidden_modules = ["torch", "torchvision"]
 
 [[tool.importlinter.contracts]]

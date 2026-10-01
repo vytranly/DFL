@@ -140,3 +140,20 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - Quyết định mới (không cần ADR): công thức JS, TV, CV(n) với ddof = 0, và lệch mục tiêu giống hàm `heterogeneity` của spike, nên bảng KH §3.2 so được; P là phân bố của mọi mẫu được chia; π mặc định 1/N, nhận `objective_weights` theo ADR-005
 - Câu hỏi mở: không
 - Việc tiếp theo: T04b
+
+## 2026-10-01 — Phiên #14 (tiếp) — T04b Partitioner P0–P3 (TV1)
+- Trạng thái: T04a ✅ (bae729b) · T04b ✅ · T04c ⏳ chưa bắt đầu (hoán vị vị trí node + P2')
+- File đã đổi: src/dfl/data/partition.py, tests/reference/niid_bench_reference.py, tests/unit/test_partition.py, pyproject.toml (`dfl.data.partition` vào contract `pure-no-torch`), tasks/todo.md, tasks/SESSION_LOG.md
+- Kiểm chứng:
+  - RED (ImportError) → GREEN; 33 test mới chạy trong khoảng 1.5 s
+  - T-INV-8 đủ các phần: rời nhau, phủ đủ, ≥ 64, tất định, #C = k đúng k nhãn và mọi nhãn có chủ, N < 10 báo lỗi, golden trùng tuyệt đối với tham chiếu (P0, Dirichlet α = 0.1 và 0.05, #C = 2, quantity; seed 0–2; số `retries` khớp)
+  - Thống kê lỏng của P3.1: α = 1000 cho JS < 0.01; JS tăng đơn điệu theo α; α = 0.1 có JS trong [0.45, 0.65]; quantity β = 0.5 có JS < 0.02 và CV > 0.5
+  - Cài thử `import torch` thì contract `pure-no-torch` báo BROKEN; `make check-task` → 95 passed, coverage 99.7%
+- Quyết định mới (không cần ADR):
+  - `retries` = số lần thử − 1; tối đa 1,000 lần lấy mẫu lại rồi `ValueError`
+  - P0 và #C = k không lấy mẫu lại được, nên node nhỏ hơn min_size thì báo lỗi cấu hình
+  - Partitioner nhận Generator qua tham số, không import `seeding`
+  - Bản tham chiếu sao từ spike, chỉ thêm `strict=True` cho `zip` (ruff B905), không đổi thứ tự rút số
+- Ghi chú: diff khoảng 430 dòng, vượt mốc khoảng 300 dòng; khoảng 90 dòng là bản tham chiếu sao gần nguyên từ spike, giữ cùng commit để test golden có tham chiếu
+- Câu hỏi mở: không
+- Việc tiếp theo: T04c (placement + P2', QS-11) rồi T05a
