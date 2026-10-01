@@ -132,3 +132,11 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - Quyết định mới: không đổi SPEC ở lượt này
 - Câu hỏi mở: có chạy P2.2 vòng 2 không; QS-1 (chặn T02c → T11a)
 - Việc tiếp theo: T02b
+
+## 2026-10-01 — Phiên #14 — T04a Heterogeneity (TV1)
+- Trạng thái: T04a ✅ · T04b đang làm trong cùng phiên
+- File đã đổi: src/dfl/data/heterogeneity.py, tests/unit/test_heterogeneity.py, pyproject.toml (`dfl.data.heterogeneity` vào contract `pure-no-torch`), tasks/todo.md, tasks/SESSION_LOG.md
+- Kiểm chứng: RED (ImportError) → GREEN, 12 test; cài thử `import torch` vào module thì `lint-imports` báo BROKEN, gỡ ra thì 5 contract đều giữ; `make check-task` → 62 passed, coverage 100%
+- Quyết định mới (không cần ADR): công thức JS, TV, CV(n) với ddof = 0, và lệch mục tiêu giống hàm `heterogeneity` của spike, nên bảng KH §3.2 so được; P là phân bố của mọi mẫu được chia; π mặc định 1/N, nhận `objective_weights` theo ADR-005
+- Câu hỏi mở: không
+- Việc tiếp theo: T04b

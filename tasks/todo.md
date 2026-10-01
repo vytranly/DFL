@@ -75,7 +75,7 @@
   - Phụ thuộc: T01
   - File: `src/dfl/network/mixing.py`, `tests/unit/test_mixing.py`
 
-- [ ] **T04a · Heterogeneity** — TV1 · M · ∥ T02a–c, T07
+- [x] **T04a · Heterogeneity** — TV1 · M · ∥ T02a–c, T07
   - Mô tả: `data/heterogeneity.py`, chỉ dùng numpy. Tính ma trận node × lớp, JS (bit), TV, số lớp chiếm ≥ 5%, CV(n), và lệch mục tiêu TV(Σ π_j P_j, P). Thêm module vào contract `pure-no-torch`.
   - Chấp nhận:
     - JS và TV khớp giá trị tính tay: hai phân bố trùng nhau cho 0; hai lớp rời nhau cho 1 bit. Lệch mục tiêu bằng 0 khi π đều và mọi node IID.
