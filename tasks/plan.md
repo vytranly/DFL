@@ -1,7 +1,7 @@
 # Kế hoạch triển khai — Đề 2: Non-IID × Decentralized Federated Learning
 
 > **Trạng thái:** nhóm đã duyệt (Gate G2, 2026-09-30); P2.2 phản biện kế hoạch sau khi duyệt, kết quả ghi ở §14 · **Ngày:** 2026-09-30
-> **Sửa đổi 2026-10-01 (chờ nhóm duyệt):** GVHD trả lời Q1: cần tiến trình chạy song song, mỗi node độc lập; có thể dùng Docker với ít container; tăng độ phức tạp model để xem chi phí giao tiếp. Kế hoạch đổi theo K14 (ADR-010, ADR-011, Proposed): T22a–T22c thành bắt buộc trước E0a; thêm T09c và E8 (T27a–c); tổng cộng 54 task.
+> **Sửa đổi 2026-10-01 (nhóm duyệt ngày 2026-10-01; Q12: Docker tùy chọn; Q13: đo cả byte lẫn thời gian):** GVHD trả lời Q1: cần tiến trình chạy song song, mỗi node độc lập; có thể dùng Docker với ít container; tăng độ phức tạp model để xem chi phí giao tiếp. Kế hoạch đổi theo K14 (ADR-010, ADR-011): T22a, T22b thành bắt buộc trước E0a, T22c (Docker) tùy chọn; thêm T09c và E8 (T27a–c); tổng cộng 54 task.
 > **Nguồn:** `SPEC.md` Draft 0.3 (sau cả ba vòng phản biện của P1.9) · `docs/decisions/ADR-001…009` (Proposed) · `CONSTRAINTS.md` · `docs/KE_HOACH_DE_TAI_2.md` §7–§9 (**KH**) · `docs/HANDOFF_GUIDELINE.md` §3.2–§3.3 (**H**).
 > **Checklist thực hiện:** `tasks/todo.md`. Mỗi task còn phải đạt Definition of Done (H§4.2) và `make check-task` xanh trước khi commit.
 
@@ -50,9 +50,9 @@ Kế hoạch biến SPEC thành 49 task cỡ S hoặc M (gồm T22a, T22b), mỗ
 - **K12 — Lưới chạy từ worktree riêng** (SPEC §5.3). Sweep vào `results/` chạy từ một worktree check out đúng commit của lưới. Nhờ vậy, trong lúc lưới chạy nhiều ngày, nhóm vẫn làm được T16b, T22, T24 ở cây làm việc hằng ngày mà không đổi code của các lượt đang chạy.
 - **K13 — SAN-5 kiểm trên lượt thật.** T14a cài SAN-5; nó kiểm rằng bước tổng hợp có tác dụng trên code chạy lưới, vì T-INV chỉ chạy trên MLP tí hon.
 - **K14 — Đa tiến trình là yêu cầu bắt buộc (trả lời Q1, 2026-10-01; ADR-010, ADR-011).**
-  - Mỗi node là một tiến trình riêng: tiến trình cục bộ cho test, container Docker (4–8) cho demo và E8. Giao tiếp qua gloo; logic node dùng chung `sim/node.py` với bộ mô phỏng.
+  - Mỗi node là một tiến trình riêng: tiến trình cục bộ cho test và E8; container Docker (4–8) là tùy chọn (Q12), cho demo và 4 ô thêm của E8. Giao tiếp qua gloo; logic node dùng chung `sim/node.py` với bộ mô phỏng.
   - Bộ mô phỏng một tiến trình vẫn chạy lưới N = 20 (ADR-002), vì T-INV-13 buộc hai runtime cho `rounds.jsonl` trùng từng byte. Nếu GVHD trả lời Q10 là phải chạy cả lưới đa tiến trình thì ADR-010 thay thế ADR-002 và §10 tính lại.
-  - T22a, T22b, T22c và T09c là code của lưới, phải xong trước T14b (K7). E8 (thang model M0–M3 × ring, gossip, FC) là nhóm thí nghiệm bắt buộc theo yêu cầu của GVHD, chạy song song với Tier 1.
+  - T22a, T22b và T09c là code của lưới, phải xong trước T14b (K7). T22c nằm ngoài `src/` nên không chặn E0a. E8 (thang model M0–M3 × ring, gossip, FC) là nhóm thí nghiệm bắt buộc theo yêu cầu của GVHD, chạy song song với Tier 1.
   - Thay QS-10: T22 không còn lịch tuần 8–10.
 - **K11 — Không thêm phụ thuộc chạy.** `analysis/stats.py` cần giá trị tới hạn của phân phối t, nhưng numpy và pandas không có. Nó dùng bảng hai phía 95% cho df ≤ 30, có ghi nguồn. Test đối chiếu với `scipy.stats.t`, gói có sẵn trong môi trường dev qua scikit-learn.
 
@@ -109,8 +109,8 @@ flowchart TB
   T10c --> T22a["T22a TorchDist ⚠"] --> T22b["T22b process runtime ⚠ · T-INV-13"] --> T22c["T22c Docker"]
   T11b --> T22b
   T09a --> T09c["T09c thang model M0–M3"]
-  T22c & T09c --> T13 & T14b
-  T22c & T09c & T14b --> T27a["T27a thẻ E8"] --> T27b["T27b E8 (72 lượt, Docker)"] --> T27c["T27c P10, P11"]
+  T22b & T09c --> T13 & T14b
+  T22b & T09c & T14b --> T27a["T27a thẻ E8"] --> T27b["T27b E8 (72 lượt, Docker)"] --> T27c["T27c P10, P11"]
   T16a --> T27c
   T27c --> T24
   T11c --> T13
@@ -136,7 +136,7 @@ flowchart TB
   T24 & T26 --> T25
 ```
 
-**Đường găng** (TV2 nắm phần lớn): T07 → T06 → T08 → T10a → T10b → T10c → T11b → T22b (sau T22a) → T22c → T13 → T14b (E0a) → T14c (E0b) → T17a (E1) → T18a (E2) → Tier 2 → T24 → T25. T11b còn chờ T09a (TV1) và T11a; hai task này phải xong trước giữa tuần 6.
+**Đường găng** (TV2 nắm phần lớn): T07 → T06 → T08 → T10a → T10b → T10c → T11b → T22b (sau T22a) → T13 → T14b (E0a) → T14c (E0b) → T17a (E1) → T18a (E2) → Tier 2 → T24 → T25. T11b còn chờ T09a (TV1) và T11a; hai task này phải xong trước giữa tuần 6.
 
 ## 5. Tách và gộp so với WBS KH §8
 
@@ -159,7 +159,7 @@ flowchart TB
 | T16 | T16a khung + PROVENANCE + `--draft` + P1, P7 · T16b P2–P5 · T16c P6, P8, P9, T1 | Gộp thì quá dài (P2.2: bảy hình trong một task vượt khoảng 300 dòng); T16b làm trong lúc E0b chạy, vì E1 cần P2, P4 |
 | T17–T20 | Mỗi nhóm E là một task: Tier 1 (T17a E1, T18a E2, T19a E3a, T20a E4a), Tier 2 (T19b E3b, T17b E1c, T20b E4, T18b E2b), T19c lượt có điều kiện | K6; cắt Tier 2 không để lại task dở |
 | T21, T23 | Mở rộng, chỉ làm sau M4 (Ask first); không chi tiết ở đây | SPEC §1.4 |
-| T22 | Tách thành T22a (Transport gloo), T22b (process runtime + observer, T-INV-13), T22c (Docker); bắt buộc trước E0a | Q1 đã trả lời 2026-10-01 (K14, ADR-010); QS-10 không còn áp dụng |
+| T22 | Tách thành T22a (Transport gloo), T22b (process runtime + observer, T-INV-13), T22c (Docker, tùy chọn); T22a, T22b bắt buộc trước E0a | Q1 đã trả lời 2026-10-01 (K14, ADR-010); QS-10 không còn áp dụng |
 | T09c, T27a–c | Mới: thang model M0–M3 và E8 (thẻ, chạy, phân tích) | Yêu cầu "tăng độ phức tạp" của GVHD (ADR-011) |
 | (mới) | T26 demo trên laptop | ENG-11, QS-8; KH chỉ có demo ở tuần 12 mà không có task |
 | T24, T25 | Giữ | |
@@ -172,7 +172,7 @@ flowchart TB
 | 4 | T05a → T09a | T08 → T10a | T05b, T08b | C1 (đầu tuần 4); C2 = **M2** (cuối tuần 4) |
 | 5 | T09b → T09c | T10b → T10c → T22a | T11a, T15b, T15c | |
 | 6 | T14a; soạn thẻ E1, E4a | T11b → T22b → T11c | T15a, T11d; chuẩn bị Dockerfile của T22c | C3 = **M3** (cuối tuần 6) |
-| 7 | Soạn thẻ E1c, E4, E8 | T22c (cùng TV3) → T13 | T12 → T16a → T14b (E0a, cuối tuần) | |
+| 7 | Soạn thẻ E1c, E4, E8 | T13 | T12 → T16a → T14b (E0a, cuối tuần); T22c nếu kịp (tùy chọn) | |
 | 8 | T16b (trong lúc E0b chạy), T16c; phân tích E1 | Sửa lỗi nếu có; theo dõi E8 trong Docker | T14c, T27a → T27b (E8), T17a, T19a, T20a | |
 | 9 | Phân tích E1, E4a; T27c (E8) | T25 chuẩn bị (REP-1 thử) | T18a (và phần còn lại của T19a, T20a, T27b) | C4 (đủ Tier 1 và E8) |
 | 10 | Phân tích E1c, E4 | | T19b → T17b → T20b → T18b (→ T19c) | C5 = **M4** |
@@ -197,7 +197,7 @@ Mỗi checkpoint làm theo H P3.8:
 | C1 | T05a, T05b | `python -m dfl describe --config configs/base.yaml --seeds 20 --out build/describe --check-req02`, rồi vẽ P7 vào `build/describe` | Kiểm JS trên MNIST thật theo REQ-02 (mã thoát 0); hình chưa vào `figures/`, vì PROVENANCE chỉ có từ T16a (INT-1) |
 | C2 (M2) | T08, T08b | Bảng spectral gap sinh từ code, so với KH §3.3 (ring 0.0326, FC 1, ER trung bình khoảng 0.20) | |
 | C3 (M3) | T11c, T11d | `python -m dfl run --config configs/profiles/fast.yaml --out build/fast` cho ring và FC trên IID | `make check-inv` xanh đủ 12 T-INV; P3.7 (`test-engineer`); cài thử và chạy smoke trên laptop demo (phát hiện sớm QS-8) |
-| C4 | T18a, T19a, T20a (đủ 197 lượt của Tier 1) | Hình Tier 1 từ `results/` | SAN-1…5 đã đạt; sao lưu `results/`; Tier 2 chỉ mở sau C4 |
+| C4 | T18a, T19a, T20a, T27b (đủ 269 lượt của Tier 1: 197 lưới lõi + 72 E8) | Hình Tier 1 từ `results/` | SAN-1…5 đã đạt; sao lưu `results/`; Tier 2 chỉ mở sau C4 |
 | C5 (M4) | T19b, T17b, T20b, T18b, T19c | Toàn bộ P1–P9, T1 | Doubt-driven cho mỗi kết luận chính (INT-5); P3.7 lần hai; sao lưu `results/` |
 
 ## 8. T-INV → task (mỗi test đúng một chủ)
@@ -216,7 +216,7 @@ Mỗi checkpoint làm theo H P3.8:
 | T-INV-10 | T09b | unit |
 | T-INV-11 | T10c | integration |
 | T-INV-12 | T10c | integration |
-| T-INV-13 (đề xuất, chờ sửa SPEC §9.2) | T22b (tiến trình cục bộ); T22c kiểm lại trong Docker bằng `make check-docker` | integration |
+| T-INV-13 | T22b (tiến trình cục bộ); T22c kiểm lại trong Docker bằng `make check-docker` (tùy chọn) | integration |
 
 Tên test theo dạng `test_t_inv_<k>_<hành vi>` (SPEC §7). `make check-inv` bắt buộc từ T11b và trước mọi lượt Tier 1.
 
@@ -247,9 +247,9 @@ Tiêu chí kỹ thuật và toàn vẹn:
 ## 10. Ngân sách tính toán (ADR-007; T13 cập nhật)
 
 - Một lượt DFL khoảng 20 phút-lõi.
-- Tier 1 có 197 lượt, khoảng 64 giờ-lõi. Tier 1 + 2 có 278 lượt, khoảng 92 giờ-lõi. Cộng 24 lượt có điều kiện thì khoảng 100 giờ-lõi; kể cả 30% dự phòng thì khoảng 130.
+- Lưới lõi của Tier 1 có 197 lượt, khoảng 64 giờ-lõi (E8 tính riêng ở dưới). Tier 1 + 2 có 278 lượt, khoảng 92 giờ-lõi. Cộng 24 lượt có điều kiện thì khoảng 100 giờ-lõi; kể cả 30% dự phòng thì khoảng 130.
 - Với khoảng 1 lõi rảnh (tải lúc đo khoảng 7 trên 8 nhân), Tier 1 cần khoảng 2.7 ngày chạy liên tục, Tier 1 + 2 khoảng 4–5.5 ngày. Mức này vẫn vừa tuần 8–10, nhưng không đủ cho một lần chạy lại toàn bộ Tier 1.
-- **E8 (K14):** 72 lượt ngắn ở N = 8, R = 50, chạy trong Docker. Ước tính 1–3 phút mỗi lượt, tùy model; M3 tốn nhất. Tổng khoảng 1.5–3.5 giờ wall-clock, và chiếm cả 8 nhân trong lúc chạy, nên xếp vào các đêm không chạy lưới. T13 đo lại.
+- **E8 (K14):** 72 lượt ngắn ở N = 8, R = 50, chạy bằng tiến trình cục bộ (cộng 4 ô trong Docker nếu có). Ước tính 1–3 phút mỗi lượt, tùy model; M3 tốn nhất. Tổng khoảng 1.5–3.5 giờ wall-clock, và chiếm cả 8 nhân trong lúc chạy, nên xếp vào các đêm không chạy lưới. T13 đo lại.
 - **Process runtime:** chỉ dùng cho E8, demo và T-INV-13, nên không đổi ngân sách của lưới. Nếu Q10 đòi chạy cả lưới đa tiến trình thì cần khoảng 7 GB RAM mỗi lượt N = 20, và phải tính lại toàn bộ mục này.
 - Hết T13 thì cập nhật mục này bằng số đo dưới tải thật.
 
@@ -260,7 +260,7 @@ Tiêu chí kỹ thuật và toàn vẹn:
 | TV2 nắm gần hết đường găng tuần 3–7 (topology, mixing, transport, engine, `run`) | Cao | QS-9: TV1 nhận T09a, T09b; TV3 nhận T11a, T02a–c; T10a không đợi T09; tuần 6–7 có dự phòng |
 | Lỗi engine làm sai mọi kết luận | Cao | Mỗi bước engine có T-INV viết trước (K3); doubt-driven ở T10c; P3.7 ở C3; `check-inv` trước E0a |
 | Phát hiện lỗi sau E0a buộc chạy lại mọi lượt (khoảng 64 giờ-lõi với Tier 1) | Cao | K7; review C3 và P3.7 trước T14b; T13 chạy thử cấu hình full trước khi mở lưới |
-| Đã xảy ra (2026-10-01): GVHD trả lời Q1 là cần tiến trình song song | Cao | K14: T22a–c và T09c xong trước T14b. Đường găng dài thêm khoảng một tuần ở TV2; TV3 nhận T22c, TV1 nhận T09c. Nếu tuần 7 trễ, dời E0a tối đa 3 ngày, rồi mới cắt Tier 2 theo ADR-007 (Ask first) |
+| Đã xảy ra (2026-10-01): GVHD trả lời Q1 là cần tiến trình song song | Cao | K14: T22a, T22b và T09c xong trước T14b. Đường găng dài thêm khoảng một tuần ở TV2; TV1 nhận T09c; T22c (TV3) là tùy chọn. Nếu tuần 7 trễ, dời E0a tối đa 3 ngày, rồi mới cắt Tier 2 theo ADR-007 (Ask first) |
 | Gloo treo (deadlock) hay lỗi cổng, khi nhiều tiến trình chạy song song | Trung bình | Thứ tự gửi/nhận cố định, id nhỏ gửi trước; timeout ở mọi test; mỗi lượt một cổng riêng; T22a có test cho ring và FC |
 | Hai runtime không trùng từng bit (T-INV-13 fail) | Trung bình | Mỗi tiến trình một luồng; cùng hàm `combine`; mã hóa state được kiểm trùng từng bit; nếu vẫn lệch thì làm P3.4 (debug), không hạ T-INV-13 thành allclose khi chưa được duyệt |
 | Docker: build cần mạng; máy dùng chung thiếu RAM | Thấp | Build image ở tuần 6–7 khi có mạng; N ≤ 8; đo RAM ở T13; laptop demo không bắt buộc có Docker |
@@ -286,8 +286,8 @@ Còn mở:
 - **O5 (SPEC §1.4):** có viết sẵn hook cho phần mở rộng (tham số dataset cho E6, topology T5) trước E0a không? Mặc định: không; phần mở rộng chỉ so định tính.
 - **O6 (QS-8):** laptop demo chạy hệ điều hành gì? Ảnh hưởng T26 và việc cài thử ở C3.
 - **O7 (Q2, Q9, chờ GVHD):** Q2 (hạn nộp) có thể dời tuần 11–12; Q9 xác nhận cách ánh xạ bốn loại phân phối. Q1 đã trả lời (K14).
-- **O12 (Q10–Q13, chờ GVHD; tin nhắn soạn sẵn ở OPEN_QUESTIONS.md):** chạy cả lưới đa tiến trình hay không (Q10); "độ phức tạp" có phải kích thước model không (Q11); Docker bắt buộc hay tùy chọn, có cần nhiều máy không (Q12); chi phí giao tiếp đo bằng byte hay cả thời gian (Q13). Mặc định theo ADR-010, ADR-011.
-- **O13 (Ask first, chờ nhóm):** sửa SPEC (ASSUMPTIONS 1, §1.4, REQ-15, REQ-16, T-INV-13, §4, §5.1, §9.5, §11.1), KH (A1, §2.4, §4.9, §7, §11), Makefile (`check-inv` đếm tới 13, thêm `check-docker`) và CONSTRAINTS (thêm `make check-docker` vào bảng), theo danh sách ở ADR-010 và ADR-011. Chưa sửa, để SPEC đổi một lần sau khi nhóm duyệt.
+- **O12 (Q10, Q11, nhóm quyết sau):** chạy cả lưới đa tiến trình hay không (Q10); "độ phức tạp" có phải kích thước model không (Q11). Trong lúc chờ, dùng mặc định của ADR-010, ADR-011. Q12 (Docker tùy chọn) và Q13 (đo cả byte lẫn thời gian) đã chốt ngày 2026-10-01.
+- O13: sửa SPEC, Makefile (`check-inv` đếm tới 13) và CONSTRAINTS theo ADR-010, ADR-011 — làm ngày 2026-10-01, sau khi nhóm duyệt K14. `make check-docker` được thêm ở T22c. KH chưa sửa: theo SPEC §10 (dòng 40), KH được cập nhật sau Gate G1.
 - **O8:** HANDOFF còn hai chỗ lệch SPEC/ADR (K10); kế hoạch làm theo SPEC. Có sửa HANDOFF cho khớp không?
 - **O9 (QS-2):** μ của DFedProx được chốt cùng η ở T14b, theo mặc định QS-2; ảnh hưởng cấu hình của T19a và T19b.
 

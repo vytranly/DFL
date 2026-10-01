@@ -1,7 +1,7 @@
 # Checklist triển khai — Đề 2 (Non-IID × DFL)
 
 > Kế hoạch, quyết định, đồ thị phụ thuộc, rủi ro: `tasks/plan.md`. Trạng thái: nhóm đã duyệt (Gate G2, 2026-09-30).
-> **Sửa đổi 2026-10-01 theo trả lời Q1 của GVHD** (cần tiến trình chạy song song, mỗi node độc lập; Docker; tăng độ phức tạp model để xem chi phí giao tiếp): T22a–T22c thành bắt buộc trước E0a; thêm T09c và E8 (T27a–c). Theo ADR-010, ADR-011 (Proposed). **Phần sửa đổi chờ nhóm duyệt** (tasks/plan.md K14).
+> **Sửa đổi 2026-10-01 theo trả lời Q1 của GVHD** (cần tiến trình chạy song song, mỗi node độc lập; Docker; tăng độ phức tạp model để xem chi phí giao tiếp): T22a, T22b thành bắt buộc trước E0a; T22c (Docker) là tùy chọn (Q12); thêm T09c và E8 (T27a–c). Theo ADR-010, ADR-011. **Nhóm duyệt ngày 2026-10-01** (tasks/plan.md K14).
 > **Cách làm một task** (H P3.0, lệnh `/build`):
 > 1. Chọn task chưa làm đầu tiên mà mọi phụ thuộc đã xong.
 > 2. Viết test FAIL trước, rồi code tối thiểu cho test PASS.
@@ -405,7 +405,7 @@
     - `docs/PERF.md` có bảng đo (trước và sau mỗi tối ưu) và số lõi rảnh thực tế.
     - Ngân sách Tier 1 + 2 tính theo số đo mới. Đạt nếu Tier 1 + 2 vừa 3 tuần (tuần 8–10) với số lõi rảnh đo được; không đạt thì đề xuất cắt theo ADR-007 cho nhóm quyết. Không đổi lịch sau E0a.
   - Kiểm chứng: `make check-task`; lệnh đo ghi trong `docs/PERF.md` chạy lại được
-  - Phụ thuộc: T11c, T11d, T12, T22c, T09c
+  - Phụ thuộc: T11c, T11d, T12, T22b, T09c
   - File: `docs/PERF.md`, `configs/base.yaml`, `configs/profiles/full.yaml`, `tasks/plan.md`
 
 - [ ] **T16a · Khung vẽ hình + PROVENANCE + P1** — TV3 · M · ∥ T13
@@ -430,7 +430,7 @@
     - 24 run_id có attempt xong, cùng `code_version`; nhóm đã duyệt kết quả `--dry-run`, vì lưới hơn 10 lượt.
     - η chung, μ và η của B1 ghi vào ADR-007 trước khi chạy E0b; không lượt nào đánh giá trên test.
   - Kiểm chứng: quy trình thí nghiệm với `configs/experiments/e0a_lr.yaml`; `python -m analysis.select_lr --results results/`
-  - Phụ thuộc: T12, T13, T14a, T14e, T11e, T22c, T09c (Q1 đã trả lời: đa tiến trình là code của lưới); G1 (ADR đã Accepted); `make check-inv` xanh; cây sạch
+  - Phụ thuộc: T12, T13, T14a, T14e, T11e, T22b, T09c (Q1 đã trả lời: process runtime là code của lưới); G1 (ADR đã Accepted); `make check-inv` xanh; cây sạch
   - File: `docs/experiments/E0a.md`, `configs/experiments/e0a_lr.yaml`, `docs/experiments/CODE_VERSIONS.md`, `docs/decisions/ADR-007-evaluation-protocol.md`, `configs/base.yaml` (η, μ, η của B1 cho E0b trở đi)
 
 ## Tuần 8–9 — Tier 1 (C4)
@@ -498,7 +498,7 @@
   - Phụ thuộc: T17a (SAN-4), T16b, T16c
   - File: `docs/experiments/E2.md`, `configs/experiments/e2_topology.yaml`
 
-- [ ] **Checkpoint C4** — sau T18a, T19a, T20a, tức đủ 197 lượt của Tier 1 (EXP-2): `make check-full`; hình Tier 1 từ `results/`; SAN-1…5 đã đạt; sao lưu `results/`; review; nhóm duyệt trước khi mở Tier 2
+- [ ] **Checkpoint C4** — sau T18a, T19a, T20a và T27b, tức đủ 269 lượt của Tier 1 (EXP-2: 197 lượt lưới lõi và 72 lượt E8): `make check-full`; hình Tier 1 từ `results/`; SAN-1…5 đã đạt; sao lưu `results/`; review; nhóm duyệt trước khi mở Tier 2
 
 ## Tuần 10 — Tier 2 (thứ tự ngược với thứ tự cắt: E3b → E1c → E4 → E2b) (C5, M4)
 
@@ -591,9 +591,9 @@
   - Phụ thuộc: T24, T26
   - File: `docs/VALIDATION.md`
 
-## Đa tiến trình, Docker, thang model và E8 — bắt buộc theo trả lời Q1 (ADR-010, ADR-011; chờ nhóm duyệt)
+## Đa tiến trình, Docker, thang model và E8 — theo trả lời Q1 (ADR-010, ADR-011; nhóm duyệt 2026-10-01)
 
-Các task `src/` dưới đây là code của lưới: phải xong trước T14b (E0a), để lưới, E8 và demo cùng một `code_version` (K7).
+T22a, T22b và T09c là code của lưới: phải xong trước T14b (E0a), để lưới, E8 và demo cùng một `code_version` (K7). T22c (Docker) là tùy chọn (Q12) và nằm ngoài `src/`, nên không chặn E0a.
 
 - [ ] **T22a · `TorchDistTransport` (gloo)** ⚠ — TV2 · M · ∥ T09c, T11a
   - Mô tả: Transport cho một tiến trình node ở `sim/torchdist.py` (ADR-010).
@@ -612,7 +612,7 @@ Các task `src/` dưới đây là code của lưới: phải xong trước T14b
   - Mô tả: `sim/process_runtime.py` (ADR-010).
     - Vòng lặp của tiến trình node: cùng một round ATC bằng `Node`, `combine`, `make_snapshot` và TorchDistTransport; G_t tự tính từ seed chung (G18); kiểm hữu hạn; dừng mọi tiến trình khi phân kỳ hay lỗi.
     - Vòng lặp của observer: nhận state và số đếm ở mốc đánh giá qua kênh đo (không tính phí), dựng RoundRecord, ghi kết quả bằng RunLogger.
-    - `python -m dfl run --runtime processes` khởi chạy N + 1 tiến trình cục bộ. TimingRecord thêm `comm_s`.
+    - `python -m dfl run --runtime processes` khởi chạy N + 1 tiến trình cục bộ; mỗi tiến trình chạy `python -m dfl node --rank k --world-size W --master-addr …`, đúng lệnh mà container Docker dùng (T22c). TimingRecord thêm `comm_s`.
   - Chấp nhận:
     - T-INV-13 (khi SPEC đã thêm, Ask first): với smoke N = 4 trên ring, gossip và FC, `rounds.jsonl` trùng từng byte với bản in-process cùng cấu hình và seed.
     - Một node phân kỳ thì mọi tiến trình dừng gọn (không treo), và SummaryDiverged có cùng `diverged_at_round` như bản in-process.
@@ -621,7 +621,7 @@ Các task `src/` dưới đây là code của lưới: phải xong trước T14b
   - Phụ thuộc: T22a, T11b
   - File: `src/dfl/sim/process_runtime.py`, `src/dfl/sim/run.py`, `src/dfl/contracts.py` (TimingRecord.comm_s), `tests/unit/test_contracts_smoke.py`, `tests/integration/test_process_runtime.py`
 
-- [ ] **T22c · Docker: mỗi node một container** — TV3 · M · ∥ T12
+- [ ] **T22c · Docker: mỗi node một container (tùy chọn, Q12)** — TV3 · M · ∥ T12, T13
   - Mô tả:
     - `docker/Dockerfile`: python:3.12-slim, cài torch CPU và file khóa, chạy bằng user không phải root.
     - `docker/compose.py`: sinh file Compose cho N node và một observer trên một bridge network; `data/` gắn chỉ đọc.
@@ -646,19 +646,19 @@ Các task `src/` dưới đây là code của lưới: phải xong trước T14b
   - File: `src/dfl/learning/models.py`, `src/dfl/config.py`, `tests/unit/test_models.py`
 
 - [ ] **T27a · E8: thẻ tiền đăng ký + cấu hình** — TV3 · S · ∥ T14c
-  - Mô tả: thẻ `docs/experiments/E8.md` ghi H8 và quy tắc kết luận (ADR-011). `configs/experiments/e8_model_complexity.yaml` có lưới {M0, M1, M2, M3} × {T1, T3, T4} × {IID, α = 0.1} × 3 seed = 72 lượt, với N = 8, τ = 20, R theo T13, `runtime: processes`, `deploy: docker`. Thẻ được commit trên nhánh `grid` trước khi chạy (EXP-1).
+  - Mô tả: thẻ `docs/experiments/E8.md` ghi H8 và quy tắc kết luận (ADR-011). `configs/experiments/e8_model_complexity.yaml` có lưới {M0, M1, M2, M3} × {T1, T3, T4} × {IID, α = 0.1} × 3 seed = 72 lượt, với N = 8, τ = 20, R theo T13, `runtime: processes`, `deploy: local`; nếu có T22c thì thêm 4 ô {M1, M3} × {T1, T4} × IID, seed 0, với `deploy: docker`. Thẻ được commit trên nhánh `grid` trước khi chạy (EXP-1).
   - Chấp nhận:
     - Thẻ có trước mọi lượt E8 trong lịch sử git.
     - `--dry-run` báo 72 lượt, và nhóm đã duyệt, vì lưới hơn 10 lượt.
   - Kiểm chứng: `python -m dfl sweep --experiment configs/experiments/e8_model_complexity.yaml --dry-run`
-  - Phụ thuộc: T22c, T09c, T14b
+  - Phụ thuộc: T22b, T09c, T14b
   - File: `docs/experiments/E8.md`, `configs/experiments/e8_model_complexity.yaml`
 
-- [ ] **T27b · E8: chạy 72 lượt trong Docker** — TV3 · S · ∥ T17a, T19a
-  - Mô tả: chạy theo quy trình thí nghiệm, từ worktree của lưới, với `deploy: docker`; ghi tải của máy chủ trong lúc chạy. Chạy lại 2 ô M1 bằng in-process và so `rounds.jsonl` (T-INV-13 trên dữ liệu thật, N = 8).
+- [ ] **T27b · E8: chạy 72 lượt (tiến trình cục bộ; 4 ô thêm trong Docker nếu có)** — TV3 · S · ∥ T17a, T19a
+  - Mô tả: chạy theo quy trình thí nghiệm, từ worktree của lưới, với `deploy: local`, cùng 4 ô Docker nếu T22c đã xong; ghi tải của máy chủ trong lúc chạy. Chạy lại 2 ô M1 bằng in-process và so `rounds.jsonl` (T-INV-13 trên dữ liệu thật, N = 8).
   - Chấp nhận:
     - 72 run_id có attempt xong (`ok` hoặc `diverged`), cùng một `code_version`.
-    - Hai bản in-process trùng từng byte với bản Docker; số liệu `docker stats` được ghi lại.
+    - Hai bản in-process trùng từng byte với bản process runtime; nếu có 4 ô Docker thì số liệu `docker stats` được ghi lại.
   - Kiểm chứng: quy trình thí nghiệm với `configs/experiments/e8_model_complexity.yaml`; `cmp` hai cặp `rounds.jsonl`
   - Phụ thuộc: T27a
   - File: `docs/experiments/E8.md`

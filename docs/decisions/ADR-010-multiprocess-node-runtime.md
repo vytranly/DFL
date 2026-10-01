@@ -1,7 +1,7 @@
 # ADR-010: Mỗi node một tiến trình độc lập (tiến trình cục bộ hoặc container Docker) qua torch.distributed/gloo; bộ mô phỏng một tiến trình được giữ và phải trùng từng bit
 
 ## Status
-Proposed — nhóm soạn ngày 2026-10-01 theo trả lời Q1 của GVHD; chờ nhóm duyệt và GVHD xác nhận Q10–Q13 (OPEN_QUESTIONS.md). Bổ sung ADR-002, không thay thế nó (phương án đã ghi sẵn trong ADR-002, mục "Chờ Q1"). Nếu GVHD trả lời Q10 là "mọi thí nghiệm phải chạy đa tiến trình", ADR này thay thế ADR-002 và phải tính lại ngân sách ở ADR-007.
+Proposed — nhóm soạn ngày 2026-10-01 theo trả lời Q1 của GVHD; **nhóm duyệt ngày 2026-10-01 (K14)**, chờ Gate G1. Q12 (Docker là tùy chọn) và Q13 (đo cả byte lẫn thời gian) đã chốt; Q10, Q11 nhóm quyết sau (OPEN_QUESTIONS.md). Bổ sung ADR-002, không thay thế nó (phương án đã ghi sẵn trong ADR-002, mục "Chờ Q1"). Nếu GVHD trả lời Q10 là "mọi thí nghiệm phải chạy đa tiến trình", ADR này thay thế ADR-002 và phải tính lại ngân sách ở ADR-007.
 
 ## Date
 2026-10-01
@@ -32,14 +32,14 @@ Proposed — nhóm soạn ngày 2026-10-01 theo trả lời Q1 của GVHD; chờ
 - **Transport trong mỗi tiến trình** (`TorchDistTransport`) giữ nguyên giao diện `Transport`. CommLedger của nó đếm message và byte mà chính node đó gửi và nhận. Observer cộng các số đếm này, nên `messages_cum`, `bytes_cum` và `max_node_bytes_cum` có cùng định nghĩa với bản in-process.
 - **Hai cách khởi chạy:**
   - Tiến trình cục bộ: `python -m dfl run --runtime processes`, khởi chạy N + 1 tiến trình bằng start method `spawn` trên 127.0.0.1. Cách này dùng cho test và e2e, không cần Docker: https://docs.pytorch.org/docs/2.14/multiprocessing.html
-  - Docker Compose: mỗi node một container cộng một container observer, trên một bridge network. N nhỏ (4–8), theo "số lượng ít cũng được". Dùng cho demo và E8: https://docs.docker.com/compose/
+  - Docker Compose, **tùy chọn** (Q12): mỗi node một container cộng một container observer, trên một bridge network. N nhỏ (4–8), theo "số lượng ít cũng được". Container gọi cùng lệnh `python -m dfl node --rank k …` mà launcher cục bộ dùng, nên Docker chỉ là cách triển khai: file Docker nằm ngoài `src/` và không đổi `code_version`. Dùng cho demo và một phần E8: https://docs.docker.com/compose/
 - **Tương đương là điều kiện chấp nhận:**
   - Cùng cấu hình, seed và `code_version`, process runtime phải cho `rounds.jsonl` trùng từng byte với bản in-process. Kiểm ở smoke N = 4 bằng tiến trình cục bộ, và ở một lượt N = 8 trong Docker.
   - Phép kiểm này là T-INV-13 (cần sửa SPEC §9.2 và `make check-inv`, Ask first).
   - Trùng từng bit làm được vì gloo chép đúng byte của tensor, mỗi tiến trình chạy một luồng, và phép cộng vẫn theo id người gửi tăng dần.
 - **Dùng runtime nào cho thí nghiệm nào (chờ Q10):**
   - Lưới Non-IID N = 20 chạy bằng bộ mô phỏng in-process (ADR-002), dựa vào T-INV-13.
-  - Process runtime và Docker dùng cho:
+  - Process runtime (tiến trình cục bộ; Docker nếu có) dùng cho:
     - E8 (ADR-011);
     - một bản lặp lại của vài ô lõi ở N = 8, làm bằng chứng hệ thống thật cho cùng kết quả;
     - demo.
@@ -77,7 +77,7 @@ Proposed — nhóm soạn ngày 2026-10-01 theo trả lời Q1 của GVHD; chờ
   - `sim/torchdist.py` (Transport đa tiến trình);
   - `sim/process_runtime.py` (vòng lặp của một node và của observer);
   - lựa chọn runtime trong `sim/run.py`;
-  - thư mục `docker/` (Dockerfile và file Compose sinh theo N).
+  - thư mục `docker/` (Dockerfile và file Compose sinh theo N): tùy chọn (Q12), ngoài `src/`, nên làm sau E0a cũng không đổi `code_version`.
 - **Schema đổi trước Tier 1:**
   - TimingRecord thêm `comm_s`;
   - cấu hình thêm `runtime: inprocess | processes` và `deploy: local | docker`.
@@ -87,8 +87,8 @@ Proposed — nhóm soạn ngày 2026-10-01 theo trả lời Q1 của GVHD; chờ
   - Thời gian giao tiếp đo trên một máy (loopback, hoặc bridge network của Docker), không phải mạng thật.
   - Byte vẫn là thước đo chính của chi phí giao tiếp.
   - Mỗi node tự tính cách chia dữ liệu từ seed chung và tập train chung; đây là tiện lợi của mô phỏng, không phải giả định về dữ liệu thật.
-- **SPEC, KH và Makefile cần sửa sau khi nhóm duyệt (Ask first):**
+- **SPEC, KH và Makefile cần sửa sau khi nhóm duyệt** (SPEC, Makefile và CONSTRAINTS đã sửa ngày 2026-10-01 sau khi nhóm duyệt K14):
   - SPEC: ASSUMPTIONS 1; §1.4 (đa tiến trình thành bắt buộc; Docker; nhiều máy vẫn ngoài phạm vi); REQ-15 (process runtime) và REQ-16 (chi phí giao tiếp theo độ phức tạp model, ADR-011); T-INV-13 ở §9.2; lệnh ở §4; cây thư mục ở §5.1; E8 ở §9.5; Q1 ở §11.1.
-  - KH: A1, §2.4, §4.9, §7, §11.
-  - Makefile: `check-inv` đếm tới 13, thêm `check-docker`.
-- **Ngân sách và lịch:** T22a–T22d và T09c chiếm tuần 5–7 (tasks/plan.md §6). E8 chạy song song với Tier 1 ở tuần 8–9 với N = 8, khoảng 24 lượt ngắn. Nếu tuần 8–10 không đủ, cắt Tier 2 theo thứ tự của ADR-007 (Ask first).
+  - KH: A1, §2.4, §4.9, §7, §11, cập nhật sau Gate G1, theo SPEC §10 dòng 40.
+  - Makefile: `check-inv` đếm tới 13 (đã sửa); `check-docker` thêm ở T22c (tùy chọn).
+- **Ngân sách và lịch:** T22a, T22b và T09c chiếm tuần 5–7 (tasks/plan.md §6); T22c (Docker) là tùy chọn, không chặn E0a. E8 chạy song song với Tier 1 ở tuần 8–9 với N = 8, khoảng 24 lượt ngắn. Nếu tuần 8–10 không đủ, cắt Tier 2 theo thứ tự của ADR-007 (Ask first).

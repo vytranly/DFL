@@ -56,7 +56,7 @@ Proposed — chờ Gate G1. Giá trị η (và μ theo SPEC QS-2) được đi�
   - **Lượt phân kỳ:** tính là không đạt R@x. Ô có seed phân kỳ báo cáo "k/n seed phân kỳ" cùng điểm của từng seed, không lấy trung bình qua NaN. Giả thuyết dựa trên ô đó được ghi "chưa kết luận", trừ khi thẻ thí nghiệm đã quy định trước cách xử lý.
 - **Ngân sách (QĐ-2), theo số đo ngày 2026-09-30:**
   - Một lượt DFL đủ ngân sách tốn khoảng 20 phút-lõi: huấn luyện 20 node × 4,000 bước × 10.5 ms ≈ 14 phút; đánh giá 40 mốc × 21 model × 0.40 s ≈ 5.6 phút; đánh giá cuối khoảng 0.7 phút. B1 khoảng 4 phút, B1-4k khoảng 1 phút.
-  - Tier 1 (197 lượt) khoảng 64 giờ-lõi. Tier 1 + 2 (278 lượt) khoảng 92 giờ-lõi, 100 nếu chạy đủ 24 lượt có điều kiện, khoảng 130 kể cả 30% dự phòng.
+  - Lưới lõi của Tier 1 (197 lượt) khoảng 64 giờ-lõi; E8 (72 lượt ngắn, ADR-011) tính riêng. Tier 1 + 2 (278 lượt) khoảng 92 giờ-lõi, 100 nếu chạy đủ 24 lượt có điều kiện, khoảng 130 kể cả 30% dự phòng.
   - Thời gian thực bằng giờ-lõi chia số lõi rảnh. Với khoảng 1 lõi rảnh (tải khoảng 7 trên 8 nhân): Tier 1 khoảng 2.7 ngày, Tier 1 + 2 khoảng 4–5.5 ngày chạy liên tục. Với 4 lõi rảnh: khoảng 1–1.5 ngày. Vẫn nằm trong 4 tuần dành cho thí nghiệm (tuần 7–10), nhưng dự phòng 30% không đủ cho một lần chạy lại toàn bộ Tier 1 (khoảng 64 giờ-lõi) nếu phải sửa lỗi sau khi Tier 1 xong. Khi đó áp dụng thứ tự cắt ở dưới.
   - Đường găng: E0a → ghi η → E0b → SAN-1…3 → E1 (ô α = 100 trước, để có SAN-4 sớm) → SAN-4 → E2. E3a và E4a chạy song song với E1 sau khi qua SAN-1…3.
   - Lịch đánh giá, tập con đánh giá và số luồng nằm trong `run_id`, nên T13 phải chốt chúng trước E0a, sau khi đo tốc độ dưới tải thật. Sau E0a không đổi chúng nữa; nếu chậm hơn dự kiến thì chỉ cắt Tier 2.

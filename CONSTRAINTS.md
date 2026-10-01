@@ -11,9 +11,9 @@ Quy tắc cho mọi agent và thành viên: đọc file này trước khi viết
 | `make check-fast` | sàn (`check-floor`) + `ruff check` + `ruff format --check` + `lint-imports` + unit test | vài giây | sau mỗi lần sửa | chặn |
 | `make check-task` | như trên + integration test + coverage | 90 s | trước mỗi commit | chặn; vượt ngân sách thì chỉ cảnh báo |
 | `make check-full` | như trên + mọi test (gồm e2e, smoke từ T11) + `pip check` | vài phút | mỗi checkpoint C1–C5 | chặn |
-| `make check-inv` | T-INV-1…12 có đủ và xanh | — | từ C3, và trước mọi lượt Tier 1 | chặn |
+| `make check-inv` | T-INV-1…13 có đủ và xanh (T-INV-13 thêm ngày 2026-10-01, ADR-010) | — | từ C3, và trước mọi lượt Tier 1 | chặn |
 
-Hiện trạng ngày 2026-09-30: `check-fast`, `check-task`, `check-full` xanh; `check-inv` báo thiếu cả 12 test (đúng dự kiến, vì chưa tới C3).
+Hiện trạng ngày 2026-09-30: `check-fast`, `check-task`, `check-full` xanh; `check-inv` báo thiếu cả 12 test (đúng dự kiến, vì chưa tới C3). Ngày 2026-10-01: thêm T-INV-13; `check-inv` vẫn báo thiếu test của các task chưa làm (đúng dự kiến trước C3).
 
 ## Sàn (luôn bắt buộc)
 
@@ -38,7 +38,7 @@ Luật ruff `S311` vốn cảnh báo về mật mã; ở đây nó được dùn
 | Lint + format | 0 lỗi ruff, đúng định dạng `ruff format` | `ruff check .` và `ruff format --check .` | check-fast, check-task, check-full | Bộ luật E, F, W, I, B, UP cộng các luật sàn ở trên; 0 lỗi là mức đạt được ngay hôm nay |
 | Ranh giới module | 0 contract import bị phá: `layers`, `no-analysis-in-src`, `analysis-reads-only`, `pure-no-torch`, `no-dev-deps` | `lint-imports` (import-linter 2.15, cấu hình `[tool.importlinter]` trong `pyproject.toml`) | check-fast, check-task, check-full | Capability map và hướng phụ thuộc một chiều của SPEC §3.2; ENG-6, ENG-7. `no-dev-deps` cấm `dfl` và `analysis` import scipy, sklearn, joblib, pytest, vì các gói này không nằm trong `requirements.lock` (P1.9). Đã thử phá từng contract, cả 5 đều bắt được |
 | Coverage | ≥ 80% dòng cho `src/dfl` (trừ `cli.py`) và `analysis/` | `pytest --cov` với `fail_under = 80` trong `[tool.coverage.report]` | check-task, check-full | 80% đủ cao để buộc có test, vẫn chừa chỗ cho dòng cấu hình (KH §5.1). `analysis/` tính vào vì R@x, AUC, CI, kiểm định H2 quyết định kết luận (nhóm chốt QS-5 ở P1.8) |
-| Test bất biến | T-INV-1…12 có đủ (tên `test_t_inv_<k>_<hành vi>`) và xanh | `make check-inv` | từ C3 (T11); trước mọi lượt Tier 1 | Lỗi mô phỏng làm sai mọi kết luận (KH §9); SPEC §9.2 |
+| Test bất biến | T-INV-1…13 có đủ (tên `test_t_inv_<k>_<hành vi>`) và xanh | `make check-inv` | từ C3 (T11); trước mọi lượt Tier 1 | Lỗi mô phỏng làm sai mọi kết luận (KH §9); SPEC §9.2 |
 | Smoke e2e | `tests/e2e/test_smoke_run.py` chạy `python -m dfl run` với profile smoke và kiểm đủ 4 file đúng schema | pytest trong check-full | từ T11 | ENG-4; bắt lỗi ghép nối mà unit test không thấy |
 | Phụ thuộc | Không có phụ thuộc hỏng | `python -m pip check` | check-full | Kiểm chứng từ metadata bên ngoài dự án |
 
@@ -69,6 +69,7 @@ Các kiểm tra sau không do chính test của dự án tự chấm:
 - T-INV-10: macro-F1 so với scikit-learn.
 - T-INV-8: kết quả chia dữ liệu so với hàm tham chiếu sao từ thuật toán NIID-Bench.
 - T-INV-9: spectral gap so với công thức giải tích.
+- Docker (tùy chọn, T22c, ADR-010): số byte mạng của container theo `docker stats` so với số byte của CommLedger, ở `make check-docker` và 4 ô Docker của E8.
 - `pip check`: metadata của các phụ thuộc. Đây là kiểm tra duy nhất chạy được ngay hôm nay; các kiểm tra còn lại có hiệu lực theo task của chúng.
 
 ## Đo và giữ (ratchet)
@@ -92,6 +93,8 @@ Chỉ được thêm hoặc thắt chặt, không được nới.
 | T14 | Có lệnh kiểm sanity R7 (SAN-1…5); chạy `make check-inv` trước E0a |
 | T15 | `analysis` kiểm R4, R5, R9 |
 | T16 | `figures/PROVENANCE.json` có `analysis_version`; lệnh từ chối khi `analysis/` bẩn; chế độ `--draft` (R1) |
+| T22b | Có `test_t_inv_13_…` (process runtime trùng từng byte với bộ mô phỏng); `make check-inv` đếm tới 13 (Makefile đã đổi ngày 2026-10-01) |
+| T22c (tùy chọn) | Thêm `make check-docker` vào bảng lệnh ở đầu file: chạy tay, ghi kết quả vào `docs/DOCKER.md` |
 | Mỗi checkpoint | Tăng `MIN_TESTS` lên bằng số test hiện có; ghi lại coverage |
 
 ## Ngoại lệ

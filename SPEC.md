@@ -9,13 +9,13 @@
 
 ```text
 ASSUMPTIONS (giả định khi viết SPEC — sửa ngay nếu sai; nếu không, các task sẽ làm theo):
-1. "Hệ thống P2P" = mô phỏng đơn tiến trình, đồng bộ; node chỉ trao đổi model qua Transport có đếm byte,
-   không có server (A1, ADR-002). Chờ GVHD trả lời Q1; hết tuần 3 chưa có trả lời thì hỏi lại. Nếu GVHD
-   yêu cầu P2P thật, T22 (4–8 tiến trình, torch.distributed/gloo) thành bắt buộc và phải xong trước E0a,
-   để code_version không đổi giữa lưới; TorchDistTransport đặt ở `sim` (phải import torch). Hết tuần 5
-   (trước E0a) vẫn chưa có trả lời thì vẫn chạy lưới bằng mô phỏng đơn tiến trình, để không trễ lịch.
-   Im lặng không phải là đồng ý: cách hiểu "P2P" vẫn là rủi ro, được ghi vào mục hạn chế, và nhóm hỏi
-   lại ở buổi gặp kế tiếp. Khi đó T22 làm ngay sau T13, trước M4, không còn là tùy chọn (QS-10, nhóm chốt).
+1. "Hệ thống P2P" (Q1, GVHD trả lời ngày 2026-10-01: "Cô cần các process chạy song song, mỗi node chạy
+   độc lập"): mỗi node là một tiến trình riêng, trao đổi model với láng giềng qua torch.distributed/gloo, không
+   có server và không có điều phối viên (process runtime, ADR-010). Logic node dùng chung với bộ mô phỏng đơn
+   tiến trình (ADR-002), và hai runtime phải cho `rounds.jsonl` trùng từng byte (T-INV-13). Lưới Non-IID
+   N = 20 chạy bằng bộ mô phỏng; process runtime dùng cho E8, demo và kiểm tương đương. Q10 (có chạy cả lưới
+   đa tiến trình không) nhóm quyết sau. Docker Compose, mỗi node một container, là cách triển khai tùy chọn
+   (Q12). Code của process runtime là code của lưới, phải xong trước E0a (K14).
 2. Nhóm 3 người, 12 tuần (QĐ-1). Mọi thí nghiệm chạy trên máy chủ CPU hiện tại (8 nhân, không GPU,
    dùng chung với người khác: lúc đo tải trung bình khoảng 7); laptop cá nhân chỉ dùng để demo (QĐ-3).
    Không viết nhánh code cho GPU (QĐ-5).
@@ -59,15 +59,16 @@ Một bộ mô phỏng **Decentralized Federated Learning (DFL) không server**,
 
 - **O1** môi trường DFL tái lập được · **O2** định lượng ảnh hưởng của Non-IID · **O3** so sánh topology và thuật toán dưới cùng điều kiện Non-IID · **O4** khuyến nghị, mỗi khuyến nghị dẫn chiếu hình và run ID (KH §2.1).
 - **RQ1** Non-IID tăng thì accuracy, tốc độ hội tụ, phương sai giữa node đổi thế nào? · **RQ2** Topology nào chống chịu tốt nhất; mức suy giảm có giải thích được bằng spectral gap hay consensus distance không? · **RQ3** Ở cùng tổng số bước cục bộ, τ và μ đánh đổi accuracy với chi phí giao tiếp ra sao? · **RQ4** Quantity skew có tác động như label skew không; trọng số trộn có quan trọng không? (KH §2.2)
-- **H1–H7** (KH §2.3) là giả thuyết đăng ký trước để kiểm chứng, không phải điều mặc định đúng. Mỗi nhóm thí nghiệm có thẻ tiền đăng ký `docs/experiments/E<k>.md` (mẫu H§5.3) trước khi chạy; kết quả trái giả thuyết vẫn được báo cáo.
+- **H1–H7** (KH §2.3) và **H8** (ADR-011: chi phí giao tiếp theo độ phức tạp model) là giả thuyết đăng ký trước để kiểm chứng, không phải điều mặc định đúng. Mỗi nhóm thí nghiệm có thẻ tiền đăng ký `docs/experiments/E<k>.md` (mẫu H§5.3) trước khi chạy; kết quả trái giả thuyết vẫn được báo cáo.
 
 ### 1.4 Phạm vi (KH §2.4 — không thêm tính năng ngoài bảng này)
 
 | Trong phạm vi (bắt buộc) | Mở rộng (chỉ sau M4, thứ tự QĐ-4) | Ngoài phạm vi (QĐ-5) |
 |---|---|---|
-| Mô phỏng DFL đồng bộ, đơn tiến trình, message-passing có đếm byte | CIFAR-10 nếu T13 cho thấy chạy nổi trên CPU; Fashion-MNIST (E6); quy mô N ∈ {10, 50} (E5) | Differential privacy, mã hóa, tấn công/phòng thủ Byzantine |
-| MNIST; IID, Dirichlet, #C = k, quantity skew | `TorchDistTransport` (gloo, 4–8 tiến trình); thành bắt buộc nếu Q1 yêu cầu, hoặc nếu tới hết tuần 5 GVHD chưa trả lời Q1 (QS-10; khi đó làm ngay sau T13, không đợi M4) | Nén / lượng tử hóa model |
-| Ring, Erdős–Rényi liên thông, random pairwise gossip, fully-connected; star chỉ làm tham chiếu | Random k-regular, đồ thị mũ (T5); vị trí dữ liệu theo độ trung tâm (E7); gossip bất đồng bộ | Mạng thật nhiều máy, đo độ trễ mạng; GPU / Colab |
+| DFL đồng bộ, message-passing có đếm byte, chạy bằng hai runtime cho kết quả trùng từng bit: bộ mô phỏng đơn tiến trình (lưới) và process runtime, mỗi node một tiến trình qua gloo (ADR-010); Docker Compose tùy chọn (Q12) | CIFAR-10 nếu T13 cho thấy chạy nổi trên CPU; Fashion-MNIST (E6); quy mô N ∈ {10, 50} (E5) | Differential privacy, mã hóa, tấn công/phòng thủ Byzantine |
+| MNIST; IID, Dirichlet, #C = k, quantity skew | Chạy cả lưới bằng process runtime, nếu nhóm quyết theo Q10 | Nén / lượng tử hóa model |
+| Ring, Erdős–Rényi liên thông, random pairwise gossip, fully-connected; star chỉ làm tham chiếu | Random k-regular, đồ thị mũ (T5); vị trí dữ liệu theo độ trung tâm (E7); gossip bất đồng bộ | Nhiều máy thật, đo trên mạng thật (thời gian giao tiếp chỉ đo trên một máy, ADR-010); GPU / Colab |
+| Thang model M0–M3 (7,850 → 1,663,370 tham số) chỉ cho E8: chi phí giao tiếp, cả byte lẫn thời gian đo được, theo độ phức tạp model (ADR-011) | Tăng số node hay giới hạn băng thông trong E8 (Q11) | |
 | D-PSGD, DFedAvg, DFedProx; quét τ; baseline tập trung, chỉ cục bộ, FedAvg có server | | Giao diện web / dashboard |
 | Accuracy (toàn cục và theo phân bố cục bộ), macro-F1, bước/byte để đạt ngưỡng, độ ổn định, drift, consensus distance, phương sai giữa node | | Model khác nhau giữa các node |
 
@@ -105,9 +106,9 @@ Code cho phần mở rộng nếu viết sau E0a sẽ làm đổi `code_version`
 |---|---|---|---|---|---|
 | `data` | `src/dfl/data/{datasets,partition,heterogeneity}.py` | Nạp MNIST bằng torchvision thành tensor trong RAM, chuẩn hóa, tách validation 5k phân tầng; P0–P3 đúng thuật toán NIID-Bench (min_size = 64); hoán vị vị trí node theo seed; JS, TV, số lớp ≥ 5%, CV(n), lệch mục tiêu, ma trận node × lớp | `partition`/`heterogeneity` import torch; biết topology hay model | TV1 | T03, T04a, T04b, T05a |
 | `network` | `src/dfl/network/{topology,mixing,transport}.py` | T0–T4, T3b (T5 tùy chọn); `graph_at(round)` là hàm thuần của (seed, round); ER lấy mẫu lại tới khi liên thông; MH / uniform / size-weighted; kiểm tra ngẫu nhiên hàng/kép; spectral gap; trọng số mục tiêu π (`objective_weights`, ADR-005); Transport in-memory + CommLedger, nơi duy nhất đếm message và byte (tổng và theo từng node, kể cả server ảo có chỉ số N của B3/E1c), đọc số byte từ `Snapshot.nbytes` | Import torch; tổng hợp model; copy payload theo số láng giềng; message node tự gửi cho mình | TV2 | T06, T07, T08 |
-| `learning` | `src/dfl/learning/{models,local_train}.py` | SmallCNN 46,730 tham số (không BatchNorm, không dropout); τ bước SGD (momentum 0, weight decay 0), minibatch B = 32 lấy có hoàn lại, số hạng prox μ với anchor = $w_i^t$ (clone + detach), hệ số mất mát $c_i$; ngẫu nhiên qua `torch.Generator` riêng từng node | Truy cập node khác, Transport hay topology | TV1 (QS-9) | T09a |
+| `learning` | `src/dfl/learning/{models,local_train}.py` | SmallCNN 46,730 tham số (không BatchNorm, không dropout); thang M0–M3 chỉ cho E8 (ADR-011); τ bước SGD (momentum 0, weight decay 0), minibatch B = 32 lấy có hoàn lại, số hạng prox μ với anchor = $w_i^t$ (clone + detach), hệ số mất mát $c_i$; ngẫu nhiên qua `torch.Generator` riêng từng node | Truy cập node khác, Transport hay topology | TV1 (QS-9) | T09a |
 | `metrics-io` | `src/dfl/metrics/{classification,consensus}.py`, `src/dfl/io/{run_logger,manifest}.py` | Độ đo trong lúc chạy: $\mathrm{Acc}_i$, $\mathrm{Acc}^{loc}_i$, $\mathrm{Acc}^{eff}$, macro-F1 (từ ma trận nhầm lẫn), drift trước tổng hợp, consensus distance sau tổng hợp; ghi manifest/rounds/timing/summary theo attempt; tính `code_version`, `run_id` | Tự đếm byte (INV-2); tiêu thụ RNG của huấn luyện (INV-5); ghi đè attempt cũ; ghi thời gian vào `rounds.jsonl` (INV-6) | TV1: độ đo (T09b); TV3: io (T11a) (QS-9) | T09b, T11a |
-| `sim` | `src/dfl/sim/{node,engine,observer,sweep}.py`, `src/dfl/cli.py`, `src/dfl/__main__.py` | Trạng thái node; vòng ATC; Observer theo lịch đánh giá (trước và sau tổng hợp); baseline B1–B3, trong đó B3 và E1c đi qua đường server (ADR-005); lắp ráp một lượt từ cấu hình; sweep idempotent, mỗi lượt một tiến trình con mới (§5.2); CLI `run`, `sweep`, `describe`, `download`; `TorchDistTransport` nếu làm T22 (phải import torch nên đặt ở đây, không ở `network`) | Đưa đại lượng toàn cục vào huấn luyện (INV-1); đọc model của node khác ngoài inbox | TV2: engine, `run`, baseline, hiệu năng, T22 (T10a–c, T11b, T11c, T13); TV1: `describe` dữ liệu (T05a); TV3: `describe` topology, sweep (T08b, T12) | T05a, T08b, T10a–T13 |
+| `sim` | `src/dfl/sim/{node,engine,observer,sweep,torchdist,process_runtime}.py`, `src/dfl/cli.py`, `src/dfl/__main__.py` | Trạng thái node; vòng ATC trong một tiến trình (Engine) và mỗi node một tiến trình (process runtime qua gloo, cộng một tiến trình observer; ADR-010); Observer theo lịch đánh giá (trước và sau tổng hợp); baseline B1–B3, trong đó B3 và E1c đi qua đường server (ADR-005); lắp ráp một lượt từ cấu hình; sweep idempotent, mỗi lượt một tiến trình con mới (§5.2); CLI `run`, `sweep`, `describe`, `download`; `TorchDistTransport` nếu làm T22 (phải import torch nên đặt ở đây, không ở `network`) | Đưa đại lượng toàn cục vào huấn luyện (INV-1); đọc model của node khác ngoài inbox | TV2: engine, `run`, baseline, hiệu năng, T22 (T10a–c, T11b, T11c, T13); TV1: `describe` dữ liệu (T05a); TV3: `describe` topology, sweep (T08b, T12) | T05a, T08b, T10a–T13 |
 | `analysis` | `analysis/{aggregate,convergence,stats,plots}.py` (ngoài `src/`, nên sửa không làm đổi `code_version`) | Tự đọc JSON/JSONL của `results/` bằng code riêng; gom các lượt thành DataFrame/CSV; độ đo suy ra từ `rounds.jsonl` (R@x, AUC, độ dao động và mức sụt theo từng node); CI (phân phối t), kiểm định H2; P1–P9, bảng T1; từ chối trộn `code_version`, lượt `dirty` hay lệch môi trường, so sánh lệch biến cố định hoặc lệch tập seed (INT-2); chế độ `--draft` cho kết quả smoke và demo | Import bất cứ gì của `dfl` ngoài `dfl.contracts`; sửa hay lọc số liệu | TV3; TV1 phân tích E1, E1c, E4a, E4 | T05b, T14a, T15a–c, T16a–b |
 
 **Nền tảng dùng chung** (không phải module id, QS-6): `src/dfl/contracts.py` (Protocol / TypedDict / dataclass, không có logic — P1.7), `config.py` (dataclass + `yaml.safe_load` + kiểm tra kiểu và giá trị cấu hình), `seeding.py` (nơi duy nhất tạo `SeedSequence`/`Generator`; mỗi luồng ngẫu nhiên có spawn_key cố định, §6). Nền tảng không import module nào ở bảng trên. TV3 phụ trách nền tảng (T02a–c, QS-9). Mã task theo `tasks/todo.md`.
@@ -168,7 +169,8 @@ pytest -q tests/integration tests/e2e      # từ T10–T11; chạy riêng lúc 
 make check-fast   # sàn + ruff + import-linter + unit, vài giây
 make check-task   # như trên + integration + coverage ≥ 80%; dưới 90 s (chỉ cảnh báo); trước mỗi commit
 make check-full   # như trên + mọi test (gồm smoke e2e từ T11) + pip check; ở mỗi checkpoint
-make check-inv    # T-INV-1…12 có đủ và xanh; bắt buộc từ C3 và trước mọi lượt Tier 1
+make check-inv    # T-INV-1…13 có đủ và xanh; bắt buộc từ C3 và trước mọi lượt Tier 1
+make check-docker # T22c, tùy chọn (Q12): smoke trong Docker Compose, so từng byte với bộ mô phỏng; chạy tay
 
 # Dữ liệu — T03: tải MNIST vào data/ một lần (cần mạng; laptop demo phải tải trước)
 python -m dfl download mnist
@@ -177,6 +179,7 @@ python -m dfl download mnist
 python -m dfl run --config configs/profiles/smoke.yaml --out build/smoke   # dữ liệu tổng hợp, dưới 60 s
 python -m dfl run --config <config.yaml>          # ghi results/runs/<run_id>/attempt-<k>/; cây phải sạch;
                                                   # profile smoke không bao giờ được ghi vào results/
+python -m dfl run --config configs/profiles/smoke.yaml --runtime processes --out build/smoke-proc   # T22b: mỗi node một tiến trình
 
 # Mô tả dữ liệu và topology, không huấn luyện — T05 (mốc M2)
 python -m dfl describe --config configs/base.yaml --seeds 20 --out build/describe
@@ -218,7 +221,7 @@ non_iid-dfl/
 │   ├── base.yaml                                     # mặc định KH §3.5
 │   ├── profiles/{smoke,fast,full,demo}.yaml
 │   └── experiments/{e0a_lr,e0b_sanity,e1_noniid,e1c_objective,e2_topology,e2b_gossip,
-│                    e3a_algorithms,e3b_tau_mu,e4a_quantity,e4_quantity,demo}.yaml
+│                    e3a_algorithms,e3b_tau_mu,e4a_quantity,e4_quantity,e8_model_complexity,demo}.yaml
 ├── src/dfl/                                          # mọi code ảnh hưởng tới kết quả; hash nội dung → code_version
 │   ├── __main__.py  cli.py                           # sim (cli.py loại khỏi coverage)
 │   ├── contracts.py  config.py  seeding.py           # nền tảng dùng chung
@@ -227,8 +230,9 @@ non_iid-dfl/
 │   ├── learning/{models,local_train}.py              # learning
 │   ├── metrics/{classification,consensus}.py         # metrics-io
 │   ├── io/{run_logger,manifest}.py                   # metrics-io
-│   └── sim/{node,engine,observer,sweep,run,describe}.py   # sim (run: lắp một lượt; describe: lệnh describe)
-├── analysis/{aggregate,checks,convergence,stats,sanity,plots,provenance}.py   # analysis (ngoài src/: sửa không làm đổi code_version)
+│   └── sim/{node,engine,observer,sweep,run,describe,torchdist,process_runtime}.py   # sim (torchdist, process_runtime: ADR-010)
+├── docker/{Dockerfile,compose.py}                   # T22c, tùy chọn (Q12): mỗi node một container; ngoài src/, không đổi code_version
+├── analysis/{aggregate,checks,convergence,stats,sanity,plots,provenance,comm_cost}.py   # analysis (ngoài src/: sửa không làm đổi code_version)
 ├── tests/
 │   ├── conftest.py                                   # fixture autouse kiểm RNG toàn cục (§7)
 │   ├── unit/  integration/  e2e/                     # file test_<chủ đề>.py, tên không trùng giữa các thư mục
@@ -238,7 +242,7 @@ non_iid-dfl/
 ├── build/       # .gitignore — smoke, demo, describe, coverage
 ├── figures/     # chỉ sinh bằng script; có commit
 ├── docs/        # đề tài, research/, KH, H, decisions/ (ADR, OPEN_QUESTIONS), experiments/{E<k>.md, CODE_VERSIONS.md},
-│                #   spikes/, report/, PERF.md (T13), DEMO.md (T26), VALIDATION.md (T25)
+│                #   spikes/, report/, PERF.md (T13), DEMO.md (T26), VALIDATION.md (T25), DOCKER.md (T22c)
 └── tasks/{plan.md,todo.md,SESSION_LOG.md}
 ```
 
@@ -252,7 +256,8 @@ non_iid-dfl/
   - `OMP_NUM_THREADS`, `OPENBLAS_NUM_THREADS`, `MKL_NUM_THREADS` được đặt trong môi trường của tiến trình con trước khi nó khởi động. Khi chạy `dfl run` trực tiếp, CLI đọc cấu hình (không import torch), đặt các biến này, rồi mới import module dùng torch.
   - `dfl run` gọi `torch.set_num_threads(k)` trước mọi phép tính torch, vì tài liệu 2.14 yêu cầu gọi trước code eager hay autograd (https://docs.pytorch.org/docs/2.14/generated/torch.set_num_threads.html). Manifest ghi giá trị đọc lại bằng `torch.get_num_threads()`.
 - **B1 (tập trung):** một model trên 55k mẫu, 10 epoch, B = 32 (khoảng 17,190 bước), minibatch lấy có hoàn lại; η riêng chọn trên validation trong {0.01, 0.05, 0.1} (3 lượt, thuộc E0a). **B1-4k:** như B1 nhưng dùng η chung của lưới và 4,000 bước, bằng số bước cục bộ của một node DFL (3 lượt, thuộc E0b). B1-4k là đối chứng của SAN-2 (§9.3; nhóm chốt ở P1.9, QS-3): nó tách được lỗi khỏi hiệu ứng ngân sách và η.
-- Mỗi nhóm E0a, E0b, E1, E1c, E2, E2b, E3a, E3b, E4a, E4 có một file YAML riêng (E0a phải xong trước E0b vì η; E3a và E4a thuộc Tier 1, E3b và E4 thuộc Tier 2), cộng `demo.yaml`.
+- Mỗi nhóm E0a, E0b, E1, E1c, E2, E2b, E3a, E3b, E4a, E4, E8 có một file YAML riêng (E0a phải xong trước E0b vì η; E3a và E4a thuộc Tier 1, E3b và E4 thuộc Tier 2), cộng `demo.yaml`.
+- **Runtime và model** (ADR-010, ADR-011): `runtime: inprocess | processes` (mặc định `inprocess`); `deploy: local | docker`, chỉ dùng với `processes`, Docker là tùy chọn (Q12); `model: smallcnn | logreg | mlp2nn | cnn_mcmahan` (mặc định `smallcnn`; các model khác chỉ cho E8). Cả ba nằm trong cấu hình chuẩn hóa, tức trong `run_id`, vì thời gian đo được phụ thuộc runtime.
 
 | Profile | N | τ·R | Dữ liệu | Dùng cho |
 |---|---|---|---|---|
@@ -279,7 +284,7 @@ non_iid-dfl/
 - **Phân kỳ:** `LocalTrainer` dừng ngay ở bước có mất mát không hữu hạn và trả về giá trị đó; sau mỗi round engine kiểm mọi tham số. Cả hai việc kiểm đều làm trước khi ghi bất kỳ bản ghi nào của round đó. Khi mất mát hay tham số không còn hữu hạn, lượt dừng lại và ghi `status: diverged` kèm round phân kỳ. Phân kỳ là kết quả tất định nên không chạy lại và được tính là đã xong. Bản ghi không bao giờ chứa NaN hay vô cực (ghi JSON với `allow_nan=False`). Lượt có mất mát lớn nhưng hữu hạn vẫn là `ok`; accuracy thấp của nó đi vào thống kê như mọi lượt khác.
 - **`manifest.json`:** `run_id`, `code_version`, `git_commit` (hoặc `none` khi không có git), `dirty`, `env_match`, `attempt`, cấu hình chuẩn hóa đầy đủ, seed và các seed con, `partition_retries`, phiên bản python và mọi gói trong `requirements.lock` đã cài, máy (tên CPU kèm hash của cờ CPU), số luồng đọc lại từ torch, thời điểm; spectral gap (topology tĩnh); trọng số mục tiêu π (`objective_weights`) và lệch mục tiêu; ma trận node × lớp (N × 10) để P7 sinh được từ `results/`.
 - **`rounds.jsonl`** (tất định, mỗi round có tối đa một dòng): `round`, `local_steps`, `acc_mean`, `acc_std`, `acc_min`, `acc_max`, `acc_local_mean`, `acc_local_std`, `acc_local_min`, `f1_macro_mean`, `f1_macro_std`, `f1_macro_min`, `acc_avg_model`, `acc_eff_mean`, `drift_pre_combine`, `consensus_distance`, `messages_cum`, `bytes_cum`, `max_node_bytes_cum`, `train_loss_mean`; bắt buộc có `acc_per_node`, `acc_local_per_node` (mảng N phần tử).
-- **`timing.jsonl`:** `round`, `wall_time_s` và thời gian từng pha (train, combine, eval).
+- **`timing.jsonl`:** `round`, `wall_time_s`, thời gian từng pha (train, combine, eval) và `comm_s`: thời gian chờ gửi và nhận trong round, lấy lớn nhất qua node. `comm_s` chỉ khác 0 ở process runtime (ADR-010, Q13).
 - **`summary.json`:** một trong ba biến thể `ok`, `diverged`, `failed` (xem `src/dfl/contracts.py`). Bản `ok` có đánh giá cuối trên đủ tập đánh giá (`final_eval_split`: 10,000 ảnh test, hoặc 5,000 ảnh validation với E0a), gồm $\mathrm{Acc}_i$, $\mathrm{Acc}^{loc}_i$ và macro-F1 của từng node (mảng N) cùng acc($\bar w$). Cả ba bản đều có tổng message và byte. Không chứa độ đo suy ra (R@x, AUC, độ dao động, mức sụt): `analysis/` tính chúng từ `rounds.jsonl`.
 - **Sao lưu:** `results/` chỉ nằm trên máy chủ, nên phải nén và chép ra ngoài máy chủ sau mỗi nhóm thí nghiệm; không chạy `git clean -x` trong repo trên máy chủ.
 
@@ -350,8 +355,9 @@ def metropolis_hastings(graph: nx.Graph) -> np.ndarray:
 
 - **Quy ước:** Arrange-Act-Assert; tên test mô tả hành vi; mỗi test một hành vi; tên file test không trùng giữa các thư mục (pytest import theo tên file); seed cố định; dung sai số thực ghi rõ; so khớp "trùng từng bit" dùng `torch.equal` / `np.array_equal`; không tải dữ liệu qua mạng (dataset giả cùng shape); không phụ thuộc thời gian thực.
 - **Oracle và tham chiếu:** `tests/reference/` chứa hàm chia NIID-Bench sao từ `docs/spikes/`, tham số hóa theo mảng nhãn (golden cho T-INV-8); FedAvg có server viết ngay trong test (T-INV-3); `sklearn.metrics.f1_score(average="macro")` (T-INV-10).
-- **TDD:** test FAIL trước, PASS sau. Engine được viết qua ba task T10a–c (`tasks/todo.md`), và mỗi task viết T-INV của mình trước rồi mới viết code: T10a có T-INV-2, 4; T10b có T-INV-1, 3, 6; T10c có T-INV-11, 12. Như vậy không dòng code engine nào có trước test bất biến của chính nó (H§7). Không commit test đỏ (CONSTRAINTS F1, F2).
+- **TDD:** test FAIL trước, PASS sau. Engine được viết qua ba task T10a–c (`tasks/todo.md`), và mỗi task viết T-INV của mình trước rồi mới viết code: T10a có T-INV-2, 4; T10b có T-INV-1, 3, 6; T10c có T-INV-11, 12; T22b có T-INV-13. Như vậy không dòng code engine nào có trước test bất biến của chính nó (H§7). Không commit test đỏ (CONSTRAINTS F1, F2).
 - **Tên test bất biến:** `test_t_inv_<k>_<hành vi>`, ví dụ `test_t_inv_4_node_order_does_not_change_result`, để `make check-inv` kiểm được đủ 12 ID.
+- **Docker** (tùy chọn, Q12): `make check-docker` là lệnh kiểm tay, ghi kết quả vào `docs/DOCKER.md`; không phải test pytest bị skip khi máy không có Docker (CONSTRAINTS F2). Test của process runtime dùng tiến trình cục bộ, nên chạy được ở mọi máy.
 - **Kiểm tra thống kê:** chỉ T-INV-1 (phần gossip) được so theo sai số lấy mẫu: hai phía, ±4 sai số chuẩn, t ≤ 3, seed cố định để không flaky.
 - **RNG toàn cục trong mọi test tích hợp:** `tests/conftest.py` có một fixture `autouse` kiểm `torch.get_rng_state()` giống hệt trước và sau mỗi test trong `tests/integration/` và `tests/e2e/` (T-INV-5, §6). Mỗi đường code có ít nhất một test tích hợp, để fixture này thấy được nó: B1, B1-4k, B2, đường server của B3; P0–P3 (và P2'); T0–T4, T3b; prox (μ > 0); uniform; size-corrected.
 - **Coverage:** ≥ 80% dòng cho `src/dfl` (trừ `cli.py`) và cho `analysis/` (nhóm chốt QS-5 ở P1.8); ngưỡng ghi trong `CONSTRAINTS.md` và `fail_under` của `pyproject.toml`, không được hạ để qua kiểm tra.
@@ -436,7 +442,7 @@ def test_t_inv_9_metropolis_hastings_ring_is_doubly_stochastic_with_closed_form_
 
 Mỗi task còn phải đạt Definition of Done ở H§4.2.
 
-### 9.1 Yêu cầu của đề (REQ-01…14, H§2.1)
+### 9.1 Yêu cầu của đề (REQ-01…14, H§2.1) và của GVHD (REQ-15, REQ-16; trả lời Q1)
 
 | REQ | Tiêu chí chấp nhận (kiểm chứng được) | Kiểm chứng | Task |
 |---|---|---|---|
@@ -444,20 +450,22 @@ Mỗi task còn phải đạt Definition of Done ở H§4.2.
 | REQ-02 Non-IID nhiều mức | P0 IID; P1 Dirichlet α ∈ {100, 1, 0.5, 0.1, 0.05}; P2 #C = k, k ∈ {2, 1}; P3 quantity β = 0.5 (ánh xạ bốn loại đề nêu ở §1.4); đúng thuật toán NIID-Bench, khác có chủ đích ở min_size = 64; lấy mẫu lại tối đa 1,000 lần, số lần ghi vào manifest, vượt thì lượt ghi `failed` trước khi huấn luyện. Trên MNIST thật (N = 20, 20 seed): JS trung bình tăng nghiêm ngặt theo IID < α = 100 < α = 1 < α = 0.5 < α = 0.1 < α = 0.05, và #C = 2 < #C = 1; mỗi giá trị lệch khỏi bảng KH §3.2 không quá max(10% giá trị đó, 0.002). Bảng KH §3.2 do spike sinh ra, nên phép so này chỉ kiểm bản cài khớp spike trên nhãn thật. Việc spike đúng thuật toán NIID-Bench dựa trên đọc mã (DIGEST §2.4), không có kiểm tra độc lập. Quantity skew có đo trong Tier 1 (E4a) | T-INV-8; `dfl describe`; hình P7 | T04, T05 |
 | REQ-03 Accuracy / F1 | Ở mỗi lần đánh giá: $\mathrm{Acc}_i$, $\mathrm{Acc}^{loc}_i$, $\mathrm{Acc}^{eff}$, macro-F1 của từng node (mean, std, min), acc($\bar w$) trên tập con 2,000 ảnh của tập đánh giá (test; validation với E0a); đánh giá cuối trên đủ tập đánh giá, lưu ở trường riêng | T-INV-10, T-INV-11; test schema e2e | T09–T11 |
 | REQ-04 Tốc độ hội tụ | R@x (x ∈ {90, 95}; 97 chỉ là phụ) tính trên chuỗi `acc_mean`, theo số bước cục bộ (G10), quy ra round và byte. Mọi lượt dùng cùng lưới mốc 100, 200, …, 4,000 bước (§5.2), nên lưới đo không phụ thuộc τ. Tuy vậy, accuracy chỉ đo sau tổng hợp, nên phần tụt accuracy trong round (lớn dần theo τ) không được thấy; đây là hạn chế (INT-4). Một *lần vượt* là mốc p có acc(p) ≥ x trong khi mốc trước đó < x. Lần vượt *bền vững* khi mọi mốc trong (p, p + 200] ≥ x − 0.5 điểm %, và sau p còn ít nhất một mốc. R@x là bước nội suy tuyến tính giữa mốc trước p và p, lấy ở lần vượt bền vững đầu tiên; lần vượt không bền thì xét lần kế tiếp. Mốc đầu tiên (100) có acc ≥ x cũng là một lần vượt; nếu nó bền vững thì R@x ghi "≤ 100" và tính là 100 khi lấy trung vị (coi "> ngân sách" là +∞). Không có lần vượt bền vững nào (kể cả khi chỉ vượt ở mốc cuối) thì ghi "> ngân sách"; lượt phân kỳ tính là không đạt. Tổng hợp qua seed bằng trung vị kèm "k/n seed đạt". R@x và bytes@x bị kiểm duyệt hai phía ("≤ 100", "> ngân sách"), nên không dùng CI theo phân phối t cho chúng. Giả thuyết về tốc độ dùng kiểm định dấu trên thứ tự ghép cặp: "> ngân sách" lớn hơn mọi giá trị hữu hạn, còn hai giá trị cùng bị kiểm duyệt ở một cặp là hòa, và hòa tính là không đúng chiều (ADR-007). AUC là trung bình `acc_mean` theo bước trên cùng lưới, quy tắc hình thang (KH §3.6); AUC không bị kiểm duyệt nên dùng được CI t | Unit test trong `analysis`: chuỗi đạt; không đạt; đạt ở mốc đầu; đạt rồi tụt rồi đạt lại (lấy lần bền vững); chỉ vượt ở mốc cuối (không đạt); lưới khác lưới chuẩn thì báo lỗi | T15 |
-| REQ-05 Chi phí giao tiếp | Message/round, byte/round, byte tích lũy, tải lớn nhất trên một node, bytes@x. Byte = tổng `nbytes` của các message; `nbytes` tính từ tensor thật (SmallCNN float32: 4 × 46,730 = 186,920 byte/message). Tải của một node = byte gửi + byte nhận, cộng dồn. B3/E1c đi qua đường server của engine: server ảo có chỉ số N (không có dữ liệu) nhận N snapshot, tổng hợp theo $n_k/n$, rồi gửi lại N snapshot. Vì mọi message đi qua Transport, CommLedger đếm đúng 2N message/round (INV-2), và tải lớn nhất là của server. T0 (star có hub là một node dữ liệu, trọng số MH) là topology tham chiếu khác, 2(N − 1) message/round. Siêu dữ liệu đi kèm (ví dụ $n_k$ gửi lên server, 1 số nguyên) không được đếm; nó nhỏ hơn 0.005% một message, và được ghi trong mục hạn chế | T-INV-6; P6 | T08, T15 |
+| REQ-05 Chi phí giao tiếp | Message/round, byte/round, byte tích lũy, tải lớn nhất trên một node, bytes@x. Byte = tổng `nbytes` của các message; `nbytes` tính từ tensor thật (SmallCNN float32: 4 × 46,730 = 186,920 byte/message). Tải của một node = byte gửi + byte nhận, cộng dồn. B3/E1c đi qua đường server của engine: server ảo có chỉ số N (không có dữ liệu) nhận N snapshot, tổng hợp theo $n_k/n$, rồi gửi lại N snapshot. Vì mọi message đi qua Transport, CommLedger đếm đúng 2N message/round (INV-2), và tải lớn nhất là của server. T0 (star có hub là một node dữ liệu, trọng số MH) là topology tham chiếu khác, 2(N − 1) message/round. Siêu dữ liệu đi kèm (ví dụ $n_k$ gửi lên server, 1 số nguyên) không được đếm; nó nhỏ hơn 0.005% một message, và được ghi trong mục hạn chế Ở process runtime còn đo thời gian giao tiếp `comm_s` (timing.jsonl, không tất định; Q13). | T-INV-6; P6 | T08, T15 |
 | REQ-06 Độ ổn định | Độ dao động và mức sụt tính trên từng node rồi mới lấy trung bình (G24); độ lệch giữa seed; drift trước tổng hợp; consensus distance sau tổng hợp | T-INV-1, T-INV-11; unit test `analysis`; P5 | T10, T15 |
 | REQ-07 So sánh topology | T1 ring, T2 ER liên thông (p = 0.3), T3 gossip trên $K_N$, T4 FC; thêm T3b (E2b); T0 (star) được cài và có trong bảng `describe`, nhưng không chạy trong lưới; spectral gap của topology tĩnh ghi trong manifest. Gossip không có spectral gap cố định: nó được mô tả bằng tốc độ trộn kỳ vọng $1-\sqrt{\lambda_2(\mathbb E[W])}$ (0.312 với N = 20; ADR-009), không đặt chung trục với spectral gap | T-INV-9; unit test topology (liên thông, đúng bậc, matching hợp lệ, gọi lại không đổi kết quả); P3, P8 | T06, T07, T18 |
 | REQ-08 Thuật toán tổng hợp | Một vòng ATC tham số (τ, μ, $c_i$) cho D-PSGD (τ = 1, R = 4,000), DFedAvg (τ = 20, R = 200), DFedProx (τ = 20, μ theo QS-2); τ·R = 4,000 ở mọi điều kiện. D-PSGD là tương tự phi tập trung gần nhất của FedSGD nhưng dùng minibatch B = 32 (không phải full-batch) và trọng số MH; cách hiểu này nên được GVHD xác nhận (Q8) | T-INV-3, T-INV-7; E3a; P9 | T09, T10, T19 |
 | REQ-09 Accuracy theo round, volume, variance | `rounds.jsonl` đủ trường ở §5.3 (có `acc_per_node`, `acc_local_per_node`); phương sai giữa node trên $\mathrm{Acc}_i$ và $\mathrm{Acc}^{loc}_i$ ở round cuối (std, min, max − min, trung bình 10% node kém nhất) | Test schema e2e; T-INV-11; P1, P4, P6 | T11, T15 |
-| REQ-10 Biểu đồ so sánh | P1–P9 và bảng T1 (KH §3.8) sinh bằng một lệnh; bảng màu an toàn cho người mù màu; trục có đơn vị | e2e vẽ hình trên kết quả smoke; INT-1, INT-2 | T16 |
+| REQ-10 Biểu đồ so sánh | P1–P9, P10–P11 (E8, ADR-011) và bảng T1 (KH §3.8) sinh bằng một lệnh; bảng màu an toàn cho người mù màu; trục có đơn vị | e2e vẽ hình trên kết quả smoke; INT-1, INT-2 | T16 |
 | REQ-11 Kiến trúc tổng quan | Sơ đồ KH §4.1 và luồng một round §4.3 có trong báo cáo và khớp capability map §3 | Duyệt ở Gate G1 và khi review báo cáo | P1.5, T24 |
 | REQ-12 Baseline IID, biến cố định | B1 tập trung (10 epoch, B = 32, η riêng chọn trên validation, §5.2) và B1-4k; B2 chỉ cục bộ (W = I); B3 FedAvg có server (trọng số $n_k/n$, đường server, REQ-05), chạy trên IID ngay ở Tier 1 (E0b). Đạt SAN-1…4. Biến cố định (N, model, η, B, τ·R, lịch đánh giá, tập đánh giá, số luồng) và tập seed trùng nhau trong mọi so sánh giữa các lượt DFL; baseline chỉ xuất hiện như đường tham chiếu có nhãn, ghi rõ ngân sách và η của nó (INT-2) | §9.3; INT-2 | T11, T14 |
 | REQ-13 Nhận xét và khuyến nghị | Mỗi khuyến nghị (topology, τ, chiến lược tổng hợp, trọng số trộn) dẫn chiếu ít nhất một hình/bảng và run ID, và ghi mức bằng chứng: khuyến nghị chính khi kết luận là "ủng hộ" (5 seed), khuyến nghị tạm khi chỉ là "gợi ý" (3 seed), không khuyến nghị khi "chưa kết luận" (ADR-007). Khuyến nghị về trọng số trộn chỉ dựa trên MH so với uniform; size-corrected là thay đổi bước học theo node, báo cáo riêng (ADR-005). Có mục hạn chế | INT-4, INT-5; P4.3 | T24 |
 | REQ-14 Dataset | MNIST qua torchvision: 60k train chia thành 55k cho node và 5k validation phân tầng; 10k test. Fashion-MNIST và CIFAR-10 chỉ là mở rộng sau M4 (H§2.1 ghi kiểm chứng bằng E6; khác biệt ghi ở §10) | Unit test T03 trên dataset giả (shape, đếm lớp, phân tầng) | T03 (T21) |
+| REQ-15 Mỗi node một tiến trình (GVHD) | Process runtime: mỗi node một tiến trình hệ điều hành, giao tiếp qua gloo, không server, không điều phối viên (G18); observer là tiến trình riêng, kênh đo không tính phí (INV-2, INV-5); `rounds.jsonl` trùng từng byte với bộ mô phỏng (T-INV-13); Docker Compose là cách triển khai tùy chọn (Q12) | T-INV-13; `make check-docker` (tùy chọn) | T22a, T22b, T22c |
+| REQ-16 Chi phí giao tiếp theo độ phức tạp model (GVHD) | E8: M0–M3 × {T1, T3, T4} × {IID, α = 0.1}, N = 8, process runtime; byte/round tất định và thời gian giao tiếp đo được (Q13); hình P10, P11; H8 có kết luận theo thẻ E8 | Test số tham số (T09c); thẻ E8 | T09c, T27a–c |
 
-### 9.2 Test bất biến T-INV-1…12 (KH §5.2)
+### 9.2 Test bất biến T-INV-1…13 (KH §5.2; T-INV-13 theo ADR-010)
 
-Cả 12 test phải tồn tại và xanh trước khi chạy bất kỳ lượt nào của Tier 1.
+Cả 13 test phải tồn tại và xanh trước khi chạy bất kỳ lượt nào của Tier 1.
 
 | ID | Điều kiện đạt | Mức | Task |
 |---|---|---|---|
@@ -473,6 +481,7 @@ Cả 12 test phải tồn tại và xanh trước khi chạy bất kỳ lượt 
 | T-INV-10 | Macro-F1 = trung bình trên đủ 10 lớp của $2TP_c/(2TP_c+FP_c+FN_c)$, khớp `sklearn.metrics.f1_score(average="macro", labels=range(10), zero_division=0)` trên nhãn ngẫu nhiên, trên bộ dự đoán chỉ ra một lớp, và trên bộ dự đoán không bao giờ ra một lớp nào đó (không có NaN). $\mathrm{Acc}^{loc}_i$ khớp accuracy có trọng số từng mẫu $P_i(y)/P_{eval}(y)$; $\mathrm{Acc}^{eff}$ khớp trọng số $P_{eff}(y)/P_{eval}(y)$, trên cùng tập đánh giá (sai số ≤ 1e-12) | unit | T09 |
 | T-INV-11 | FC + MH: sau tổng hợp mọi node có model trùng nhau (allclose), nên std của $\mathrm{Acc}_i$ bằng 0 và $\mathrm{Acc}^{loc}_i$ của mọi node tính từ cùng một vector recall | integration | T10 |
 | T-INV-12 | Tắt Observer, hoặc gọi `graph_at` thêm lần, không làm đổi quỹ đạo huấn luyện | integration | T10 |
+| T-INV-13 | Cùng cấu hình + seed + `code_version`: process runtime (tiến trình cục bộ, smoke N = 4, trên ring, gossip và FC) cho `rounds.jsonl` trùng từng byte với bộ mô phỏng; số message và byte bằng nhau; kênh tới observer không được đếm. `make check-docker` kiểm lại trong Docker (tùy chọn) | integration | T22b |
 
 ### 9.3 Sanity, tái lập và toàn vẹn (KH §5.3)
 
@@ -535,7 +544,7 @@ Ngưỡng có số do nhóm chốt ở P1.8 (QS-3); đối chứng của SAN-2 c
 ### 9.5 Hoàn thành thực nghiệm (KH §3.7)
 
 - **EXP-1** Mỗi nhóm thí nghiệm có thẻ tiền đăng ký `docs/experiments/E<k>.md` được commit trước khi chạy.
-- **EXP-2** Tier 1: E0a 24, E0b 43, E1 70, E2 30, E3a 24, E4a 6 = **197** `run_id` (bảng dưới). Mọi lượt đều có attempt xong (`ok` hoặc `diverged`) và cùng một `code_version`.
+- **EXP-2** Tier 1: E0a 24, E0b 43, E1 70, E2 30, E3a 24, E4a 6, E8 72 = **269** `run_id` (bảng dưới). Mọi lượt đều có attempt xong (`ok` hoặc `diverged`) và cùng một `code_version`.
 - **EXP-3** Tier 2: E1c 15, E2b 9, E3b 42, E4 15 = **81** `run_id`, cộng tối đa 24 lượt có điều kiện (ADR-007). Mọi lượt đều có attempt xong; các ô dùng lại giữa các nhóm thí nghiệm có cùng `code_version`.
 
 | Nhóm | Tier | Lưới (DFedAvg, τ = 20, MH nếu không ghi khác; ô lấy từ nhóm khác không tính lại) | Seed | Lượt |
@@ -546,13 +555,14 @@ Ngưỡng có số do nhóm chốt ở P1.8 (QS-3); đối chứng của SAN-2 c
 | E2 | 1 | {T2, T3} × {α = 1, α = 0.1, #C = 2}; ô IID lấy từ E0b, ô T1/T4 lấy từ E1 | 5 | 30 |
 | E3a | 1 | {D-PSGD (τ = 1), DFedProx (μ = 1, QS-2)} × {T1, T4} × {IID, α = 0.1}; DFedAvg lấy từ E0b/E1 (seed 0–2) | 3 | 24 |
 | E4a | 1 | P3 β = 0.5 × {T2, T4} | 3 | 6 |
+| E8 | 1 | {M0, M1, M2, M3} × {T1, T3, T4} × {IID, α = 0.1}; N = 8, R = 50 (T13 chốt lại), process runtime, `deploy: local` (Docker tùy chọn); ADR-010, ADR-011 | 3 | 72 |
 | E1c | 2 | B3 (đường server) × α ∈ {100, 1, 0.5, 0.1, 0.05} | 3 | 15 |
 | E2b | 2 | T3b × {IID, α = 0.1, #C = 2} | 3 | 9 |
 | E3b | 2 | μ = 0: τ ∈ {5, 50} × {T1, T4} × {IID, α = 0.1} (24); μ = 0.1 (QS-2), τ = 20 × {T1, T4} × {IID, α = 0.1} (12); μ = 1, τ = 50 × {T1, T4} × α = 0.1 (6) | 3 | 42 |
 | E4 | 2 | β = 0.5: T2 × {uniform, size-corrected} và T4 × size-weighted (9); α = 0.1: T2 × {uniform, size-corrected} (6). Ô MH lấy từ E4a, E1, E2; ô size-weighted ở α = 0.1 lấy từ E1c | 3 | 15 |
 | Có điều kiện | 2 | η riêng cho τ = 1: các ô D-PSGD của E3a (12); η riêng cho τ = 50: các ô μ = 0, τ = 50 của E3b (12) | 3 | ≤ 24 |
 
-- **EXP-4** Mỗi giả thuyết H1–H7 có kết luận ủng hộ / gợi ý / không ủng hộ / chưa kết luận theo quy tắc quyết định đăng ký trước (ADR-007 và thẻ `E<k>.md`), kèm hình và run ID, ghi trong thẻ thí nghiệm và trong báo cáo. Kết luận "gợi ý" (3 seed) chỉ cho phép khuyến nghị tạm (REQ-13). Mỗi giả thuyết có đúng một phép so sánh chính (độ đo, các ô, chiều kỳ vọng), khai báo trong thẻ trước khi chạy; mọi phép so sánh khác chỉ để khám phá, được báo cáo nhưng không dùng để kết luận "ủng hộ".
+- **EXP-4** Mỗi giả thuyết H1–H8 có kết luận ủng hộ / gợi ý / không ủng hộ / chưa kết luận theo quy tắc quyết định đăng ký trước (ADR-007 và thẻ `E<k>.md`), kèm hình và run ID, ghi trong thẻ thí nghiệm và trong báo cáo. Kết luận "gợi ý" (3 seed) chỉ cho phép khuyến nghị tạm (REQ-13). Mỗi giả thuyết có đúng một phép so sánh chính (độ đo, các ô, chiều kỳ vọng), khai báo trong thẻ trước khi chạy; mọi phép so sánh khác chỉ để khám phá, được báo cáo nhưng không dùng để kết luận "ủng hộ".
 - **EXP-5** Nếu cắt Tier 2 hay hạ số seed: có quyết định của nhóm (Ask first) và báo cáo ghi rõ. Mọi H/RQ/REQ phụ thuộc phần bị cắt (bảng dưới) được ghi "chưa kết luận (cắt vì ngân sách)" và không có khuyến nghị cho chúng.
 
 | Nhóm thí nghiệm | Tier | Phục vụ |
@@ -562,6 +572,7 @@ Ngưỡng có số do nhóm chốt ở P1.8 (QS-3); đối chứng của SAN-2 c
 | E2 | 1 | RQ2, H2, H3, một phần H4 |
 | E3a | 1 | REQ-08 (đủ ba thuật toán đề yêu cầu); khuyến nghị tạm về chiến lược tổng hợp (3 seed) |
 | E4a | 1 | REQ-02 (quantity skew được đo), một phần RQ4 |
+| E8 | 1 | REQ-15, REQ-16, H8 (yêu cầu của GVHD) |
 | E1c | 2 | H6 (đối chứng lệch mục tiêu, G19) |
 | E2b | 2 | H4 (so sánh công bằng với gossip trên $K_N$) |
 | E3b | 2 | RQ3, H5, H7 |
@@ -614,6 +625,7 @@ SPEC được ưu tiên hơn KH và H ở các điểm dưới đây (yêu cầu
 | 37 | §3.2: P2' (shards) tùy chọn | Cài sẵn P2' ở T04b, chỉ dùng trong `describe`, không chạy trong lưới trừ khi GVHD hay nhóm yêu cầu (QS-11) | Nếu GVHD muốn dạng shards cho "pathological partition" (Q9), thêm lượt sau E0a mà không phải đổi `code_version` |
 | 38 | H P3.3: viết cả sáu T-INV của engine trước rồi mới viết engine | Engine chia ba task T10a–c; mỗi task viết T-INV của mình trước (§7) | Gộp lại thì vượt khoảng 300 dòng một task; test đỏ không commit được (CONSTRAINTS F1, F2) |
 | 39 | §4.6: cây thư mục dự kiến | Thêm `sim/run.py`, `sim/describe.py`, `analysis/{checks,sanity,provenance}.py`, `tests/conftest.py`, `configs/experiments/e4a_quantity.yaml`, `docs/{PERF,DEMO,VALIDATION}.md`, `docs/report/` (§5.1) | Logic không được nằm trong `cli.py`; mỗi task tối đa 5 file (`tasks/plan.md` K8) |
+| 40 | §1.1 (điều chỉnh 5), §2.4, §4.9: `torch.distributed` chỉ là tùy chọn; nhiều tiến trình ngoài phạm vi chính | Process runtime (mỗi node một tiến trình qua gloo) là bắt buộc, trùng từng bit với bộ mô phỏng (T-INV-13); Docker tùy chọn; thêm thang model M0–M3 và E8 | GVHD trả lời Q1 ngày 2026-10-01; ADR-010, ADR-011; nhóm duyệt K14 ngày 2026-10-01 |
 
 ---
 
@@ -623,7 +635,8 @@ SPEC được ưu tiên hơn KH và H ở các điểm dưới đây (yêu cầu
 
 | ID | Câu hỏi | Ảnh hưởng |
 |---|---|---|
-| Q1 | Mô phỏng đơn tiến trình có message-passing có được coi là "hệ thống P2P" không? | §1.4 (T22 thành bắt buộc nếu không), ADR-002 |
+| Q1 | Mô phỏng đơn tiến trình có message-passing có được coi là "hệ thống P2P" không? | **Đã trả lời (2026-10-01):** cần tiến trình chạy song song, mỗi node độc lập; Docker được; tăng độ phức tạp model để xem chi phí giao tiếp → ADR-010, ADR-011 |
+| Q10–Q13 | Hỏi lại sau Q1 (OPEN_QUESTIONS.md): chạy cả lưới đa tiến trình (Q10, nhóm quyết sau); "độ phức tạp" là kích thước model (Q11, nhóm quyết sau); Docker là tùy chọn (Q12, đã chốt); đo chi phí giao tiếp bằng cả byte và thời gian (Q13, đã chốt) | ADR-010, ADR-011, E8 |
 | Q2 | Ngày nộp, ngày bảo vệ, định dạng báo cáo, có cần slide/demo không? | Lịch KH §7, T24, T25, QS-8 |
 | Q8 (đề xuất hỏi thêm) | Dùng D-PSGD (minibatch B = 32, trọng số MH) làm bản phi tập trung của FedSGD có được không? | REQ-08, ADR-006 |
 | Q9 (đề xuất hỏi thêm) | Bốn loại phân phối của đề được ánh xạ như SPEC §1.4 ("pathological partition" = #C = k của NIID-Bench, "quantity-based skew" = P3) có đúng ý đề không, hay đề muốn dạng shards của McMahan? | REQ-02, §1.4, QS-11 |
@@ -641,7 +654,7 @@ SPEC được ưu tiên hơn KH và H ở các điểm dưới đây (yêu cầu
 | QS-7 | CLI bổ sung | `describe`, `download`, `sweep --dry-run`, `analysis.aggregate`, `--out` (chỉ `run --out` được chạy khi cây bẩn, manifest ghi `dirty: true`; `sweep` luôn đòi cây sạch) | Bỏ bớt (ví dụ vẽ P7 bằng một script riêng) | §4, T05, T11, T12 |
 | QS-8 | Demo trên laptop | 2 lượt ring vs FC, α = 0.1, N = 20, ngân sách khoảng 400 bước, MNIST tải sẵn, tổng ≤ 5 phút; chốt thông số ở T13 sau khi đo trên laptop thật. Laptop chạy hệ điều hành gì? (Makefile không chạy trên Windows; demo chỉ cần lệnh `python -m`) | Chỉ trình chiếu hình có sẵn, không chạy trực tiếp | §5.2, ENG-11, T11, T13 |
 | QS-9 | Tải công việc của TV2: T06–T11, cả đường găng tới M3, đang dồn cho một người | **Đã chốt (P2.1, 2026-09-30):** TV1 nhận T09a, T09b; TV3 nhận nền tảng (T02a–c) và io (T11a); TV2 giữ T06–T08, T10a–c, T11b, T11c, T13, T22 | Giữ phân vai QĐ-1 | §3.1, §10 dòng 1, `tasks/plan.md` |
-| QS-10 | Tới hết tuần 5 GVHD vẫn chưa trả lời Q1 thì làm gì với T22? | **Đã chốt (2026-09-30):** vẫn chạy lưới bằng mô phỏng đơn tiến trình. T22 làm ngay sau T13 (TV2, tuần 8–10), không còn là tùy chọn, để có bản đa tiến trình khi bảo vệ. T22 viết ở cây làm việc hằng ngày; lưới chạy từ worktree riêng nên không bị ảnh hưởng (§5.3) | Giữ T22 là mở rộng tùy chọn, chấp nhận rủi ro REQ-01 bị hiểu khác | ASSUMPTIONS 1, ADR-002, §1.4 |
+| QS-10 | Tới hết tuần 5 GVHD vẫn chưa trả lời Q1 thì làm gì với T22? | **Không còn áp dụng** (GVHD trả lời Q1 ngày 2026-10-01, K14). Trước đó, **đã chốt (2026-09-30):** vẫn chạy lưới bằng mô phỏng đơn tiến trình. T22 làm ngay sau T13 (TV2, tuần 8–10), không còn là tùy chọn, để có bản đa tiến trình khi bảo vệ. T22 viết ở cây làm việc hằng ngày; lưới chạy từ worktree riêng nên không bị ảnh hưởng (§5.3) | Giữ T22 là mở rộng tùy chọn, chấp nhận rủi ro REQ-01 bị hiểu khác | ASSUMPTIONS 1, ADR-002, §1.4 |
 | QS-11 | Có cài sẵn P2' (shards của McMahan) trước E0a không? | **Đã chốt (2026-09-30):** có, cài ở T04b, chỉ dùng trong `describe`, không chạy trong lưới trừ khi GVHD hay nhóm yêu cầu. Code phải có trước E0a thì mới thêm lượt sau được mà không đổi `code_version` | Không cài; nếu GVHD muốn shards sau E0a thì phải đổi `code_version` và chạy lại | §1.4, REQ-02, T04b |
 
 Sau khi SPEC được duyệt: cập nhật KH theo §10.

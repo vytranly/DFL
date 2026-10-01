@@ -14,10 +14,10 @@ Chốt ở P1.3 (phỏng vấn theo skill `interview-me`), ngày 2026-09-30. Ngu
 | Q5 | CIFAR-10 có bắt buộc không? | **Không bắt buộc.** Làm tiếp nếu đã xong MNIST và vẫn thấy khả thi (là phần mở rộng ưu tiên) | Nhóm | 2026-09-30 | ADR-003, §2.4, T21 |
 | Q6 | Có so sánh với FedAvg có server (CFL) không? | **Có**: B3 và E1c, gần như không tốn thêm công | Nhóm (mặc định) | 2026-09-30 | §3.4 B3, E1c, ADR-005 |
 | Q7 | GVHD có kỳ vọng dùng Flower không? | **Không bắt buộc.** Không dùng Flower; dùng PyTorch + NetworkX tự viết | Nhóm | 2026-09-30 | ADR-001 |
-| Q10 | Cô có cần chạy *toàn bộ* thí nghiệm Non-IID (khoảng 200 lượt, N = 20) bằng tiến trình hay container riêng không, hay chỉ cần hệ thống đa tiến trình chạy thật ở N nhỏ (4–8) cho demo và E8, còn lưới lớn chạy bằng bộ mô phỏng đã chứng minh trùng từng bit? | **Chờ GVHD.** Mặc định (nhóm đề xuất): vế sau (ADR-010) | GVHD (chờ) | 2026-10-01 | ADR-002, ADR-007 (ngân sách), ADR-010 |
-| Q11 | "Tăng độ phức tạp" có phải là tăng kích thước model (số tham số) không? Có cần tăng cả số node, hay giới hạn băng thông mạng giả lập không? | **Chờ GVHD.** Mặc định: kích thước model, 4 bậc từ 7,850 tới 1,663,370 tham số (ADR-011) | GVHD (chờ) | 2026-10-01 | ADR-011, E8 |
-| Q12 | Docker là bắt buộc hay tùy chọn? Có cần chạy trên nhiều máy thật không? | **Chờ GVHD.** Mặc định: Docker Compose trên một máy (4–8 container) cho demo và E8; tiến trình cục bộ cho test; không chạy nhiều máy | GVHD (chờ) | 2026-10-01 | ADR-010, T22c, T26 |
-| Q13 | "Communication cost" cô muốn đo bằng số byte (chính xác, tất định) hay cả thời gian truyền thực tế? | **Chờ GVHD.** Mặc định: cả hai; byte là thước đo chính, thời gian đo trên process runtime và ghi rõ là đo trên một máy | GVHD (chờ) | 2026-10-01 | ADR-010 (`comm_s`), ADR-011, REQ-05 |
+| Q10 | Cô có cần chạy *toàn bộ* thí nghiệm Non-IID (khoảng 200 lượt, N = 20) bằng tiến trình hay container riêng không, hay chỉ cần hệ thống đa tiến trình chạy thật ở N nhỏ (4–8) cho demo và E8, còn lưới lớn chạy bằng bộ mô phỏng đã chứng minh trùng từng bit? | **Nhóm quyết sau.** Trong lúc chờ: vế sau (ADR-010) | Nhóm (để sau) | 2026-10-01 | ADR-002, ADR-007 (ngân sách), ADR-010 |
+| Q11 | "Tăng độ phức tạp" có phải là tăng kích thước model (số tham số) không? Có cần tăng cả số node, hay giới hạn băng thông mạng giả lập không? | **Nhóm quyết sau.** Trong lúc chờ: kích thước model, 4 bậc từ 7,850 tới 1,663,370 tham số (ADR-011) | Nhóm (để sau) | 2026-10-01 | ADR-011, E8 |
+| Q12 | Docker là bắt buộc hay tùy chọn? Có cần chạy trên nhiều máy thật không? | **Docker là tùy chọn.** Process runtime chạy bằng tiến trình cục bộ (test, E8); Docker Compose trên một máy (4–8 container) làm thêm cho demo và 4 ô của E8; không chạy nhiều máy | Nhóm | 2026-10-01 | ADR-010, T22c, T26 |
+| Q13 | "Communication cost" cô muốn đo bằng số byte (chính xác, tất định) hay cả thời gian truyền thực tế? | **Cả hai.** Byte (tất định) và thời gian giao tiếp đo trên process runtime (`comm_s`); báo cáo ghi rõ thời gian đo trên một máy | Nhóm | 2026-10-01 | ADR-010 (`comm_s`), ADR-011, REQ-05 |
 | A3 | Mọi node cùng kiến trúc và cùng khởi tạo $w^0$? | **Có**, $w^0$ chung theo seed chung. Ghi là hạn chế: Badie-Modiri coi đây là "coordinated initialisation" (docs/research/DIGEST.md §2.8). Ablation khởi tạo độc lập để ở phần mở rộng | Nhóm (mặc định) | 2026-09-30 | ADR-006, §2.5, T24 (mục hạn chế) |
 | A4 | Mọi node tham gia mọi round, đồng bộ? | **Có**; không mô phỏng rớt node | Nhóm (mặc định) | 2026-09-30 | ADR-002 |
 | A5 | Đánh giá trên tập test toàn cục chung? | **Có**, kèm acc^loc theo phân bố nhãn cục bộ của từng node | Nhóm (mặc định) | 2026-09-30 | ADR-007, §3.6 |
@@ -49,7 +49,7 @@ Chốt ở P1.3 (phỏng vấn theo skill `interview-me`), ngày 2026-09-30. Ngu
 
 Khi có trả lời của GVHD: điền vào hàng Q1 và Q2 (cột Trả lời, Người trả lời, Ngày) rồi commit. Q1 đã điền ngày 2026-10-01.
 
-## Tin nhắn hỏi lại GVHD sau trả lời Q1 (nhóm soạn ngày 2026-10-01, chưa gửi)
+## Tin nhắn hỏi lại GVHD sau trả lời Q1 (nhóm soạn ngày 2026-10-01; Q12, Q13 nhóm đã tự chốt, nên chỉ cần hỏi ý 1–2 nếu nhóm muốn)
 
 > Em chào Cô,
 >

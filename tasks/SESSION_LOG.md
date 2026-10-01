@@ -298,3 +298,19 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - Câu hỏi mở: Q10–Q13 gửi GVHD (OPEN_QUESTIONS.md); O13: các chỗ sửa SPEC, KH, Makefile, CONSTRAINTS (Ask first) chưa làm, chờ nhóm duyệt K14
 - Ghi chú: `docs/đath1.docx` đổi lúc 17:46 (55 KB → 297 KB) không do phiên này; không sửa, không commit
 - Việc tiếp theo: nhóm duyệt K14; gửi tin nhắn Q10–Q13; sửa SPEC/KH sau khi duyệt; hoàn tất T10c (reconcile phản biện vòng 2, xem build/review/P3.3-doubt-cycle2-result.md), rồi T22a
+
+## 2026-10-01 — Phiên #15 (tiếp) — Nhóm duyệt K14; SPEC, CONSTRAINTS, Makefile theo ADR-010/011
+- Trạng thái: nhóm duyệt K14 (2026-10-01). Q12: Docker là tùy chọn. Q13: đo cả byte lẫn thời gian. Q10, Q11: nhóm quyết sau, trong lúc chờ dùng mặc định
+- File đã đổi:
+  - SPEC.md (ASSUMPTIONS 1; §1.4; §3.1; §4; §5.1–§5.3; §7; REQ-05, REQ-10, REQ-15, REQ-16; T-INV-13; EXP-2 = 269 với E8; EXP-4 H1–H8; §10 dòng 40; Q1, Q10–Q13, QS-10)
+  - CONSTRAINTS.md (T-INV-1…13; phép kiểm Docker vào nhóm "ý kiến bên ngoài"; kích hoạt ở T22b, T22c), Makefile (`check-inv` đếm tới 13)
+  - ADR-010, ADR-011 (Status: nhóm duyệt; Docker tùy chọn), ADR-007 (ngân sách tách E8)
+  - OPEN_QUESTIONS.md (Q12, Q13 đã chốt; Q10, Q11 để sau), tasks/plan.md, tasks/todo.md, tasks/SESSION_LOG.md
+- Kiểm chứng: script kiểm cấu trúc todo: 54 task, không lỗi; số cột của mọi dòng bảng mới trong SPEC đúng; `make check-inv` báo thiếu đúng T-INV-5, 7, 13 (của T11b, T09a, T22b, chưa làm); `make check-task` xanh
+- Quyết định mới:
+  - Docker tùy chọn (Q12): T22c ra khỏi đường găng, không chặn E0a. File Docker nằm ngoài `src/`; container gọi cùng lệnh `dfl node` (T22b) như launcher cục bộ
+  - E8 chạy bằng tiến trình cục bộ (`deploy: local`), thêm 4 ô trong Docker nếu có T22c
+  - E8 thuộc Tier 1 (yêu cầu của GVHD): Tier 1 = 197 lượt lưới lõi + 72 lượt E8
+  - KH chưa sửa: theo SPEC §10 (dòng 40 mới), KH được cập nhật sau Gate G1
+- Câu hỏi mở: Q10, Q11 (nhóm); G1 (GVHD duyệt SPEC, ADR-001…011)
+- Việc tiếp theo: hoàn tất T10c (reconcile phản biện vòng 2), rồi T22a

@@ -3,7 +3,7 @@
 #   make check-fast   sau mỗi lần sửa (vài giây)
 #   make check-task   trước mỗi commit (ngân sách 90 s, chỉ cảnh báo)
 #   make check-full   ở mỗi checkpoint C1–C5
-#   make check-inv    T-INV-1…12 có đủ và xanh; bắt buộc từ C3 và trước mọi lượt Tier 1
+#   make check-inv    T-INV-1…13 có đủ và xanh; bắt buộc từ C3 và trước mọi lượt Tier 1
 
 .PHONY: check-fast check-task check-full check-static check-floor check-inv
 
@@ -66,7 +66,7 @@ check-floor:
 check-inv:
 	@ids=$$($(PY) -m pytest -q --collect-only tests 2>/dev/null | grep -oE 'test_t_inv_[0-9]+_' | sort -u); \
 	missing=""; \
-	for k in 1 2 3 4 5 6 7 8 9 10 11 12; do \
+	for k in 1 2 3 4 5 6 7 8 9 10 11 12 13; do \
 	  echo "$$ids" | grep -qx "test_t_inv_$${k}_" || missing="$$missing T-INV-$$k"; \
 	done; \
 	if [ -n "$$missing" ]; then echo "✗ Thiếu test bất biến:$$missing"; exit 1; fi; \

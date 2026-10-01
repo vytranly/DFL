@@ -1,7 +1,7 @@
 # ADR-011: Thang bốn model tăng dần độ phức tạp cho thí nghiệm chi phí giao tiếp E8; SmallCNN vẫn là model của thí nghiệm lõi
 
 ## Status
-Proposed — nhóm soạn ngày 2026-10-01 theo trả lời Q1 của GVHD; chờ nhóm duyệt và GVHD xác nhận Q11 (OPEN_QUESTIONS.md). Bổ sung ADR-004, không thay thế nó.
+Proposed — nhóm soạn ngày 2026-10-01 theo trả lời Q1 của GVHD; **nhóm duyệt ngày 2026-10-01 (K14)**, chờ Gate G1. Q11 ("độ phức tạp" có phải kích thước model không) nhóm quyết sau; đến lúc đó dùng cách hiểu ở dưới. Q13 đã chốt: đo cả byte lẫn thời gian. Bổ sung ADR-004, không thay thế nó.
 
 ## Date
 2026-10-01
@@ -27,13 +27,13 @@ Proposed — nhóm soạn ngày 2026-10-01 theo trả lời Q1 của GVHD; chờ
 
   Từ M0 tới M3, byte mỗi message tăng khoảng 212 lần. Số tham số được kiểm bằng test như SmallCNN (T09c).
 - **E8: chi phí giao tiếp theo độ phức tạp model.** Thẻ tiền đăng ký `docs/experiments/E8.md` được commit trước khi chạy (EXP-1).
-  - Chạy trên process runtime trong Docker (ADR-010), N = 8 container node và một container observer.
+  - Chạy trên process runtime (ADR-010), N = 8 tiến trình node và một tiến trình observer, `deploy: local`. Docker là tùy chọn (Q12): nếu có T22c thì chạy thêm 4 ô trong Docker, gồm {M1, M3} × {T1, T4} × IID với seed 0, để có số byte mạng độc lập.
   - DFedAvg, τ = 20, R = 50 (1,000 bước cục bộ), η chung chọn ở E0a.
   - Lưới: {M0, M1, M2, M3} × {T1 ring, T3 gossip, T4 FC} × {IID, α = 0.1} × 3 seed = **72 lượt**. Lưới hơn 10 lượt nên phải trình kết quả `--dry-run` cho nhóm trước khi chạy.
 - **Độ đo của E8:**
   - Byte mỗi round: tất định, kiểm bằng message × 4 × số tham số.
   - Thời gian giao tiếp mỗi round (`comm_s`) và thời gian tính (`train_s`), lấy trung vị qua round, cùng tỉ lệ `comm_s / (comm_s + train_s)`.
-  - Số byte mạng của container (`docker stats`), làm phép kiểm độc lập với CommLedger.
+  - Số byte mạng của container (`docker stats`), làm phép kiểm độc lập với CommLedger, ở 4 ô chạy trong Docker.
   - Accuracy cuối, và bytes@90.
   - Tải trung bình của máy chủ, ghi vào manifest để đọc thời gian đúng bối cảnh.
 - **Kết quả kỳ vọng ghi trước (H8):**
@@ -67,7 +67,7 @@ Proposed — nhóm soạn ngày 2026-10-01 theo trả lời Q1 của GVHD; chờ
   - P10: byte/round và `comm_s` theo số tham số, trục log, mỗi đường một topology;
   - P11: accuracy theo byte tích lũy, mỗi đường một model.
 - **Tính toán:** M3 tốn CPU nhất, ước tính 40–100 ms một bước. Phải đo lại ở T13 trước khi chốt R của E8.
-- **SPEC cần sửa sau khi nhóm duyệt (Ask first):**
+- **SPEC cần sửa sau khi nhóm duyệt** (đã sửa ngày 2026-10-01, sau khi nhóm duyệt K14):
   - §1.4: thang model chỉ cho E8;
   - REQ-16;
   - E8 ở §9.5, với Tier bắt buộc theo yêu cầu của GVHD;
