@@ -177,3 +177,14 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - Quyết định mới (không cần ADR): mỗi hàm chỉ rút đúng một `rng.permutation` (placement: hoán vị N vị trí; P2': hoán vị 2N mảnh), và thứ tự rút được ghi trong docstring để test golden so được; P2' sắp chỉ số bằng `argsort(kind="stable")`
 - Câu hỏi mở: không
 - Việc tiếp theo: T07, T06, T08 (P3.2)
+
+## 2026-10-01 — Phiên #15 (tiếp) — T07 Mixing (TV2)
+- Trạng thái: T07 ✅
+- File đã đổi: src/dfl/network/mixing.py, tests/unit/test_mixing.py, tasks/todo.md, tasks/SESSION_LOG.md
+- Kiểm chứng: RED (ImportError) → GREEN, 23 test; `make check-task` → 124 passed, coverage 99.2%, contract `pure-no-torch` (gồm `dfl.network`) giữ
+  - T-INV-9: gap của ring(20) = ⅔(1 − cos(2π/20)) (sai số 1e-12) và 0.033 ± 0.001; FC = 1
+  - MH đối xứng, ngẫu nhiên kép, không âm, bằng 0 ngoài cạnh (ring, FC, 2 ER, star); uniform chỉ ngẫu nhiên theo hàng trên ER và trùng MH trên ring; size-weighted khớp n_j/n và từ chối đồ thị không đầy đủ; matching cho W đối xứng, W² = W, node lẻ có W_ii = 1
+  - π theo ADR-005; điểm đồng thuận của uniform (W^2000) khớp π ∝ d_j + 1
+- Quyết định mới (không cần ADR): `spectral_gap` dùng eigvalsh khi W đối xứng, eigvals khi không; mixing không kiểm liên thông (việc của topology)
+- Câu hỏi mở: không
+- Việc tiếp theo: reconcile P2.2 vòng 2, rồi T06, T08

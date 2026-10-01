@@ -65,7 +65,7 @@
   - Phụ thuộc: T01; QS-1
   - File: `requirements.lock`, `.gitattributes`, `README.md`, `CLAUDE.md`
 
-- [ ] **T07 · Mixing** ⚠ — TV2 · S · làm đầu tiên; ∥ T02a–c, T04a
+- [x] **T07 · Mixing** ⚠ — TV2 · S · làm đầu tiên; ∥ T02a–c, T04a
   - Mô tả: `network/mixing.py` gồm MH, uniform, size-weighted (chỉ cho FC), spectral gap, và trọng số mục tiêu π (ADR-005). Đầu vào sai (đồ thị có hướng, đa cạnh, self-loop, node đánh số sai) thì raise `ValueError`. Không import torch. Test chỉ cần đồ thị networkx, không cần T06.
   - Chấp nhận:
     - T-INV-9: spectral gap của ring(20) = ⅔(1 − cos(2π/20)) ≈ 0.0326; của FC = 1.
