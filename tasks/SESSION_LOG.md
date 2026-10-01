@@ -196,3 +196,17 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - Quyết định mới: nhánh `grid` cố định code của lưới từ E0a (khớp SPEC §5.3, §8: một commit code cho cả lưới)
 - Câu hỏi mở: không
 - Việc tiếp theo: T06, T08 (P3.2)
+
+## 2026-10-01 — Phiên #15 (tiếp) — T06 Topology (TV2)
+- Trạng thái: T06 ✅
+- File đã đổi: src/dfl/network/topology.py, tests/unit/test_topology.py, tasks/todo.md, tasks/SESSION_LOG.md
+- Kiểm chứng: RED (ImportError) → GREEN, 25 test; `make check-task` → 149 passed, coverage 99.4% (topology.py 100%), contract `pure-no-torch` giữ
+  - Ring bậc 2, FC bậc N − 1, star một hub; ER liên thông, tất định theo seed, khác nhau giữa các seed; đồ thị tĩnh bị freeze
+  - T3: mỗi node tối đa một đối tác, N = 21 thì đúng một node đứng ngoài; T3b chỉ dùng cạnh ER và là maximal matching
+  - `graph_at` thuần: gọi lại, gọi xen, và hai lịch độc lập gọi theo thứ tự khác cho cùng đồ thị
+  - E[W] của T3 qua 10⁴ round: lệch lớn nhất 3.19 SE (ngưỡng 4); bản cài sai (matching cố định) lệch 60 SE, nên test phân biệt được
+  - Hợp 200 round của T3 và T3b liên thông
+- Quyết định mới (không cần ADR): T3b dùng luồng `Stream.GOSSIP_ER` riêng (đúng hợp đồng `TopologySchedule`); cạnh ER sắp theo thứ tự chuẩn trước khi xáo; ER thử tối đa 1,000 lần, mỗi lần lấy seed nguyên mới từ luồng GRAPH; ring cần N ≥ 3. Lệch so với H P3.2: không tạo Generator từ [seed, r] (plan K10, ADR-009)
+- Sự cố: floor F7 bắt chuỗi tạo Generator trong docstring; sửa câu chữ, không sửa luật
+- Câu hỏi mở: không
+- Việc tiếp theo: T08 (P3.2)

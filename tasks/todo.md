@@ -86,7 +86,7 @@
   - Phụ thuộc: T01
   - File: `src/dfl/data/heterogeneity.py`, `tests/unit/test_heterogeneity.py`, `pyproject.toml`
 
-- [ ] **T06 · Topology** — TV2 · S · ∥ T03, T04b
+- [x] **T06 · Topology** — TV2 · S · ∥ T03, T04b
   - Mô tả: `network/topology.py` dựng T0 star, T1 ring, T2 ER (p = 0.3, lấy mẫu lại tới khi liên thông), T3 perfect matching trên $K_N$ mỗi round, T3b maximal matching trên cạnh ER, T4 FC, và lịch W = I cho B2. Đồ thị tĩnh được kiểm liên thông lúc dựng. `graph_at` là hàm thuần của (seed, round): lịch nhận một hàm `rng_for(round) -> numpy.random.Generator` do `sim` dựng từ `seeding.numpy_rng(seed, Stream.GOSSIP, round)` (ADR-009). `topology.py` không import `seeding`, vì `seeding` import torch (contract `pure-no-torch`). Không dùng `default_rng([seed, r])` như H P3.2 gợi ý (plan K10).
   - Chấp nhận:
     - Ring bậc 2; FC bậc N − 1; ER liên thông và tất định theo seed. T3: mỗi node tối đa một đối tác, N lẻ thì đúng một node đứng ngoài. T3b chỉ dùng cạnh ER và là maximal matching.
