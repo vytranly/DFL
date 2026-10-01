@@ -239,3 +239,23 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - Lệch quy trình: diff ≈ 750 dòng (166 dòng `src/`, 580 dòng test và fixture dùng chung cho T10b, T10c), vượt mức ~300 dòng của P3.0; giữ một commit vì một task = một commit, như T04b
 - Câu hỏi mở: D5 (SPEC §9.2 ghi T-INV-6 "unit · T08", plan/todo ghi T10b) chờ nhóm cho sửa SPEC
 - Việc tiếp theo: T10b (test 9–16)
+
+## 2026-10-01 — Phiên #15 (tiếp) — T10b Gossip + đường server (TV2)
+- Trạng thái: T10b ✅
+- File đã đổi: src/dfl/sim/engine.py (`weights_at`, kiểm INV-4, đường server), src/dfl/sim/node.py (tách `weighted_sum` khỏi `combine`), tests/integration/test_engine_consensus.py, tests/integration/test_engine_fedavg.py, tests/integration/test_engine_messages.py (mới), tasks/todo.md, tasks/SESSION_LOG.md
+- Kiểm chứng:
+  - RED: 12/26 fail đúng lý do (chưa có `weights_at`, chưa có `server_path`, `schedule`/`mixing` còn bắt buộc). 14 test qua ngay vì engine của T10a đã gọi `graph_at` mỗi round. Sức phân biệt của chúng kiểm bằng đột biến ở dưới
+  - GREEN: 27 test mới; `make check-task` → 216 passed, coverage 99.5% (`sim/engine.py`, `sim/node.py` 100%); test chậm nhất là E[W] qua 10⁴ round, 2.1 s
+  - T-INV-1 (float64, lr = 0, khởi tạo khác nhau, 20 round): ring(4), ER(4) và FC(4) đạt Ξ_t ≤ ρ^t Ξ_0 (1 + 1e-6) + 1e-12, với ρ lấy từ MH do test tự dựng; trung bình được bảo toàn (1e-12); quỹ đạo X_t = W^t X_0 (1e-12). Gossip: mỗi W đối xứng, ngẫu nhiên kép, W² = W, giá ngoài đường chéo trùng đúng cạnh của `graph_at(r)`; E[W] (N = 4) trong ±4 SE
+  - T-INV-3: FC + size-weighted (kích thước 64/96/128/200), đường server, và FC + MH với kích thước bằng nhau đều khớp FedAvg viết trong test (atol 1e-6); đối chứng dương: FC + MH với kích thước lệch thì lệch FedAvg > 1e-3
+  - T-INV-6 qua engine, N = 20: ring 40, FC 380, gossip 20, ER 2·|E|, server 2N message/round; byte = message × nbytes; cặp gửi–nhận trùng đúng cạnh có hướng; không tự gửi; server gánh tải lớn nhất
+  - Đột biến mức engine trên bản sao `src/`, cả 7 bị bắt: `graph_at(0)` mọi round; dùng cột W thay hàng; trộn lười 0.5(I + W); server tổng hợp đều 1/N; chỉ gửi một chiều; node gossip đứng ngoài bỏ Adapt; bỏ kiểm INV-4
+- Quyết định mới (không cần ADR):
+  - D1 (nhóm duyệt cùng danh sách test): dung sai T-INV-1 theo todo, `(1 + 1e-6)·ρ^t·Ξ_0 + 1e-12`, với model float64, kèm phép kiểm hai phía X_t = W^t X_0. Dạng "+1e-6" của H P3.3 lệch với todo; thêm vào O8
+  - D2: bỏ phần Monte Carlo tùy chọn cho Ξ_t². D3: E[W] lấy qua `weights_at(r)`, cùng hàm mà `run_round` dùng
+  - Engine kiểm INV-4 cho mọi W trước khi dùng: shape N × N, hữu hạn, không âm, tổng hàng bằng 1 (1e-12), khác 0 chỉ trên cạnh của round; sai thì ValueError
+  - Đường server: `Engine(..., server_path=True)` không nhận schedule/mixing; server ảo id N tổng hợp Σ_k (n_k/n) w_k theo id tăng dần rồi gửi một snapshot xuống; node lấy phần float từ snapshot đó và giữ tensor nguyên của mình; `RoundResult.weights` là ma trận hiệu dụng (mọi hàng bằng n_k/n); server thiếu snapshot thì RuntimeError
+  - Không sửa conftest: bộ ghi cặp gửi–nhận viết trong test_engine_messages.py để T10b giữ 5 file
+- Lệch quy trình: diff ≈ 630 dòng (147 dòng `src/`, 485 dòng test), vượt mức ~300 dòng của P3.0; giữ một commit như T10a
+- Câu hỏi mở: D5 (sửa SPEC §9.2: T-INV-6 là "integration · T10b" thay vì "unit · T08", và câu "T10b có T-INV-1, 3" ở §7) vẫn chờ nhóm cho phép; chưa sửa SPEC
+- Việc tiếp theo: T10c cần T09b (Evaluator, của TV1, chưa làm)

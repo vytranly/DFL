@@ -216,7 +216,7 @@
   - Phụ thuộc: T01 (test dùng MLP tí hon, không cần T09a)
   - File: `src/dfl/metrics/classification.py`, `src/dfl/metrics/consensus.py`, `tests/unit/test_classification.py`, `tests/unit/test_consensus.py`
 
-- [ ] **T10b · Gossip + đường server** ⚠ — TV2 · M · ∥ T09b, T11a
+- [x] **T10b · Gossip + đường server** ⚠ — TV2 · M · ∥ T09b, T11a
   - Mô tả:
     - Engine chạy với topology động: gọi `graph_at` mỗi round. Node không được ghép vẫn chạy Adapt và dùng W_ii = 1.
     - Đường server cho B3/E1c: server ảo chỉ số N nhận N snapshot, tổng hợp theo $n_k/n$, rồi gửi lại N snapshot qua Transport.
