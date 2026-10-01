@@ -15,11 +15,13 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from types import MappingProxyType
 
+import numpy as np
 import pytest
 import torch
 
 from dfl import seeding
 from dfl.contracts import CommCounters, NodeDataset, Snapshot
+from dfl.metrics.classification import ClassificationEvaluator
 from dfl.network.transport import InMemoryTransport
 from dfl.seeding import Stream
 from dfl.sim.node import Node
@@ -28,6 +30,8 @@ NUM_CLASSES = 10
 IMAGE_SHAPE = (1, 28, 28)
 HIDDEN = 4
 DATA_SEED = 1234
+# id riêng cho tập đánh giá, để nhiễu của nó không trùng nhiễu của node nào.
+EVAL_SET_ID = 1000
 
 
 class TinyMLP(torch.nn.Module):
@@ -208,3 +212,35 @@ def sgd_trainer() -> Callable[..., SgdTrainer]:
 @pytest.fixture
 def recording_transport() -> Callable[..., RecordingTransport]:
     return RecordingTransport
+
+
+def _eval_set() -> NodeDataset:
+    return synthetic_dataset(EVAL_SET_ID, 200, range(NUM_CLASSES))
+
+
+@pytest.fixture
+def eval_set() -> NodeDataset:
+    """Tập đánh giá tổng hợp 200 mẫu, đủ 10 lớp; cùng tập mà make_evaluator dùng."""
+    return _eval_set()
+
+
+@pytest.fixture
+def make_evaluator() -> Callable[..., ClassificationEvaluator]:
+    """Evaluator thật (T09b) trên tập đánh giá tổng hợp, P_i lấy từ dữ liệu của từng node."""
+
+    def make(
+        nodes: Sequence[Node], *, objective_weights: np.ndarray | None = None
+    ) -> ClassificationEvaluator:
+        eval_set = _eval_set()
+        counts = np.stack([np.bincount(node.data.y.numpy(), minlength=NUM_CLASSES) for node in nodes])
+        pi = np.full(len(nodes), 1 / len(nodes)) if objective_weights is None else objective_weights
+        dtype = next(nodes[0].model.parameters()).dtype
+        return ClassificationEvaluator(
+            TinyMLP(torch.Generator().manual_seed(0), dtype=dtype),
+            eval_set.x,
+            eval_set.y,
+            label_distributions=counts / counts.sum(axis=1, keepdims=True),
+            objective_weights=pi,
+        )
+
+    return make

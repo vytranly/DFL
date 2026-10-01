@@ -314,3 +314,39 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
   - KH chưa sửa: theo SPEC §10 (dòng 40 mới), KH được cập nhật sau Gate G1
 - Câu hỏi mở: Q10, Q11 (nhóm); G1 (GVHD duyệt SPEC, ADR-001…011)
 - Việc tiếp theo: hoàn tất T10c (reconcile phản biện vòng 2), rồi T22a
+
+## 2026-10-01 — Phiên #15 (tiếp) — T10c Observer + phản biện engine, kèm T10d (TV2)
+- Trạng thái: T10c ✅; T10d ✅ (bản sửa sau phản biện, gộp cùng commit)
+- File đã đổi: src/dfl/sim/observer.py (mới), src/dfl/sim/engine.py, tests/integration/conftest.py (`eval_set`, `make_evaluator`), tests/integration/test_observer.py (mới), tests/integration/test_engine_review.py (mới), tests/integration/test_engine_consensus.py và tests/integration/test_engine_messages.py (thêm `check_schedule`, 1–4 dòng), tasks/todo.md, tasks/SESSION_LOG.md
+- Kiểm chứng:
+  - T10c: RED (chưa có `RunDiverged`, `observer`) → GREEN. T-INV-11: FC + MH cho node trùng từng bit, `acc_std` = 0, acc^loc = P_i · cùng một vector recall (sklearn). T-INV-12: tắt Observer, hay gọi `graph_at` thêm ≥ 12 lần, thì quỹ đạo vẫn trùng từng bit. Lịch đánh giá 100 bước + round cuối; `RoundRecord` đủ trường, không NaN; drift và consensus là RMS (oracle độc lập); loss NaN hay tham số inf thì dừng đúng round
+  - `make check-full` → 299 passed, coverage 99.7% (`sim/` 100%), `pip check` sạch. 22 đột biến của T10a–c đều bị bắt với engine bản cuối
+  - Test E[W] (10⁴ round) mất 2.5 s khi chạy riêng, 3.4–4.6 s trong cả bộ lúc máy tải nặng; ma trận kề đã vector hóa (90 → 71 µs/round). Theo dõi ở T13
+  - Thăm dò gloo (scratchpad, 4 tiến trình trên ring): `isend`/`irecv` và `send`/`recv` theo thứ tự cố định đều đúng từng bit, 7–11 ms/lần, cho T22a
+- Reconcile doubt-driven (H P3.3 bước 4; ARTIFACT = engine.py + node.py; CONTRACT = KH §3.4, §4.5, H§2.4 G2–G7, G15, G18, G21, G22; reviewer ngữ cảnh mới, không nhận lời khẳng định của tác giả):
+  - **Vòng 1:** code-reviewer: 0 critical, 3 major, 13 minor. Cross-model thủ công do nhóm chạy: 15 phát hiện, tự nhận 4 critical. Gộp 31 phát hiện:
+    - Sửa (13 nhóm): node độc lập (Generator, bộ nhớ, nhãn dữ liệu, BatchNorm); dừng engine sau lỗi giữa round; `RunDiverged` pickle được; lý do phân kỳ theo id; w⁰ không hữu hạn là lỗi lúc dựng; INV-4 hai chiều, đồ thị tĩnh liên thông, cấu trúc đồ thị; kích thước node và c_i; cấu trúc state đồng nhất; `RoundResult` so sánh theo danh tính; W tĩnh dựng một lần; docstring
+    - Đánh đổi (4): float32(W_ij), tensor nguyên trên đường server, traffic của round phân kỳ, tham chiếu inbox sau khi dừng
+    - Không phải lỗi (4): `counters()` sau khi dừng là cần thiết; float8; kiểm W trong `combine` (đã kiểm ở biên engine); snapshot round cũ (tới vòng 3 thì thành lỗi thật)
+  - **Vòng 2:** 0 critical, 2 major, 11 minor. Đã đề nghị cross-model, nhóm không yêu cầu, nên vòng này không có.
+    - Sửa (8): hợp các round của gossip liên thông; Adapt dùng RNG toàn cục; Generator trùng seed; W chỉ đọc; thuộc tính "weight" của cạnh; `states()` sau khi dừng; lớp giữ thống kê chạy; len(x) = len(y)
+    - Đánh đổi (3): lỗi lắp ráp đường server chỉ lộ ra ở round 0; `nbytes` theo hợp đồng; FC + MH float64 lệch bit cuối
+    - Không phải lỗi (2)
+  - **Vòng 3** (vòng cuối): 0 critical, 2 major, 13 minor. Cross-model không chạy; file đề build/review/P3.3-doubt-cycle3.md có sẵn nếu nhóm muốn. Làm theo H P3.4: viết 13 test hồi quy, xác nhận FAIL, rồi mới sửa. Nguyên nhân gốc mỗi lỗi, một câu:
+    - #1: MT19937 chỉ dùng 32 bit thấp của seed, mà phép kiểm so cả 64 bit → so 32 bit thấp
+    - #2: INV-4 của gossip chỉ được kiểm khi người gọi dùng `run_rounds` → engine từ chối round ngoài phạm vi đã `check_schedule`
+    - #3: Combine tin khóa của inbox → kiểm người gửi và round
+    - #4: `.base` của view chỉ đọc vẫn bật lại quyền ghi được, và cache dùng chung đồ thị của lịch → W bất biến (dựng trên bytes), cache bản sao đóng băng của đồ thị
+    - #6b, #6c: chỉ có phép kiểm RNG lúc chạy → từ chối `default_generator` và Dropout lúc dựng
+    - #9: tính thuần của lịch chỉ được giả định → mỗi round gọi `graph_at` hai lần và so
+    - #11: `total_rounds` < 1 không bị chặn → phải ≥ 1
+    - Hai test của T10b (`test_engine_messages`) và một test của T10d fail sau khi sửa. Khoanh vùng cho thấy lỗi ở test: hợp hai matching trên K_N chưa liên thông. Đã sửa thành khai báo phạm vi của một lượt thật (50 hay 10 round); không hạ ngưỡng nào
+    - Đánh đổi, ghi vào docstring: `batch_norm` dạng hàm và lớp con riêng của `_BatchNorm`; RNG của numpy và `random` (đã bị lint chặn); thăm dò transport lúc dựng; trainer phải không có trạng thái; tham số buộc chung tính hai lần; dấu của tổng hàng float32; dữ liệu chỉ kiểm theo nhãn
+    - Không phải lỗi: w⁰ chung, vì T-INV-1 cần khởi tạo khác nhau
+  - Sau 3 vòng vẫn còn phát hiện thực chất ở vòng cuối (đã sửa). Theo doubt-driven, đây là thông tin về artifact: đề nghị review lại engine ở C3 (P3.7, code-reviewer)
+- Quyết định mới (không cần ADR): API Observer và `run_rounds` (generator; kiểm lịch trước round đầu); `RunDiverged(round_idx, reason)` với `diverged_at_round` = round_idx + 1; std bằng `statistics.pstdev` (D4); `check_union_connected` là hàm dùng chung cho T22b; T22b phải gọi nó và kiểm inbox như engine
+- Lệch quy trình:
+  - Chạm 7 file, trong đó 2 file test của T10b chỉ thêm 1–4 dòng
+  - Diff khoảng 1,450 dòng; bản sửa sau phản biện vượt khoảng 300 dòng, nên được ghi thành T10d nhưng gộp cùng commit, vì sửa đan xen trong `engine.py` và trạng thái trung gian chưa từng được test
+- Câu hỏi mở: không
+- Việc tiếp theo: T22a (Transport gloo), cùng T11a, T09a, T02b, T03 theo thứ tự phụ thuộc

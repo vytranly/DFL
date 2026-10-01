@@ -73,6 +73,9 @@ def test_t_inv_6_messages_and_bytes_per_round_through_engine(case, make_nodes, s
             transport=transport,
         )
         independent = make_schedule()
+    # Gossip chỉ chạy trong phạm vi đã kiểm INV-4. Hai matching trên K_20 chưa thể liên thông, nên khai báo
+    # phạm vi của một lượt thật (50 round) rồi chỉ chạy hai round đầu.
+    engine.check_schedule(50)
 
     before = transport.counters()
     for r in range(2):
@@ -116,6 +119,7 @@ def test_unmatched_gossip_node_still_trains_and_keeps_its_own_model(make_nodes, 
         transport=transport,
     )
     independent = gossip_schedule(5, 3)
+    engine.check_schedule(50)  # phạm vi của một lượt thật; chỉ chạy ba round đầu
 
     for r in range(3):
         # Act

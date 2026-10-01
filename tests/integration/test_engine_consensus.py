@@ -115,6 +115,7 @@ def test_t_inv_1_gossip_each_mixing_matrix_is_a_symmetric_idempotent_matching(
     # Arrange: một lịch dựng độc lập với cùng seed cho đồ thị mà mỗi round phải dùng.
     engine = lr0_engine(make_nodes, sgd_trainer, topo.gossip(N, gossip_rng(1)))
     independent = topo.gossip(N, gossip_rng(1))
+    engine.check_schedule(50)
 
     for r in range(50):
         # Act

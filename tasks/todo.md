@@ -271,7 +271,7 @@
   - Phụ thuộc: T01
   - File: `analysis/stats.py`, `tests/unit/test_stats.py`
 
-- [ ] **T10c · Observer + phản biện engine** ⚠ — TV2 · M
+- [x] **T10c · Observer + phản biện engine** ⚠ — TV2 · M
   - Mô tả:
     - `sim/observer.py`: đánh giá theo lưới mốc (mỗi 100 bước; smoke đánh giá mỗi round; round cuối luôn được đánh giá).
     - Ở mỗi mốc: gọi Evaluator (T09b) cho mọi node để lấy Acc_i, Acc^loc_i, Acc^eff, macro-F1; tính acc($\bar w$); đo drift trước tổng hợp và consensus distance sau tổng hợp; dựng `RoundRecord`.
@@ -282,7 +282,16 @@
     - Mỗi `RoundRecord` có đủ trường của `contracts.py`, kể cả `acc_per_node` và `acc_local_per_node` (N phần tử); không có NaN.
   - Kiểm chứng: `make check-task`; `pytest -q tests/integration/test_observer.py`; sau đó chạy doubt-driven cho `engine.py` và `node.py` (H P3.3, bước 4; tối đa 3 vòng), và ghi kết quả reconcile vào SESSION_LOG trước khi commit
   - Phụ thuộc: T10b, T09b
-  - File: `src/dfl/sim/observer.py`, `src/dfl/sim/engine.py`, `src/dfl/sim/node.py`, `tests/integration/test_observer.py`
+  - File: `src/dfl/sim/observer.py`, `src/dfl/sim/engine.py`, `tests/integration/conftest.py`, `tests/integration/test_observer.py`, `tests/integration/test_engine_review.py` (không cần sửa node.py; test hồi quy của phản biện nằm ở file riêng)
+
+- [x] **T10d · Sửa engine theo phản biện doubt-driven (3 vòng)** ⚠ — TV2 · M
+  - Mô tả: các bản sửa sau phản biện của T10c vượt khoảng 300 dòng, nên theo T10c là một task riêng. Các bản sửa đan xen trong `engine.py`, nên gộp vào cùng commit với T10c, để không có trạng thái trung gian chưa được test (SESSION_LOG).
+  - Chấp nhận:
+    - Mỗi phát hiện hợp lệ có test hồi quy đã FAIL trước khi sửa (H P3.4); đánh đổi và phát hiện không phải lỗi được ghi vào SESSION_LOG.
+    - `make check-full` xanh; các đột biến của T10a–c vẫn bị bắt.
+  - Kiểm chứng: `make check-full`; `pytest -q tests/integration/test_engine_review.py`
+  - Phụ thuộc: T10c
+  - File: `src/dfl/sim/engine.py`, `tests/integration/test_engine_review.py`, `tests/integration/test_engine_consensus.py`, `tests/integration/test_engine_messages.py`
 
 - [ ] **T15a · Analysis: đọc kết quả + kiểm INT-2, INT-3, INT-6** — TV3 · M · ∥ T10c, T11b
   - Mô tả:
@@ -610,7 +619,7 @@ T22a, T22b và T09c là code của lưới: phải xong trước T14b (E0a), đ�
 
 - [ ] **T22b · Process runtime: mỗi node một tiến trình, cộng observer** ⚠ — TV2 · M
   - Mô tả: `sim/process_runtime.py` (ADR-010).
-    - Vòng lặp của tiến trình node: cùng một round ATC bằng `Node`, `combine`, `make_snapshot` và TorchDistTransport; G_t tự tính từ seed chung (G18); kiểm hữu hạn; dừng mọi tiến trình khi phân kỳ hay lỗi.
+    - Vòng lặp của tiến trình node: cùng một round ATC bằng `Node`, `combine`, `make_snapshot` và TorchDistTransport; G_t tự tính từ seed chung (G18); trước round đầu gọi `check_union_connected` như `run_rounds` (INV-4 của gossip); kiểm hữu hạn và kiểm inbox như engine; dừng mọi tiến trình khi phân kỳ hay lỗi.
     - Vòng lặp của observer: nhận state và số đếm ở mốc đánh giá qua kênh đo (không tính phí), dựng RoundRecord, ghi kết quả bằng RunLogger.
     - `python -m dfl run --runtime processes` khởi chạy N + 1 tiến trình cục bộ; mỗi tiến trình chạy `python -m dfl node --rank k --world-size W --master-addr …`, đúng lệnh mà container Docker dùng (T22c). TimingRecord thêm `comm_s`.
   - Chấp nhận:
