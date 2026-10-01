@@ -188,3 +188,11 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - Quyết định mới (không cần ADR): `spectral_gap` dùng eigvalsh khi W đối xứng, eigvals khi không; mixing không kiểm liên thông (việc của topology)
 - Câu hỏi mở: không
 - Việc tiếp theo: reconcile P2.2 vòng 2, rồi T06, T08
+
+## 2026-10-01 — Phiên #15 (tiếp) — P2.2 vòng 2
+- Trạng thái: P2.2 xong 2/2 vòng; reconcile vòng 2 ở tasks/plan.md §14. Cross-model vòng 2: chưa có kết quả
+- File đã đổi: tasks/todo.md (49 task: thêm T11e, T14e, T22a/T22b; nhánh `grid` và PYTHONPATH cho worktree; T-INV-6 chuyển sang T10b; pilot ở C3), tasks/plan.md, tasks/SESSION_LOG.md
+- Kiểm chứng: đã kiểm thực tế F1 (worktree nạp `dfl` từ repo chính nếu không đặt PYTHONPATH); script kiểm cấu trúc todo.md sạch; `make check-task` xanh
+- Quyết định mới: nhánh `grid` cố định code của lưới từ E0a (khớp SPEC §5.3, §8: một commit code cho cả lưới)
+- Câu hỏi mở: không
+- Việc tiếp theo: T06, T08 (P3.2)

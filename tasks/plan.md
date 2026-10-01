@@ -6,7 +6,7 @@
 
 ## 1. Tổng quan
 
-Kế hoạch biến SPEC thành 46 task cỡ S hoặc M (gồm T22), mỗi task chạm tối đa 5 file (không tính `tasks/todo.md`, `tasks/SESSION_LOG.md`) và khoảng 300 dòng diff. Công việc chia ba lát dọc: lát dữ liệu (C1), lát mạng (C2), lát chạy trọn một lượt (C3, mốc M3). Sau đó tới công cụ thí nghiệm, lưới Tier 1 (C4), Tier 2 (C5, mốc M4), báo cáo và thẩm định. Hai task rủi ro cao nhất được đưa lên sớm. T07 (mixing) làm ngay đầu tuần 3, không đợi topology. Engine (T10a) bắt đầu ngay khi có transport, với một trainer giả theo Protocol, không đợi T09. Mọi code trong `src/` phải xong trước E0a, vì từ E0a `code_version` bị đóng băng (ADR-008).
+Kế hoạch biến SPEC thành 49 task cỡ S hoặc M (gồm T22a, T22b), mỗi task chạm tối đa 5 file (không tính `tasks/todo.md`, `tasks/SESSION_LOG.md`) và khoảng 300 dòng diff. Công việc chia ba lát dọc: lát dữ liệu (C1), lát mạng (C2), lát chạy trọn một lượt (C3, mốc M3). Sau đó tới công cụ thí nghiệm, lưới Tier 1 (C4), Tier 2 (C5, mốc M4), báo cáo và thẩm định. Hai task rủi ro cao nhất được đưa lên sớm. T07 (mixing) làm ngay đầu tuần 3, không đợi topology. Engine (T10a) bắt đầu ngay khi có transport, với một trainer giả theo Protocol, không đợi T09. Mọi code trong `src/` phải xong trước E0a, vì từ E0a `code_version` bị đóng băng (ADR-008).
 
 ## 2. Điều kiện trước khi bắt đầu pha 3
 
@@ -68,8 +68,8 @@ flowchart TB
   subgraph W56["Tuần 5–6 — C3"]
     T09b["T09b độ đo · T-INV-10"]; T10b["T10b gossip + server · T-INV-1, 3"]
     T10c["T10c observer · T-INV-11, 12"]; T11a["T11a manifest + logger"]
-    T11b["T11b dfl run · T-INV-5"]; T11d["T11d quy tắc results/"]; T11c["T11c baseline + biến thể"]
-    T15a["T15a analysis: đọc + kiểm"]; T15b["T15b R@x, AUC"]; T15c["T15c thống kê"]; T14a["T14a sanity + chọn η"]
+    T11b["T11b dfl run · T-INV-5"]; T11d["T11d quy tắc results/"]; T11e["T11e tập đánh giá + đánh giá cuối"]; T11c["T11c baseline + biến thể"]
+    T15a["T15a analysis: đọc + kiểm"]; T15b["T15b R@x, AUC"]; T15c["T15c thống kê"]; T14a["T14a sanity"]; T14e["T14e chọn η"]
   end
   subgraph W7["Tuần 7"]
     T12["T12 sweep"]; T13["T13 hiệu năng"]; T16a["T16a khung hình + P1"]; T14b["T14b E0a"]
@@ -99,12 +99,14 @@ flowchart TB
   T10b --> T11c
   T09a & T10c & T11a --> T11b
   T11b --> T11c & T11d & T16a
-  T11d --> T12 & T13
-  T11b --> T22["T22 TorchDist (Q1/QS-10)"]
+  T11c --> T11d --> T12 & T13
+  T10c --> T22a["T22a TorchDist (Q1/QS-10)"] --> T22b["T22b chọn backend"]
   T11c --> T13
   T12 --> T13
   T05b & T15a & T15b --> T16a
-  T15a & T15b --> T14a
+  T15a & T15b --> T14a & T14e
+  T11b --> T11e
+  T14e & T11e --> T14b
   T12 & T13 & T14a --> T14b --> T14c
   T14c --> T17a & T19a & T20a
   T15c & T16a & T16b --> T17a
@@ -194,7 +196,7 @@ Mỗi checkpoint làm theo H P3.8:
 | T-INV-3 | T10b | integration |
 | T-INV-4 | T10a | integration |
 | T-INV-5 | T11b | e2e + integration |
-| T-INV-6 | T08 | unit |
+| T-INV-6 | T10b (qua engine; T08 có test thành phần của CommLedger) | integration |
 | T-INV-7 | T09a | unit |
 | T-INV-8 | T04b | unit |
 | T-INV-9 | T07 | unit |
@@ -340,3 +342,44 @@ Kiểm lại bằng script: 46 task; đủ trường, ≤ 3 gạch chấp nhận
 Kết thúc vòng 1: cả hai reviewer đều có phát hiện mức cao, và tất cả đã được xử lý. Vòng 2 (tối đa theo P2.2) cần nhóm quyết.
 
 **Gate G2 (2026-09-30):** đủ ba điều kiện — mọi task có tiêu chí chấp nhận, lệnh kiểm chứng, phụ thuộc, ≤ 5 file (kiểm bằng script); có C1–C5, người phụ trách, và chủ cho T-INV-1…12; nhóm đã nói "duyệt".
+
+### Vòng 2
+
+Reviewer nội bộ trên `todo.md` sau vòng 1 (F1–F29). Cross-model vòng 2: file `build/review/P2.2-cross-model-cycle2.md` đã sẵn; nhóm chưa gửi kết quả.
+
+- **Đúng, sửa:**
+  - F1: worktree nạp nhầm code của repo chính qua bản cài editable (đã kiểm). Sweep đặt `PYTHONPATH=<worktree>/src`; `code_version` tính từ thư mục của gói đang nạp.
+  - F2: nhánh `grid` cố định code từ E0a; thẻ và cấu hình commit trên nhánh đó; T22 chỉ vào nhánh chính.
+  - F3: task mới T11e cho tập đánh giá và đánh giá cuối trên đủ tập.
+  - F4: T-INV-6 chuyển sang T10b, đếm qua engine.
+  - F6: pilot trên validation ở C3.
+  - F7: tách T22 thành T22a và T22b; T14b phụ thuộc chúng nếu Q1 yêu cầu.
+  - F8: anchor của prox do engine đặt mỗi round, có test.
+  - F10: T02b không còn tự mâu thuẫn (`5e-2` là chuỗi trong PyYAML).
+  - F11: manifest có đủ các trường, do T11b ghi.
+  - F12: B1 không qua topology hay mixing; lưới của baseline được miễn kiểm.
+  - F13: T11d làm sau T11c.
+  - F15: tách T14a thành T14a và T14e.
+  - F16: T08b đối chiếu qua Transport.
+  - F17: `sweep --only`.
+  - F18: η ghi vào `configs/base.yaml`.
+  - F19: symlink `data/` và `results/` trong worktree; schema chỉ mục nằm trong `contracts.py`.
+  - F20: test liên thông theo hợp các round.
+  - F21: kiểm chứng của T10a chạy cả file test.
+  - F25: test tập con 2,000 ảnh.
+  - F26: μ theo QS-2.
+  - F27: `fcntl` ở T12.
+  - F29: hình thiếu dữ liệu.
+- **Nhiễu một phần:**
+  - F5: SPEC chỉ tính file `*.py`, `*.yaml` bị ignore; đã sửa câu chữ ở T11a.
+  - F9: Protocol `LocalTrainer` đã có trong `contracts.py`.
+  - F22: các schema đã có sẵn trong `contracts.py`.
+  - F24: `.gitattributes` không làm đổi file nào (đã kiểm ở T02c).
+- **Trade-off:**
+  - F14: đường găng của TV2.
+  - F23: pha 3 đã chạy trước G1; nhóm đã chọn làm vậy.
+  - F28: review code cuối sau báo cáo; đã có review ở mọi checkpoint.
+
+Kiểm lại bằng script: 49 task; đủ trường, ≤ 3 gạch chấp nhận, ≤ 5 file, cỡ đúng; không có vòng phụ thuộc; không task nào song song với thứ nó phụ thuộc; T-INV-1…12 mỗi cái đúng một chủ.
+
+Kết thúc P2.2: đã chạy đủ 2 vòng, là giới hạn của P2.2. Vòng 2 vẫn có phát hiện mức cao (F1–F7); tất cả đã được sửa, nhưng chưa được phản biện lại.

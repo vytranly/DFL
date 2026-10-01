@@ -16,12 +16,13 @@
 > ⚠ = rủi ro cao, làm sớm. ∥ = làm song song được với các task ghi sau nó.
 >
 > **Kiểm chứng một task thí nghiệm** (gọi tắt là "quy trình thí nghiệm"):
-> 1. Commit thứ nhất: thẻ tiền đăng ký và cấu hình, trước khi chạy (EXP-1; `make check-task` xanh). Worktree của lưới lấy đúng commit này.
+> 0. Một lần, ở E0a: tạo nhánh `grid` tại commit của lưới và worktree của nó (`git worktree add <dir> grid`). Nhánh `grid` không bao giờ nhận thay đổi trong `src/` hay `requirements.lock`, nên `code_version` không đổi suốt Tier 1 + 2; code mới (ví dụ T22) chỉ vào nhánh chính. Trong worktree, `data/` và `results/` là symlink tới thư mục của repo chính, để mọi lượt ghi vào cùng một `results/`.
+> 1. Commit thứ nhất, trên nhánh `grid`: thẻ tiền đăng ký và cấu hình, trước khi chạy (EXP-1; `make check-task` xanh). Nhánh chính merge nhánh `grid` sau mỗi nhóm.
 > 2. Lưới hơn 10 lượt thì trình kết quả `python -m dfl sweep --experiment <file> --dry-run` cho nhóm (Ask first).
-> 3. Chạy `python -m dfl sweep --experiment <file> --workers <k>` từ worktree của lưới (SPEC §5.3).
+> 3. Chạy `python -m dfl sweep --experiment <file> --workers <k>` từ worktree của lưới (SPEC §5.3). Sweep đặt `PYTHONPATH=<worktree>/src` cho tiến trình con, vì bản cài editable của `.venv` trỏ về `src/` của repo chính (đã kiểm: không đặt thì nạp nhầm code của nhánh chính).
 > 4. Chạy lại `--dry-run`: phải báo 0 lượt sẽ chạy và 0 attempt `failed` chưa xử lý.
 > 5. Chạy lệnh kiểm SAN-5 của `analysis.sanity` trên nhóm vừa chạy, rồi các lệnh `analysis` ghi ở task.
-> 6. Commit thứ hai: kết quả và kết luận ghi vào thẻ, cùng `tasks/`. Lịch sử git cho thấy thẻ có trước kết quả.
+> 6. Commit thứ hai, trên nhánh `grid`: kết quả và kết luận ghi vào thẻ, cùng `tasks/`. Lịch sử git cho thấy thẻ có trước kết quả.
 
 ## Điều kiện trước pha 3
 
@@ -48,8 +49,8 @@
 - [ ] **T02b · Cấu hình + YAML base/smoke** — TV3 · M · ∥ T02a, T02c, T07, T04a
   - Mô tả: dataclass cấu hình frozen, đọc bằng `yaml.safe_load`, điền mặc định, kiểm kiểu và giá trị; JSON chuẩn hóa cho `run_id` (khóa sắp xếp, số thực theo `repr`). Tạo `configs/base.yaml` (mặc định KH §3.5, lưới 40 mốc, tập con 2,000, 1 luồng) và `configs/profiles/smoke.yaml` (SPEC §5.2).
   - Chấp nhận:
-    - Cấu hình sai thì raise `ValueError` nêu ràng buộc bị vi phạm: kiểu sai (PyYAML đọc `5e-2` thành chuỗi), #C = k với N < 10, 100 không chia hết cho τ ở profile có lưới 100 bước.
-    - Hai YAML tương đương (khác thứ tự khóa, `0.05` so với `5e-2`) cho cùng JSON chuẩn hóa. JSON này không gồm tên nhóm, `--out`, `--workers`.
+    - Cấu hình sai thì raise `ValueError` nêu ràng buộc bị vi phạm: kiểu sai, ví dụ `5e-2` (PyYAML đọc thành chuỗi, nên phải viết `0.05` hay `5.0e-2`), #C = k với N < 10, 100 không chia hết cho τ ở profile có lưới 100 bước.
+    - Hai YAML tương đương (khác thứ tự khóa, `0.05` so với `5.0e-2`) cho cùng JSON chuẩn hóa. JSON này không gồm tên nhóm, `--out`, `--workers`.
     - `base.yaml` và `smoke.yaml` đọc được và hợp lệ.
   - Kiểm chứng: `make check-task`; `pytest -q tests/unit/test_config.py`
   - Phụ thuộc: T01
@@ -90,7 +91,7 @@
   - Chấp nhận:
     - Ring bậc 2; FC bậc N − 1; ER liên thông và tất định theo seed. T3: mỗi node tối đa một đối tác, N lẻ thì đúng một node đứng ngoài. T3b chỉ dùng cạnh ER và là maximal matching.
     - Gọi `graph_at(r)` nhiều lần, gọi xen `graph_at(r')`, hay dùng hai lịch tạo độc lập với cùng (seed, N) đều cho cùng đồ thị (SPEC REQ-01).
-    - E[W] của T3 qua 10⁴ matching khớp ½I + (J − I)/(2(N − 1)) khi N chẵn, trong ±4 sai số chuẩn.
+    - E[W] của T3 qua 10⁴ matching khớp ½I + (J − I)/(2(N − 1)) khi N chẵn, trong ±4 sai số chuẩn; hợp các đồ thị của T3 và của T3b qua 200 round liên thông (INV-4).
   - Kiểm chứng: `make check-task`; `pytest -q tests/unit/test_topology.py`
   - Phụ thuộc: T02a, T07
   - File: `src/dfl/network/topology.py`, `tests/unit/test_topology.py`
@@ -98,7 +99,7 @@
 - [ ] **T03 · Datasets + lệnh `download`** — TV1 · M · ∥ T06
   - Mô tả: `data/datasets.py` nạp MNIST qua torchvision thành tensor trong RAM và chuẩn hóa bằng mean/std của tập train. Validation 5k và tập con đánh giá 2,000 ảnh được chọn phân tầng bằng luồng dữ liệu cố định. Có bộ dữ liệu tổng hợp cùng shape cho test và smoke. Tạo khung CLI (`cli.py`, `__main__.py`) với `python -m dfl download mnist`. `cli.py` chỉ import module dùng torch bên trong từng lệnh con, để `run` còn đặt được biến môi trường số luồng trước khi torch được nạp (T11b).
   - Chấp nhận:
-    - Trên dataset giả: tách 55k/5k phân tầng, đếm lớp đúng. Ảnh là float32 shape (n, 1, 28, 28), nhãn là int64. Cùng `DATA_SEED` thì cùng cách tách ở mọi seed của lượt.
+    - Trên dataset giả: tách 55k/5k phân tầng, đếm lớp đúng. Ảnh là float32 shape (n, 1, 28, 28), nhãn là int64. Tập con đánh giá 2,000 ảnh của test và của validation phân tầng. Cùng `DATA_SEED` thì cùng cách tách và cùng tập con ở mọi seed của lượt.
     - Test không dùng mạng (ENG-8). Nếu dùng `.data`/`.targets` thì ghi UNVERIFIED như trong `contracts.py`.
     - `python -m dfl download mnist` tải được vào `data/` trên máy chủ (kiểm tay, cần mạng).
   - Kiểm chứng: `make check-task`; `pytest -q tests/unit/test_datasets.py`; chạy tay `python -m dfl download mnist`
@@ -152,7 +153,7 @@
     - `network/transport.py`: in-memory, không copy payload. CommLedger đếm message và byte, tổng và theo từng node, gồm cả gửi lẫn nhận. Nhận server ảo có chỉ số N; cấm node tự gửi cho mình.
     - `make_snapshot` trong `sim/node.py`: clone + detach, `nbytes` tính từ tensor thật.
   - Chấp nhận:
-    - T-INV-6 với N = 20: ring 40, FC 380, T3 20 message/round, ER đúng 2·|E|, đường server 2N. Byte = Σ `nbytes`; một state có shape của SmallCNN cho 4 × 46,730 byte. Tải = byte gửi + byte nhận. Không có message tự gửi.
+    - CommLedger: byte = Σ `nbytes`; một state có shape của SmallCNN cho 4 × 46,730 byte; tải = byte gửi + byte nhận; message tự gửi bị từ chối. Đây là test thành phần; bất biến về số message qua engine thuộc T10b.
     - Node chỉ đọc được inbox của chính nó. `end_round` giải phóng tham chiếu mà giữ nguyên số đếm.
     - `transport.py` không import torch (contract `pure-no-torch` xanh).
   - Kiểm chứng: `make check-task`; `pytest -q tests/unit/test_transport.py tests/unit/test_snapshot.py`
@@ -160,12 +161,12 @@
   - File: `src/dfl/network/transport.py`, `src/dfl/sim/node.py`, `tests/unit/test_transport.py`, `tests/unit/test_snapshot.py`
 
 - [ ] **T08b · `dfl describe`: topology** — TV3 · S · ∥ T10a
-  - Mô tả: mở rộng `describe` với bảng topology: spectral gap của T1, T4, và T2 trên 20 seed; số message/round dự kiến = 2·|E|, là thuộc tính của đồ thị, không phải phép đếm chi phí; T0 star; tốc độ trộn kỳ vọng của T3; ước lượng cho T3b từ 10⁴ matching. Chi phí thật chỉ do CommLedger đếm trong lượt chạy (INV-2); T-INV-6 (T08) kiểm hai con số khớp nhau.
+  - Mô tả: mở rộng `describe` với bảng topology: spectral gap của T1, T4, và T2 trên 20 seed; số message/round dự kiến = 2·|E|, là thuộc tính của đồ thị, không phải phép đếm chi phí; T0 star; tốc độ trộn kỳ vọng của T3; ước lượng cho T3b từ 10⁴ matching. Chi phí thật chỉ do CommLedger đếm trong lượt chạy (INV-2); test của T08b gửi một round message giả qua Transport trên chính các đồ thị đó và so số đếm với 2·|E|.
   - Chấp nhận:
     - Ring 0.0326 (±1e-4), FC 1, ER trung bình trong [0.15, 0.25] trên 20 seed. Con số 0.312 của T3 được ghi là tốc độ trộn, không phải spectral gap.
     - Có test tích hợp ở N nhỏ. Lệnh chạy ở N = 20 in bảng so với KH §3.3 (demo của C2).
   - Kiểm chứng: `make check-task`; `pytest -q tests/integration/test_describe.py`
-  - Phụ thuộc: T05a, T06, T07
+  - Phụ thuộc: T05a, T06, T07, T08
   - File: `src/dfl/sim/describe.py`, `tests/integration/test_describe.py`
 
 - [ ] **Checkpoint C2 (M2)** — sau T08, T08b: `make check-full`; bảng spectral gap sinh từ code; review diff; tăng `MIN_TESTS`; nhóm duyệt
@@ -178,12 +179,13 @@
       3. Combine: cộng theo id người gửi tăng dần vào bộ đệm mới.
       4. Chỉ ghi vào model sau khi mọi node đã tổng hợp xong.
     - W lấy từ `MixingPolicy`; B2 dùng W = I.
-    - Test dùng MLP tí hon, dữ liệu tổng hợp 4 node, và một trainer theo Protocol, nên không cần T09 (plan K2).
+    - Test dùng MLP tí hon, dữ liệu tổng hợp 4 node, và một trainer theo Protocol `LocalTrainer` đã có trong `contracts.py` (P1.7), nên không cần T09 (plan K2). Engine truyền cho trainer model của node ở đầu round, nên anchor của số hạng prox là $w_i^t$ của round đó.
     - `tests/conftest.py` có fixture `autouse` kiểm `torch.get_rng_state()` không đổi, chỉ áp cho test nằm trong `tests/integration/` và `tests/e2e/` (lọc theo đường dẫn của test); đây là hạ tầng của T-INV-5, test T-INV-5 thuộc T11b.
   - Chấp nhận:
     - Viết trước và thấy FAIL trước khi có code: T-INV-2 (W = I trùng khớp huấn luyện chỉ cục bộ) và T-INV-4 (đảo thứ tự duyệt node thì kết quả trùng từng bit, checksum mọi snapshot không đổi).
-    - Chỉ trộn tensor float; không có phép tại chỗ trên snapshot; node chỉ đọc model của mình và inbox (INV-1, INV-3).
-  - Kiểm chứng: `make check-task`; `pytest -q tests/integration/test_engine_core.py -k "t_inv_2 or t_inv_4"`
+    - Chỉ trộn tensor float; không có phép tại chỗ trên snapshot; node chỉ đọc model của mình và inbox (INV-1, INV-3), kiểm bằng một test dùng Transport ghi lại mọi lần đọc inbox.
+    - Với μ > 0 và trainer giả ghi lại anchor, anchor ở round t bằng model của node đầu round t, và đổi mỗi round.
+  - Kiểm chứng: `make check-task`; `pytest -q tests/integration/test_engine_core.py`
   - Phụ thuộc: T06, T07, T08
   - File: `src/dfl/sim/node.py`, `src/dfl/sim/engine.py`, `tests/conftest.py`, `tests/integration/conftest.py`, `tests/integration/test_engine_core.py`
 
@@ -221,17 +223,17 @@
   - Chấp nhận:
     - T-INV-1, với lr = 0 và khởi tạo khác nhau. Topology tĩnh (ring, ER, FC): Ξ_t ≤ ρ^t Ξ_0 (1 + 1e-6) + 1e-12 và trung bình model được bảo toàn (MH). Gossip: mỗi W đối xứng, ngẫu nhiên kép, W² = W, và E[W] khớp trong sai số lấy mẫu. Test tự tính Ξ bằng công thức RMS làm oracle độc lập, không import `metrics/consensus.py`, nên T10b không phải đợi T09b.
     - T-INV-3: FC + size-weighted, đường server, và một FedAvg tham chiếu viết ngay trong test cho kết quả allclose (atol 1e-6). Khi kích thước node bằng nhau, FC + MH cũng vậy.
-    - Test tích hợp (không mang tên T-INV): đường server của engine gửi đúng 2N message/round, và Transport là nơi đếm.
-  - Kiểm chứng: `make check-task`; `pytest -q tests/integration/test_engine_consensus.py tests/integration/test_engine_fedavg.py`
+    - T-INV-6 qua engine, N = 20: ring 40, FC 380, T3 20, ER đúng 2·|E| của đồ thị, đường server 2N message/round; byte = message × `nbytes`; không có message tự gửi; W mà engine dùng chỉ khác 0 trên cạnh của `graph_at(r)` (INV-4).
+  - Kiểm chứng: `make check-task`; `pytest -q tests/integration/test_engine_consensus.py tests/integration/test_engine_fedavg.py tests/integration/test_engine_messages.py`
   - Phụ thuộc: T10a
-  - File: `src/dfl/sim/engine.py`, `tests/integration/test_engine_consensus.py`, `tests/integration/test_engine_fedavg.py`
+  - File: `src/dfl/sim/engine.py`, `tests/integration/test_engine_consensus.py`, `tests/integration/test_engine_fedavg.py`, `tests/integration/test_engine_messages.py`
 
 - [ ] **T11a · Manifest, `code_version`, RunLogger** — TV3 · M · ∥ T09b, T10b
   - Mô tả:
     - `io/manifest.py` dựng `ManifestRecord`:
-      - `code_version`: hash dãy cặp (đường dẫn, nội dung), chuẩn hóa xuống dòng và file khóa;
+      - `code_version`: hash dãy cặp (đường dẫn, nội dung) của thư mục gói `dfl` đang được nạp (`dfl.__file__`), không của thư mục làm việc, chuẩn hóa xuống dòng, cùng file khóa;
       - `run_id`: hash của cấu hình chuẩn hóa + `code_version` + máy;
-      - `git_commit`, `dirty` (tính cả file bị ignore trong `src/`, `configs/`);
+      - `git_commit`, `dirty` (tính cả file `*.py`, `*.yaml` bị ignore trong `src/`, `configs/`; `__pycache__` và `*.egg-info` không tính);
       - kiểm môi trường theo `requirements.lock` để ra `env_match`;
       - máy: tên CPU kèm hash cờ CPU.
     - `io/run_logger.py`: tạo attempt nguyên tử, thứ tự start → log → finish, JSON `allow_nan=False`.
@@ -241,12 +243,12 @@
     - Ghi vào attempt đã có thì `FileExistsError`; gọi sai thứ tự thì `RuntimeError`; ghi NaN thì báo lỗi.
   - Kiểm chứng: `make check-task`; `pytest -q tests/unit/test_manifest.py tests/unit/test_run_logger.py`
   - Phụ thuộc: T02b, T02c
-  - File: `src/dfl/io/manifest.py`, `src/dfl/io/run_logger.py`, `tests/unit/test_manifest.py`, `tests/unit/test_run_logger.py`, `src/dfl/contracts.py` (nếu cần đổi schema)
+  - File: `src/dfl/io/manifest.py`, `src/dfl/io/run_logger.py`, `tests/unit/test_manifest.py`, `tests/unit/test_run_logger.py` (các trường của ManifestRecord đã có sẵn trong contracts.py)
 
 - [ ] **T15b · R@x, AUC, độ dao động, mức sụt** — TV3 · S · ∥ T10b, T10c
   - Mô tả: `analysis/convergence.py` theo đúng SPEC REQ-04 và ADR-007: lưới 100 bước; chuỗi `acc_mean`; lần vượt bền vững đầu tiên; "≤ 100" và "> ngân sách"; AUC theo quy tắc hình thang. Độ dao động và mức sụt tính theo từng node.
   - Chấp nhận:
-    - Unit test đủ các ca của REQ-04: đạt; không đạt; đạt ở mốc đầu; đạt rồi tụt rồi đạt lại (lấy lần bền vững); chỉ vượt ở mốc cuối (không đạt); lưới khác lưới chuẩn thì báo lỗi, trừ lượt `diverged` có lưới là phần đầu của lưới chuẩn: khi đó R@x là "không đạt", AUC là "không xác định (phân kỳ)", và lượt được đếm vào "k/n seed phân kỳ" (INT-3).
+    - Unit test đủ các ca của REQ-04: đạt; không đạt; đạt ở mốc đầu; đạt rồi tụt rồi đạt lại (lấy lần bền vững); chỉ vượt ở mốc cuối (không đạt); lưới khác lưới chuẩn thì báo lỗi, trừ baseline B1, B1-4k (lưới bội của 100 tới hết ngân sách của chính nó, chỉ vẽ làm đường tham chiếu) và lượt `diverged` có lưới là phần đầu của lưới chuẩn; với lượt `diverged`: khi đó R@x là "không đạt", AUC là "không xác định (phân kỳ)", và lượt được đếm vào "k/n seed phân kỳ" (INT-3).
     - Độ dao động và mức sụt tính theo node rồi mới lấy trung bình (G24), có test cho thấy khác với khi tính trên `acc_mean`. Có thêm, mỗi độ đo một test: R@x quy ra round và byte, bytes@x, tải lớn nhất trên một node (REQ-05), và ở round cuối std, min, max − min, trung bình 10% node kém nhất (REQ-09).
   - Kiểm chứng: `make check-task`; `pytest -q tests/unit/test_convergence.py`
   - Phụ thuộc: T01
@@ -297,12 +299,12 @@
     - Mỗi luật của INT-2, INT-3, INT-6 có một unit test báo lỗi rõ ràng và một test cho trường hợp hợp lệ.
     - Chỉ import `dfl.contracts` và tự đọc JSON/JSONL; contract `analysis-reads-only` xanh.
   - Kiểm chứng: `make check-task`; `pytest -q tests/unit/test_aggregate.py tests/unit/test_checks.py`
-  - Phụ thuộc: T01 (test dùng `rounds.jsonl` giả theo `contracts.py`; khi đã có kết quả smoke thật thì chạy lại test với file thật)
+  - Phụ thuộc: T01 (test dùng `rounds.jsonl` giả theo `contracts.py`; khi đã có kết quả smoke thật thì chạy lại test với file thật). Phần đọc chỉ mục thí nghiệm theo TypedDict do task sweep thêm vào contracts.py; nếu chưa có thì viết theo schema ở SPEC §5.3 rồi kiểm lại khi có
   - File: `analysis/aggregate.py`, `analysis/checks.py`, `tests/unit/test_aggregate.py`, `tests/unit/test_checks.py`
 
 - [ ] **T11b · `python -m dfl run` + smoke e2e** — TV2 · M
   - Mô tả:
-    - `sim/run.py` lắp một lượt từ cấu hình: data → partition → placement → topology → mixing → engine → observer → logger, và ghi ra `--out`.
+    - `sim/run.py` lắp một lượt từ cấu hình: data → partition → placement → topology → mixing → engine → observer → logger, và ghi ra `--out`. Manifest có `partition_retries`, `node_class_counts`, `objective_weights`, lệch mục tiêu, và spectral gap (topology tĩnh; `None` với gossip, W = I và B1).
     - Lệnh `run` trong `cli.py` đọc cấu hình (không import torch), đặt `OMP_NUM_THREADS`, `OPENBLAS_NUM_THREADS`, `MKL_NUM_THREADS`, rồi mới import `sim.run`; `sim.run` gọi `torch.set_num_threads` trước mọi phép tính.
     - Đưa `check-inv` vào `check-full` (CONSTRAINTS, T11).
   - Chấp nhận:
@@ -313,31 +315,51 @@
   - Phụ thuộc: T10c, T11a, T09a, T03, T04c
   - File: `src/dfl/sim/run.py`, `src/dfl/cli.py`, `tests/e2e/test_smoke_run.py`, `tests/integration/test_seeds.py`, `Makefile`
 
-- [ ] **T11d · Quy tắc ghi `results/`, phân kỳ, lỗi** — TV3 · S · ∥ T11c
-  - Mô tả: trong `sim/run.py`: ghi vào `results/` chỉ khi cây sạch (tính cả file bị ignore trong `src/`, `configs/`) và môi trường khớp `requirements.lock`; khóa `flock` theo run_id (`fcntl` chỉ import khi ghi vào `results/`); từ chối run_id đã xong. Phân kỳ thì ghi `SummaryDiverged`, lỗi thì ghi `SummaryFailed`, với `allow_nan=False`.
+- [ ] **T11d · Quy tắc ghi `results/`, phân kỳ, lỗi** — TV3 · S
+  - Mô tả: trong `sim/run.py`: ghi vào `results/` chỉ khi cây sạch (theo định nghĩa ở T11a) và môi trường khớp `requirements.lock`; khóa `flock` theo run_id (`fcntl` chỉ import khi ghi vào `results/`); từ chối run_id đã xong. Phân kỳ thì ghi `SummaryDiverged`, lỗi thì ghi `SummaryFailed`, với `allow_nan=False`.
   - Chấp nhận:
     - ENG-10: vào `results/` thì từ chối khi cây bẩn, môi trường lệch, hay run_id đã xong; ra `--out` thì chạy được và manifest ghi đúng `dirty`, `env_match`.
     - Lượt có mất mát NaN (cấu hình η rất lớn trên dữ liệu tổng hợp) ghi `SummaryDiverged` với round phân kỳ, và không có dòng NaN nào trong `rounds.jsonl`; một ngoại lệ trong lượt ghi `SummaryFailed`.
     - Hai tiến trình cùng chạy một run_id: tiến trình thứ hai thấy khóa và thoát, không tạo attempt thứ hai.
   - Kiểm chứng: `make check-task`; `pytest -q tests/integration/test_results_rules.py`
-  - Phụ thuộc: T11b
+  - Phụ thuộc: T11b, T11c (cùng sửa `sim/run.py`, nên làm sau)
   - File: `src/dfl/sim/run.py`, `tests/integration/test_results_rules.py`
 
-- [ ] **T14a · Lệnh kiểm sanity + chọn η** — TV1 · S · ∥ T11b, T11c
-  - Mô tả: `analysis/sanity.py` có hai phần:
-    - kiểm SAN-1…5 (R7; SAN-2 so với B1-4k; SAN-5 là điều kiện cấu trúc), đọc `results/` và trả mã lỗi khác 0 khi không đạt;
-    - chọn η theo quy tắc E0a: trung bình 5 mốc cuối trên tập con validation, lấy trường hợp xấu nhất qua các ô, hòa trong 0.2 điểm % thì xét AUC ở ring-α0.1; kèm quy tắc cho τ = 1 và τ = 50, và điều kiện kích hoạt 24 lượt bổ sung;
-    - chọn η riêng của B1 (ADR-007): η có accuracy validation lớn nhất trong 3 lượt B1 của E0a, hòa trong 0.2 điểm % thì lấy AUC validation lớn hơn.
+- [ ] **T11e · Tập đánh giá + đánh giá cuối** — TV1 · M · ∥ T11d
+  - Mô tả: cấu hình chọn tập đánh giá (`test`, hoặc `validation` cho E0a), kích thước tập con của learning curve và seed của tập con (luồng dữ liệu cố định). Sau round cuối, Observer đánh giá mọi node và acc($\bar w$) trên đủ tập đánh giá (10,000 ảnh test hoặc 5,000 ảnh validation), rồi ghi vào các trường `final_*` của `SummaryOk`, kèm `final_eval_split` và `final_eval_size` (REQ-03).
   - Chấp nhận:
-    - Unit test cho từng SAN (đạt, không đạt, thiếu lượt) và cho quy tắc chọn η: hòa; lượt phân kỳ tính là 0; τ = 1/50 hòa thì giữ η chung; η riêng của B1.
-    - Khi chọn η, chỉ đọc lượt có `final_eval_split = validation`.
+    - Cấu hình `validation` thì không ảnh test nào được nạp hay đánh giá: test đếm số lần gọi bộ nạp test bằng 0.
+    - `SummaryOk` có đủ trường `final_*` (N phần tử) trên đủ tập; learning curve vẫn dùng tập con.
+    - Tập con giống nhau ở mọi seed của lượt, khác nhau giữa test và validation.
+  - Kiểm chứng: `make check-task`; `pytest -q tests/integration/test_final_eval.py`
+  - Phụ thuộc: T11b, T03, T09b
+  - File: `src/dfl/sim/observer.py`, `src/dfl/sim/run.py`, `src/dfl/config.py`, `tests/integration/test_final_eval.py`
+
+- [ ] **T14a · Lệnh kiểm sanity + chọn η** — TV1 · S · ∥ T11b
+  - Mô tả: `analysis/sanity.py` kiểm SAN-1…5 (R7; SAN-2 so với B1-4k; SAN-5 là điều kiện cấu trúc), đọc `results/` và trả mã lỗi khác 0 khi không đạt.
+  - Chấp nhận:
+    - Mỗi SAN có unit test cho ba ca: đạt, không đạt, thiếu lượt.
+    - SAN-5 kiểm được trên mọi nhóm, với tham số là tên nhóm thí nghiệm.
   - Kiểm chứng: `make check-task`; `pytest -q tests/unit/test_sanity.py`
   - Phụ thuộc: T15a, T15b
   - File: `analysis/sanity.py`, `tests/unit/test_sanity.py`
 
+- [ ] **T14e · Quy tắc chọn η** — TV1 · S · ∥ T14a
+  - Mô tả: `analysis/select_lr.py` cài các quy tắc của ADR-007.
+    - η chung: trung bình 5 mốc cuối trên tập con validation, lấy trường hợp xấu nhất qua các ô; hòa trong 0.2 điểm % thì xét AUC ở ring-α0.1.
+    - Quy tắc cho τ = 1 và τ = 50, cùng điều kiện kích hoạt 24 lượt bổ sung.
+    - η riêng của B1: accuracy validation lớn nhất trong 3 lượt B1 của E0a, hòa thì lấy AUC lớn hơn.
+    - μ tính từ η theo QS-2.
+  - Chấp nhận:
+    - Có unit test cho các ca: hòa; lượt phân kỳ tính là 0; τ = 1/50 hòa thì giữ η chung; η riêng của B1; μ theo QS-2.
+    - Chỉ đọc lượt có `final_eval_split = validation`; gặp lượt `test` thì báo lỗi (G8, G25).
+  - Kiểm chứng: `make check-task`; `pytest -q tests/unit/test_select_lr.py`
+  - Phụ thuộc: T15a, T15b
+  - File: `analysis/select_lr.py`, `tests/unit/test_select_lr.py`
+
 - [ ] **T11c · Baseline và biến thể trộn + profile fast** — TV2 · M
   - Mô tả: thêm tùy chọn cấu hình cho các baseline và tạo `configs/profiles/fast.yaml`.
-    - B1 và B1-4k: một node giữ đủ 55k mẫu; τ·R = 17,200 (10 epoch là 17,188 bước, làm tròn lên bội của 100) và 4,000; 100 chia hết cho τ; lịch đánh giá là các bội của 100 tới hết ngân sách của chính lượt đó.
+    - B1 và B1-4k: một node giữ đủ 55k mẫu, không qua topology hay mixing (W = [1], không có message, spectral gap `None`); τ·R = 17,200 (10 epoch là 17,188 bước, làm tròn lên bội của 100) và 4,000; 100 chia hết cho τ; lịch đánh giá là các bội của 100 tới hết ngân sách của chính lượt đó.
     - B2: W = I.
     - B3: đường server.
     - Biến thể trộn cho E4: uniform (W uniform, π ∝ $d_j+1$) và size-corrected (MH, `loss_scale` $c_i = n_i/\bar n$ tính một lần trước khi huấn luyện, π = $n_j/n$; chỉ với μ = 0).
@@ -348,8 +370,9 @@
   - Phụ thuộc: T11b, T10b
   - File: `src/dfl/config.py`, `src/dfl/sim/run.py`, `configs/profiles/fast.yaml`, `tests/integration/test_baselines.py`
 
-- [ ] **Checkpoint C3 (M3)** — sau T11c (plan §7):
+- [ ] **Checkpoint C3 (M3)** — sau T11c, T11d, T11e (plan §7):
   - `make check-full` và `make check-inv`, đủ 12 T-INV;
+  - pilot trên MNIST thật, ngoài lưới, ghi ra `build/`: B1 và DFedAvg-FC-IID với profile fast, chỉ đánh giá trên validation (không nhìn test), để thấy sớm nếu accuracy thấp bất thường so với SAN-1, SAN-2 (F6, P2.2 vòng 2);
   - demo profile fast cho ring và FC;
   - P3.7 (subagent `test-engineer`);
   - review diff;
@@ -365,17 +388,18 @@
     - Bỏ qua run_id đã xong. Tự chạy lại attempt bị ngắt. Chỉ chạy lại attempt `failed` khi có `--retry-failed`.
     - Kiểm cây sạch và môi trường. Khóa theo run_id, và bỏ qua lượt đang bị khóa.
     - Mỗi lượt một tiến trình con mới (không `fork`), có biến môi trường số luồng; tiến trình con kiểm lại `code_version`.
-    - Có `--workers` và `--dry-run`.
+    - Có `--workers`, `--dry-run`, và `--only key=value` để chạy trước một phần lưới (ví dụ các ô α = 100 của E1 để có SAN-4 sớm).
+    - `fcntl` chỉ import khi ghi vào `results/`. Định dạng chỉ mục `results/experiments/<exp>.json` là một TypedDict trong `contracts.py` (thêm test ở `test_contracts_smoke.py`), để T15a đọc theo đúng schema.
   - Chấp nhận:
     - ENG-9 đủ các ý ở SPEC §9.4: idempotent và chạy lại được sau khi bị ngắt; attempt `failed` không tự chạy lại; từ chối khi cây bẩn hay môi trường lệch; `code_version` đổi giữa chừng thì ghi `failed` và dừng; commit tài liệu không làm đổi `code_version`; `--dry-run` đếm đúng.
     - Kết quả không phụ thuộc `--workers` (1 và 2 worker cho `rounds.jsonl` giống hệt, trên profile smoke). Hai sweep dùng chung một run_id chỉ chạy lượt đó một lần. `sweep --out build/<dir>` chạy được (cho demo) và vẫn đòi cây sạch.
-    - Ghi vào `results/` thì sweep từ chối khi không chạy từ một worktree check out đúng một commit sạch (SPEC §5.3); tiến trình con được tạo bằng `subprocess` hoặc `spawn` (kiểm bằng test đọc start method).
+    - Ghi vào `results/` thì sweep từ chối khi không chạy từ một worktree check out một commit sạch (SPEC §5.3). Tiến trình con được tạo bằng `subprocess` hoặc `spawn`, có `PYTHONPATH=<worktree>/src`, và báo lỗi nếu `dfl.__file__` không nằm trong worktree (test dựng một worktree tạm).
   - Kiểm chứng: `make check-task`; `pytest -q tests/integration/test_sweep.py`
   - Phụ thuộc: T11b, T11d
-  - File: `src/dfl/sim/sweep.py`, `src/dfl/cli.py`, `tests/integration/test_sweep.py`
+  - File: `src/dfl/sim/sweep.py`, `src/dfl/cli.py`, `tests/integration/test_sweep.py`, `src/dfl/contracts.py`, `tests/unit/test_contracts_smoke.py`
 
 - [ ] **T13 · Đo hiệu năng, chốt giao thức** — TV2 · M · ∥ T16a
-  - Mô tả: đo dưới tải thật (H P3.5): thời gian một bước, một lần đánh giá, một lượt fast và full; số luồng {1, 2, 4, 8} kết hợp số worker. Xác nhận lịch đánh giá, tập con và số luồng đã ghi ở `configs/base.yaml` (ADR-007) còn chạy vừa ngân sách, và tạo profile full. Muốn đổi bất kỳ thứ nào trong đó thì phải hỏi nhóm và có ADR mới (Ask first) trước E0a. Cập nhật ngân sách ở `tasks/plan.md` §10.
+  - Mô tả: đo dưới tải thật (H P3.5): thời gian một bước, một lần đánh giá, một lượt fast và full; số luồng {1, 2, 4, 8} kết hợp số worker. Xác nhận lịch đánh giá, tập con và số luồng đã ghi ở `configs/base.yaml` (ADR-007) còn chạy vừa ngân sách, và tạo profile full. Muốn đổi bất kỳ thứ nào trong đó thì phải hỏi nhóm và có ADR mới (Ask first) trước E0a. Tối ưu nào cần sửa `src/` thì tách thành task riêng, có test, và phải xong trước T14b. Cập nhật ngân sách ở `tasks/plan.md` §10.
   - Chấp nhận:
     - `docs/PERF.md` có bảng đo (trước và sau mỗi tối ưu) và số lõi rảnh thực tế.
     - Ngân sách Tier 1 + 2 tính theo số đo mới. Đạt nếu Tier 1 + 2 vừa 3 tuần (tuần 8–10) với số lõi rảnh đo được; không đạt thì đề xuất cắt theo ADR-007 cho nhóm quyết. Không đổi lịch sau E0a.
@@ -388,7 +412,7 @@
     - `figures/PROVENANCE.json` ghi lệnh, `code_version`, `analysis_version`, commit và run_id.
     - Ghi vào `figures/` khi `analysis/` bẩn thì từ chối. Không có `--draft` thì chỉ đọc `results/`.
     - `--draft` nới đúng các điều ở SPEC INT-1, và gắn nhãn DRAFT.
-    - Có P1 (learning curve) và P7 từ manifest.
+    - Có P1 (learning curve) và P7 từ manifest. Hình chưa đủ dữ liệu (nhóm thí nghiệm chưa chạy) thì bỏ qua và in tên ra; không ghi đè hình cũ bằng hình rỗng.
   - Chấp nhận:
     - e2e: `analysis.plots --draft` vẽ được từ kết quả smoke. Không có `--draft` thì từ chối vì `--results` nằm ngoài `results/`; kết quả test không phụ thuộc trạng thái git.
     - PROVENANCE có `analysis_version`; ghi vào `figures/` khi `analysis/` bẩn thì báo lỗi.
@@ -404,9 +428,9 @@
   - Chấp nhận:
     - 24 run_id có attempt xong, cùng `code_version`; nhóm đã duyệt kết quả `--dry-run`, vì lưới hơn 10 lượt.
     - η chung, μ và η của B1 ghi vào ADR-007 trước khi chạy E0b; không lượt nào đánh giá trên test.
-  - Kiểm chứng: quy trình thí nghiệm với `configs/experiments/e0a_lr.yaml`; lệnh chọn η của `analysis.sanity`
-  - Phụ thuộc: T12, T13, T14a; G1 (ADR đã Accepted); `make check-inv` xanh; cây sạch
-  - File: `docs/experiments/E0a.md`, `configs/experiments/e0a_lr.yaml`, `docs/experiments/CODE_VERSIONS.md`, `docs/decisions/ADR-007-evaluation-protocol.md`
+  - Kiểm chứng: quy trình thí nghiệm với `configs/experiments/e0a_lr.yaml`; `python -m analysis.select_lr --results results/`
+  - Phụ thuộc: T12, T13, T14a, T14e, T11e; T22a và T22b nếu Q1 yêu cầu P2P thật; G1 (ADR đã Accepted); `make check-inv` xanh; cây sạch
+  - File: `docs/experiments/E0a.md`, `configs/experiments/e0a_lr.yaml`, `docs/experiments/CODE_VERSIONS.md`, `docs/decisions/ADR-007-evaluation-protocol.md`, `configs/base.yaml` (η, μ, η của B1 cho E0b trở đi)
 
 ## Tuần 8–9 — Tier 1 (C4)
 
@@ -480,8 +504,8 @@
 - [ ] **T19b · E3b: tần suất giao tiếp + prox (42 lượt)** — TV3 · S
   - Mô tả:
     - μ = 0 với τ ∈ {5, 50} × {ring, FC} × {IID, α = 0.1}.
-    - μ = 0.1 (theo QS-2) với τ = 20.
-    - μ = 1 với τ = 50 × α = 0.1.
+    - μ nhỏ (μ = 0.1 nếu η = 0.05; nói chung tính từ η theo QS-2, ghi ở ADR-007) với τ = 20.
+    - μ lớn (μ = 1 nếu η = 0.05, theo QS-2) với τ = 50 × α = 0.1.
     - Phục vụ RQ3, H5, H7; vẽ P6, P9. Các ô τ = 20 và τ = 1 lấy lại với seed {0, 1, 2}.
   - Chấp nhận:
     - 42 run_id xong.
@@ -566,16 +590,25 @@
   - Phụ thuộc: T24, T26
   - File: `docs/VALIDATION.md`
 
-## T22 — theo Q1 và QS-10 (không thuộc phần mở rộng tùy chọn)
+## T22a, T22b — theo Q1 và QS-10 (không thuộc phần mở rộng tùy chọn)
 
-- [ ] **T22 · `TorchDistTransport` (gloo)** — TV2 · M
-  - Mô tả: backend Transport đa tiến trình ở `dfl.sim` (4–8 tiến trình, backend gloo, gửi/nhận tensor đã tuần tự hóa). Lịch: nếu Q1 yêu cầu P2P thật thì phải xong trước T14b (tuần 6–7), và code thuộc lưới. Nếu tới hết tuần 5 chưa có trả lời thì làm ở tuần 8–10, ngay sau T13 (QS-10), chỉ trên nhánh chính: mọi sweep của lưới vẫn chạy từ worktree của commit lưới, nên `code_version` của lưới không đổi (SPEC §5.3, §8).
+- [ ] **T22a · `TorchDistTransport` (gloo), chạy độc lập** — TV2 · S
+  - Mô tả: backend Transport đa tiến trình ở `dfl.sim/torchdist.py` (4–8 tiến trình, backend gloo, gửi/nhận tensor đã tuần tự hóa), cùng một harness test chạy một round ATC đa tiến trình trên MLP tí hon. Lịch: nếu Q1 yêu cầu P2P thật thì T22a và T22b phải xong trước T14b (tuần 6–7) và là code của lưới. Nếu tới hết tuần 5 chưa có trả lời thì làm ở tuần 8–10, ngay sau T13 (QS-10), chỉ trên nhánh chính, không vào nhánh `grid` (quy trình thí nghiệm, bước 0).
   - Chấp nhận:
-    - Với N = 4 trên dữ liệu tổng hợp, kết quả khớp bản in-memory (allclose), cùng số message và byte do CommLedger đếm.
-    - Primitive gửi/nhận không chặn đã được đối chiếu với tài liệu torch 2.14 (ADR-002 ghi `isend`/`irecv` chưa kiểm); nếu không có trong tài liệu thì ghi UNVERIFIED và dùng `send`/`recv` theo thứ tự cố định.
+    - Với N = 4 trên dữ liệu tổng hợp, một round đa tiến trình cho model khớp bản in-memory (allclose), và CommLedger đếm cùng số message, cùng số byte.
+    - Primitive gửi/nhận đã đối chiếu tài liệu torch 2.14 (ADR-002 ghi `isend`/`irecv` chưa kiểm); nếu không có trong tài liệu thì ghi UNVERIFIED và dùng `send`/`recv` theo thứ tự cố định.
   - Kiểm chứng: `make check-task`; `pytest -q tests/integration/test_torchdist.py`
-  - Phụ thuộc: T11b; Q1 hoặc QS-10
-  - File: `src/dfl/sim/torchdist.py`, `src/dfl/config.py`, `tests/integration/test_torchdist.py`
+  - Phụ thuộc: T10c; Q1 hoặc QS-10
+  - File: `src/dfl/sim/torchdist.py`, `tests/integration/test_torchdist.py`
+
+- [ ] **T22b · Chọn backend đa tiến trình cho một lượt** — TV2 · M
+  - Mô tả: cấu hình `transport: torchdist` và đường chạy trong `sim/run.py`, để `python -m dfl run` chạy được một lượt nhỏ đa tiến trình (demo, phần kiến trúc của báo cáo).
+  - Chấp nhận:
+    - Một lượt smoke với `transport: torchdist` (N = 4) cho `rounds.jsonl` khớp bản in-memory trong sai số allclose; nếu Q1 không yêu cầu, lượt này không thuộc lưới.
+    - Lượt in-memory không đổi gì khi thêm backend: test T-INV và smoke e2e vẫn xanh.
+  - Kiểm chứng: `make check-full`; `pytest -q tests/integration/test_torchdist.py tests/e2e/test_smoke_run.py`
+  - Phụ thuộc: T22a, T11b
+  - File: `src/dfl/sim/run.py`, `src/dfl/config.py`, `tests/integration/test_torchdist.py`
 
 ## Mở rộng — chỉ làm sau M4, và phải hỏi trước (SPEC §1.4, QĐ-4)
 
