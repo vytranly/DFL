@@ -421,3 +421,10 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - Lệch quy trình: thêm `tests/unit/test_cli.py`, không có trong danh sách file của T03 (test của `cli.py`, vốn có trong danh sách)
 - Câu hỏi mở: không
 - Việc tiếp theo: T11a
+
+## 2026-10-02 — Phiên #16 (tiếp) — T09a bổ sung test guard khởi tạo (TV1)
+- Trạng thái: T09a ✅ (bổ sung test)
+- File đã đổi: tests/unit/test_models.py, tasks/SESSION_LOG.md
+- Kiểm chứng: báo cáo coverage của T03 lộ ra nhánh `raise ValueError` của `init_from_stream` (models.py:67) chưa có test. Thêm test: model có tham số hay buffer không thuộc Conv2d/Linear thì raise ValueError nêu tên tensor. Test FAIL khi bỏ guard (bản sao src ở scratchpad), PASS với code hiện tại; `make check-task` xanh
+- Câu hỏi mở: không
+- Việc tiếp theo: T11a

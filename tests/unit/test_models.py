@@ -4,10 +4,11 @@
 
 import math
 
+import pytest
 import torch
 
 from dfl import seeding
-from dfl.learning.models import SmallCNN, make_smallcnn
+from dfl.learning.models import SmallCNN, init_from_stream, make_smallcnn
 from dfl.seeding import Stream
 from dfl.sim.engine import BATCH_NORMS, DROPOUTS
 
@@ -61,3 +62,22 @@ def test_smallcnn_class_can_be_built_on_the_meta_device_for_skip_init() -> None:
     model = SmallCNN(device="meta")
 
     assert all(p.is_meta for p in model.parameters())
+
+
+class Scaled(torch.nn.Module):
+    """Linear cộng một tham số hay buffer không thuộc lớp nào có quy tắc khởi tạo."""
+
+    def __init__(self, *, extra: str) -> None:
+        super().__init__()
+        self.fc = torch.nn.utils.skip_init(torch.nn.Linear, 2, 2)
+        if extra == "parameter":
+            self.scale = torch.nn.Parameter(torch.empty(1))
+        else:
+            self.register_buffer("scale", torch.empty(1))
+
+
+@pytest.mark.parametrize("extra", ["parameter", "buffer"])
+def test_init_rejects_tensors_left_uninitialized_by_skip_init(extra: str) -> None:
+    # Sau skip_init, tensor không có quy tắc khởi tạo chứa bộ nhớ rác, nên w⁰ sẽ không tất định.
+    with pytest.raises(ValueError, match="scale"):
+        init_from_stream(Scaled(extra=extra), seeding.torch_generator(0, Stream.INIT))
