@@ -119,6 +119,11 @@ def test_a_number_that_pyyaml_reads_as_a_string_is_rejected_with_a_hint(tmp_path
         ("partition:\n  scheme: quantity\n  beta: -0.5\n", "beta"),
         ("extends: 3\n", "extends"),
         ("num_nodes: twenty\n", "số nguyên"),
+        ("topology:\n  kind: central\n", "num_nodes: 1"),
+        ("num_nodes: 1\n", "central"),
+        ("num_nodes: 1\ntopology:\n  kind: central\npartition:\n  scheme: dirichlet\n  alpha: 0.5\n", "iid"),
+        ("num_nodes: 1\ntopology:\n  kind: central\nmixing: uniform\n", "metropolis_hastings"),
+        ("mixing: size_corrected\nalgorithm:\n  mu: 0.1\n", "mu = 0"),
     ],
     ids=[
         "label-k-small-n",
@@ -150,6 +155,11 @@ def test_a_number_that_pyyaml_reads_as_a_string_is_rejected_with_a_hint(tmp_path
         "beta-negative",
         "extends-not-a-path",
         "text-as-int",
+        "central-needs-one-node",
+        "one-node-needs-central",
+        "central-needs-iid",
+        "central-needs-mh",
+        "size-corrected-needs-mu-0",
     ],
 )
 def test_invalid_configs_raise_value_error_naming_the_constraint(
@@ -202,3 +212,21 @@ def test_reading_a_config_does_not_import_torch() -> None:
     )
 
     assert subprocess.run([sys.executable, "-c", code], check=False).returncode == 0
+
+
+def test_fast_profile_follows_spec_5_2() -> None:
+    config = cfg.load_config(CONFIGS / "profiles" / "fast.yaml")
+
+    assert (config.dataset, config.num_nodes, config.local_steps, config.algorithm.tau) == (
+        "mnist",
+        20,
+        1000,
+        10,
+    )
+    assert (config.rounds, config.eval.every_steps, config.eval.split) == (100, 100, "test")
+
+
+def test_central_baseline_is_one_node_without_topology(tmp_path: Path) -> None:
+    config = cfg.load_config(write(tmp_path, "b1.yaml", "num_nodes: 1\ntopology:\n  kind: central\n"))
+
+    assert (config.num_nodes, config.topology.kind, config.partition.scheme) == (1, "central", "iid")

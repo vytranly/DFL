@@ -498,3 +498,20 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - Lệch quy trình: thêm `tests/unit/test_req02_check.py` cho hàm so sánh ("hàm so sánh có unit test với số giả"); đặt tên khác `test_describe.py` vì pytest không cho hai module test trùng tên gốc
 - Câu hỏi mở: không
 - Việc tiếp theo: T11c
+
+## 2026-10-02 — Phiên #17 (tiếp) — T11c Baseline, biến thể trộn, profile fast (TV2)
+- Trạng thái: T11c ✅
+- File đã đổi: src/dfl/config.py, src/dfl/sim/run.py, configs/base.yaml (chỉ comment), configs/profiles/fast.yaml (mới), tests/integration/test_baselines.py (mới), tests/unit/test_config.py, tasks/todo.md, tasks/SESSION_LOG.md
+- Kiểm chứng:
+  - RED: 3 test của B1 và 7 test cấu hình fail trước khi sửa. Các test của B2, B3, uniform, size-corrected xanh ngay, vì T11b đã lắp sẵn các đường này; ở đây chúng là test đặc tả hành vi đã có
+  - GREEN: `make check-task` → 547 passed, coverage 97.6%. Lần chạy này mất 109 s, vượt ngân sách 90 s (chỉ cảnh báo), vì chạy cùng lúc hai lượt demo trên máy chủ đang tải 16.7/8 lõi; lần trước là 64 s. Test tích hợp chạy lượt thật (test_seeds, test_baselines) chiếm khoảng 50 s; xem lại ở T13
+  - B1, B1-4k (`topology.kind: central`, N = 1): mốc đánh giá là các bội của 100 tới hết ngân sách của chính lượt đó (200 và 300 trên dữ liệu tổng hợp); 0 message, 0 byte; π = [1], spectral gap None; node giữ đủ 1,800 ảnh train theo đúng thứ tự gốc; minibatch từ luồng B1_BATCH
+  - B2 (local_only): 0 message, consensus distance > 0 ở mọi mốc (W = I), π = 1/N, spectral gap None. B3 (server): 2N = 8 message/round, byte = message × 4 × 46,730, consensus distance = 0, π = n_j/n, spectral gap 1. Uniform trên star N = 4: π = (0.4, 0.2, 0.2, 0.2), 6 message/round. Size-corrected với quantity β = 2: c_i = n_i/n̄ và π = n_j/n
+  - Cấu hình: `central` ⇔ N = 1; central đòi partition iid và mixing MH, để hai cấu hình tương đương không cho hai JSON khác nhau; size_corrected đòi μ = 0 (ADR-005); profile fast đúng SPEC §5.2 (MNIST, N = 20, τ·R = 1,000, τ = 10, đánh giá mỗi 100 bước)
+  - **Demo C3 trên MNIST thật** (máy chủ, `--out build/fast`, IID, profile fast; hai lượt chạy song song khi máy đang tải 16.7 trên 8 lõi):
+    - ring: accuracy cuối trên 10,000 ảnh test trung bình 0.9797, node kém nhất 0.9755, acc(w̄) 0.9811; spectral gap 0.0326; 4,000 message (40/round); 7 phút 23 giây; RAM tối đa 858 MB
+    - FC: 0.9816 ở mọi node (FC + MH cho cùng một model); spectral gap 1.0; 38,000 message (380/round); 7 phút 41 giây
+    - Learning curve (tập con 2,000 ảnh) tăng từ 0.90–0.92 ở 100 bước lên 0.984–0.986 ở 1,000 bước. Mỗi 100 bước: huấn luyện khoảng 19 s (khoảng 9.5 ms một bước), đánh giá khoảng 10 s. Tổng mỗi lượt: huấn luyện 236 s, đánh giá 118–123 s
+- Quyết định mới (không cần ADR): B1 và B1-4k là `topology.kind: central` với `num_nodes: 1`; ngân sách 17,200 và 4,000 bước, cùng η riêng của B1, ghi trong YAML thí nghiệm (T14b, T14c), không trong code
+- Câu hỏi mở: không
+- Việc tiếp theo: T11d

@@ -367,7 +367,7 @@
   - Phụ thuộc: T15a, T15b
   - File: `analysis/select_lr.py`, `tests/unit/test_select_lr.py`
 
-- [ ] **T11c · Baseline và biến thể trộn + profile fast** — TV2 · M
+- [x] **T11c · Baseline và biến thể trộn + profile fast** — TV2 · M
   - Mô tả: thêm tùy chọn cấu hình cho các baseline và tạo `configs/profiles/fast.yaml`.
     - B1 và B1-4k: một node giữ đủ 55k mẫu, không qua topology hay mixing (W = [1], không có message, spectral gap `None`); τ·R = 17,200 (10 epoch là 17,188 bước, làm tròn lên bội của 100) và 4,000; 100 chia hết cho τ; lịch đánh giá là các bội của 100 tới hết ngân sách của chính lượt đó.
     - B2: W = I.

@@ -30,7 +30,18 @@ from pathlib import Path
 import yaml
 
 SCHEMES = ("iid", "dirichlet", "label_k", "quantity", "shards")
-TOPOLOGIES = ("ring", "fully_connected", "erdos_renyi", "gossip", "er_gossip", "star", "local_only", "server")
+# central: baseline B1/B1-4k, một node giữ đủ dữ liệu train, không có topology hay mixing (T11c).
+TOPOLOGIES = (
+    "ring",
+    "fully_connected",
+    "erdos_renyi",
+    "gossip",
+    "er_gossip",
+    "star",
+    "local_only",
+    "server",
+    "central",
+)
 ER_KINDS = ("erdos_renyi", "er_gossip")
 DEFAULT_ER_P = 0.3
 MIXINGS = ("metropolis_hastings", "uniform", "size_weighted", "size_corrected")
@@ -185,6 +196,20 @@ class RunConfig:
         if self.topology.kind == "server" and self.mixing != "size_weighted":
             raise ValueError(
                 "topology server (B3, E1c) tổng hợp theo n_k/n, nên mixing phải là size_weighted"
+            )
+        if (self.topology.kind == "central") != (self.num_nodes == 1):
+            raise ValueError(
+                "topology central (B1, B1-4k) là đúng một node: cần num_nodes: 1, và num_nodes: 1 chỉ dùng "
+                f"với central, nhận {self.topology.kind} với N = {self.num_nodes}"
+            )
+        if self.topology.kind == "central" and self.partition.scheme != "iid":
+            raise ValueError("topology central giữ đủ dữ liệu train, không chia; để partition.scheme: iid")
+        if self.topology.kind == "central" and self.mixing != "metropolis_hastings":
+            raise ValueError("topology central không trộn; để mixing: metropolis_hastings (mặc định)")
+        if self.mixing == "size_corrected" and self.algorithm.mu != 0:
+            raise ValueError(
+                "mixing size_corrected chỉ dùng với mu = 0: c_i làm yếu tương đối số hạng prox ở node lớn "
+                f"(ADR-005), nhận mu = {self.algorithm.mu}"
             )
 
     @property

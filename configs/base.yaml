@@ -17,7 +17,8 @@ partition:
   beta: null
   min_size: 64             # = 2B (G17)
 topology:
-  kind: ring               # ring | fully_connected | erdos_renyi | gossip | er_gossip | star | local_only | server
+  kind: ring               # ring | fully_connected | erdos_renyi | gossip | er_gossip | star | local_only |
+                           # server (B3) | central (B1, cần num_nodes: 1)
   p: null                  # chỉ với erdos_renyi, er_gossip; bỏ trống thì là 0.3
 algorithm:
   tau: 20

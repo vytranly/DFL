@@ -1,0 +1,6 @@
+# Profile fast (SPEC §5.2): MNIST, N = 20, τ·R = 1,000 (τ = 10, R = 100), đánh giá mỗi 100 bước trên tập con
+# test 2,000 ảnh. Dùng khi phát triển và cho demo C3 (ring, FC trên IID); không phải kết quả cho báo cáo.
+extends: ../base.yaml
+local_steps: 1000
+algorithm:
+  tau: 10

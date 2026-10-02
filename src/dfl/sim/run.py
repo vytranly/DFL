@@ -11,6 +11,9 @@ thì cùng cách chia, cùng vị trí và cùng w⁰ ở mọi topology và thu
   size-corrected và đường server n_j/n. Với gossip, mỗi W^(t) là ma trận của một matching, đối xứng nên ngẫu
   nhiên kép, nên π = 1/N với cả MH lẫn uniform.
 - size-corrected: W là MH, và c_i = n_i/n̄ nhân vào mất mát của node i, tính một lần trước khi huấn luyện.
+- Baseline (T11c): B1 và B1-4k là `central`, một node giữ đủ phần train theo thứ tự gốc (không dùng luồng
+  partition hay placement), rút minibatch từ luồng riêng B1_BATCH, W = [1], không có message; B2 là
+  `local_only` (W = I); B3 là đường server.
 - Spectral gap ghi vào manifest là của W tĩnh, kể cả ma trận hiệu dụng của đường server; None với gossip và
   với W = I (local_only), vì khi đó nó không mô tả tốc độ trộn.
 - Learning curve đánh giá trên tập con phân tầng của `eval.split` theo `eval.every_steps`. Sau round cuối, mọi
@@ -105,7 +108,7 @@ def schedule_for(config: RunConfig) -> TopologySchedule | None:
         return topology.fully_connected(n)
     if kind == "star":
         return topology.star(n)
-    if kind == "local_only":
+    if kind in ("local_only", "central"):
         return topology.local_only(n)
     if kind == "gossip":
         return topology.gossip(n, partial(seeding.numpy_rng, seed, Stream.GOSSIP))
@@ -224,8 +227,12 @@ def build(config: RunConfig, datasets: data.Datasets) -> RunSetup:
         raise ValueError(f"runtime {config.runtime}: sim.run chỉ lắp runtime inprocess (ADR-010)")
     n, seed = config.num_nodes, config.seed
     labels = datasets.train.y.numpy()
-    raw = partitioner(config.partition)(labels, n, seeding.numpy_rng(seed, Stream.PARTITION))
-    placed = assign_positions(raw, seeding.numpy_rng(seed, Stream.PLACEMENT))
+    central = config.topology.kind == "central"
+    if central:
+        placed = PartitionResult(parts=(np.arange(len(labels), dtype=np.int64),), retries=0)
+    else:
+        raw = partitioner(config.partition)(labels, n, seeding.numpy_rng(seed, Stream.PARTITION))
+        placed = assign_positions(raw, seeding.numpy_rng(seed, Stream.PLACEMENT))
     sizes = np.array([len(part) for part in placed.parts], dtype=float)
     schedule = schedule_for(config)
     weights = objective_weights(config, schedule, sizes)
@@ -236,7 +243,11 @@ def build(config: RunConfig, datasets: data.Datasets) -> RunSetup:
             node_id=i,
             model=initial_model(config),
             data=NodeDataset(node_id=i, x=datasets.train.x[index], y=datasets.train.y[index]),
-            generator=seeding.torch_generator(seed, Stream.BATCH, i),
+            generator=(
+                seeding.torch_generator(seed, Stream.B1_BATCH)
+                if central
+                else seeding.torch_generator(seed, Stream.BATCH, i)
+            ),
             loss_scale=float(scales[i]),
         )
         for i, index in enumerate(torch.from_numpy(part) for part in placed.parts)
