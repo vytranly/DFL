@@ -24,6 +24,16 @@ from dfl.metrics.consensus import consensus_distance
 from dfl.sim.engine import Engine, RoundResult
 
 
+def is_due(round_number: int, *, tau: int, total_rounds: int, eval_every_steps: int | None) -> bool:
+    """Round `round_number` (số round đã tổng hợp xong) có được đánh giá không (ADR-007).
+
+    Dùng chung cho Observer và các tiến trình node của process runtime, để hai bên chọn cùng mốc.
+    """
+    if eval_every_steps is None or round_number == total_rounds:
+        return True
+    return (round_number * tau) % eval_every_steps == 0
+
+
 class Observer:
     def __init__(
         self, evaluator: Evaluator, *, tau: int, total_rounds: int, eval_every_steps: int | None
@@ -42,9 +52,9 @@ class Observer:
 
     def is_due(self, round_number: int) -> bool:
         """`round_number` là số round đã tổng hợp xong, như RoundRecord.round."""
-        if self._every is None or round_number == self.total_rounds:
-            return True
-        return (round_number * self._tau) % self._every == 0
+        return is_due(
+            round_number, tau=self._tau, total_rounds=self.total_rounds, eval_every_steps=self._every
+        )
 
     def record(self, result: RoundResult, states: Sequence[StateDict], counters: CommCounters) -> RoundRecord:
         """Bản ghi của round vừa xong: `states` là model sau tổng hợp, `result.snapshots` là trước đó."""

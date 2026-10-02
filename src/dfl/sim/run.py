@@ -36,6 +36,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from functools import partial
 from pathlib import Path
+from typing import Protocol
 
 import networkx as nx
 import numpy as np
@@ -44,6 +45,7 @@ import torch
 from dfl import seeding
 from dfl.config import PartitionConfig, RunConfig
 from dfl.contracts import (
+    CommCounters,
     EvalResult,
     Evaluator,
     LocalTrainer,
@@ -68,7 +70,14 @@ from dfl.data.partition import (
     QuantityPartitioner,
     assign_positions,
 )
-from dfl.io.manifest import Provenance, build_manifest, current_provenance, run_id, unassembled_manifest
+from dfl.io.manifest import (
+    Provenance,
+    build_manifest,
+    current_provenance,
+    repo_root,
+    run_id,
+    unassembled_manifest,
+)
 from dfl.io.run_logger import FINISHED, JsonRunLogger, LockBusy, attempt_statuses, file_lock, next_attempt
 from dfl.learning.local_train import SgdTrainer
 from dfl.learning.models import build_model
@@ -168,6 +177,7 @@ class PhaseTimer:
             train_s=self.train,
             combine_s=max(0.0, wall - self.last - self.train - self.evaluate),
             eval_s=self.evaluate,
+            comm_s=0.0,  # Transport trong bộ nhớ không chờ (ADR-010)
         )
         self.last, self.train, self.evaluate = wall, 0.0, 0.0
         return record
@@ -201,13 +211,120 @@ class TimedEvaluator:
             self.timer.evaluate += time.perf_counter() - start
 
 
+def initial_model(config: RunConfig) -> torch.nn.Module:
+    """Model với w⁰ của lượt: Generator mới của luồng init mỗi lần gọi, nên mọi lần gọi cho cùng w⁰."""
+    return build_model(config.model, seeding.torch_generator(config.seed, Stream.INIT))
+
+
 @dataclass(frozen=True, slots=True, eq=False)
-class RunSetup:
-    """Một lượt đã lắp xong, chưa chạy round nào."""
+class Assembly:
+    """Phần lắp của một lượt mà hai runtime dùng chung, tính tất định từ cấu hình và dữ liệu (ADR-010).
+
+    Ở process runtime, mỗi tiến trình node và tiến trình observer tự tính lại phần này, nên mọi tiến trình có
+    cùng cách chia, lịch topology, W, π, c_i và w⁰ mà không phải trao đổi gì.
+    """
 
     config: RunConfig
     datasets: data.Datasets
     # Sau khi gán vị trí: parts[i] là chỉ số (trong phần train của node) của dữ liệu node i.
+    partition: PartitionResult
+    sizes: np.ndarray
+    # None với đường server, vốn không có đồ thị hay mixing.
+    schedule: TopologySchedule | None
+    policy: MixingPolicy | None
+    objective_weights: np.ndarray
+    heterogeneity: HeterogeneityStats
+    loss_scales: np.ndarray
+    spectral_gap: float | None
+
+    def node(self, i: int) -> Node:
+        """Node i: w⁰ chung, dữ liệu của chính nó, luồng batch riêng, hệ số c_i."""
+        config = self.config
+        index = torch.from_numpy(self.partition.parts[i])
+        central = config.topology.kind == "central"
+        return Node(
+            node_id=i,
+            model=initial_model(config),
+            data=NodeDataset(node_id=i, x=self.datasets.train.x[index], y=self.datasets.train.y[index]),
+            generator=(
+                seeding.torch_generator(config.seed, Stream.B1_BATCH)
+                if central
+                else seeding.torch_generator(config.seed, Stream.BATCH, i)
+            ),
+            loss_scale=float(self.loss_scales[i]),
+        )
+
+    def trainer(self) -> SgdTrainer:
+        algorithm = self.config.algorithm
+        return SgdTrainer(
+            tau=algorithm.tau, lr=algorithm.lr, mu=algorithm.mu, batch_size=algorithm.batch_size
+        )
+
+    def evaluator(self, images: data.ImageSet) -> ClassificationEvaluator:
+        counts = np.array(self.heterogeneity.node_class_counts, dtype=float)
+        return ClassificationEvaluator(
+            initial_model(self.config),
+            images.x,
+            images.y,
+            label_distributions=counts / counts.sum(axis=1, keepdims=True),
+            objective_weights=self.objective_weights,
+        )
+
+    def curve_set(self) -> data.ImageSet:
+        """Tập con phân tầng cố định cho learning curve (ADR-007)."""
+        return data.eval_subset(self.datasets, self.config.eval.split, self.config.eval.subset_size)
+
+    def final_set(self) -> data.ImageSet:
+        """Đủ tập đánh giá cho đánh giá cuối (REQ-03)."""
+        return self.datasets.split(self.config.eval.split)
+
+
+def _spectral_gap(
+    config: RunConfig, schedule: TopologySchedule | None, policy: MixingPolicy | None, sizes: np.ndarray
+) -> float | None:
+    n = config.num_nodes
+    if n < 2 or config.topology.kind in ("local_only", "central"):
+        return None
+    if schedule is None:  # đường server: mọi hàng của W hiệu dụng là n_k/n
+        return mixing.spectral_gap(np.tile(sizes / sizes.sum(), (n, 1)))
+    if not schedule.is_static or policy is None:
+        return None
+    return mixing.spectral_gap(policy(schedule.graph_at(0), sizes))
+
+
+def assemble(config: RunConfig, datasets: data.Datasets) -> Assembly:
+    """Cách chia, vị trí node, lịch topology, mixing, π, thống kê Non-IID, c_i và spectral gap của lượt."""
+    n, seed = config.num_nodes, config.seed
+    labels = datasets.train.y.numpy()
+    if config.topology.kind == "central":
+        placed = PartitionResult(parts=(np.arange(len(labels), dtype=np.int64),), retries=0)
+    else:
+        raw = partitioner(config.partition)(labels, n, seeding.numpy_rng(seed, Stream.PARTITION))
+        placed = assign_positions(raw, seeding.numpy_rng(seed, Stream.PLACEMENT))
+    sizes = np.array([len(part) for part in placed.parts], dtype=float)
+    schedule = schedule_for(config)
+    policy = None if schedule is None else MIXING_POLICIES[config.mixing]
+    weights = objective_weights(config, schedule, sizes)
+    return Assembly(
+        config=config,
+        datasets=datasets,
+        partition=placed,
+        sizes=sizes,
+        schedule=schedule,
+        policy=policy,
+        objective_weights=weights,
+        heterogeneity=summarize(labels, placed.parts, objective_weights=weights),
+        loss_scales=sizes / sizes.mean() if config.mixing == "size_corrected" else np.ones(n),
+        spectral_gap=_spectral_gap(config, schedule, policy, sizes),
+    )
+
+
+@dataclass(frozen=True, slots=True, eq=False)
+class RunSetup:
+    """Một lượt runtime inprocess đã lắp xong, chưa chạy round nào."""
+
+    config: RunConfig
+    datasets: data.Datasets
     partition: PartitionResult
     heterogeneity: HeterogeneityStats
     objective_weights: np.ndarray
@@ -219,89 +336,47 @@ class RunSetup:
     final_size: int
     timer: PhaseTimer
 
+    def execute(self, logger: RunLogger) -> SummaryOk:
+        return execute(self, logger)
 
-def initial_model(config: RunConfig) -> torch.nn.Module:
-    """Model với w⁰ của lượt: Generator mới của luồng init mỗi lần gọi, nên mọi lần gọi cho cùng w⁰."""
-    return build_model(config.model, seeding.torch_generator(config.seed, Stream.INIT))
+    def counters(self) -> CommCounters:
+        return self.engine.counters()
 
 
 def build(config: RunConfig, datasets: data.Datasets) -> RunSetup:
+    """Lượt runtime inprocess: N node trong một Engine, cùng Observer và Evaluator đánh giá cuối."""
     if config.runtime != "inprocess":
-        raise ValueError(f"runtime {config.runtime}: sim.run chỉ lắp runtime inprocess (ADR-010)")
-    n, seed = config.num_nodes, config.seed
-    labels = datasets.train.y.numpy()
-    central = config.topology.kind == "central"
-    if central:
-        placed = PartitionResult(parts=(np.arange(len(labels), dtype=np.int64),), retries=0)
-    else:
-        raw = partitioner(config.partition)(labels, n, seeding.numpy_rng(seed, Stream.PARTITION))
-        placed = assign_positions(raw, seeding.numpy_rng(seed, Stream.PLACEMENT))
-    sizes = np.array([len(part) for part in placed.parts], dtype=float)
-    schedule = schedule_for(config)
-    weights = objective_weights(config, schedule, sizes)
-    stats = summarize(labels, placed.parts, objective_weights=weights)
-    scales = sizes / sizes.mean() if config.mixing == "size_corrected" else np.ones(n)
-    nodes = tuple(
-        Node(
-            node_id=i,
-            model=initial_model(config),
-            data=NodeDataset(node_id=i, x=datasets.train.x[index], y=datasets.train.y[index]),
-            generator=(
-                seeding.torch_generator(seed, Stream.B1_BATCH)
-                if central
-                else seeding.torch_generator(seed, Stream.BATCH, i)
-            ),
-            loss_scale=float(scales[i]),
-        )
-        for i, index in enumerate(torch.from_numpy(part) for part in placed.parts)
-    )
+        raise ValueError(f"runtime {config.runtime}: build chỉ lắp runtime inprocess; xem process_runtime")
+    assembly = assemble(config, datasets)
+    nodes = tuple(assembly.node(i) for i in range(config.num_nodes))
     timer = PhaseTimer()
-    server = schedule is None
-    algorithm = config.algorithm
+    server = assembly.schedule is None
     engine = Engine(
         nodes=nodes,
-        trainer=TimedTrainer(
-            SgdTrainer(tau=algorithm.tau, lr=algorithm.lr, mu=algorithm.mu, batch_size=algorithm.batch_size),
-            timer,
-        ),
-        transport=InMemoryTransport(n, with_server=server),
-        schedule=schedule,
-        mixing=None if server else MIXING_POLICIES[config.mixing],
+        trainer=TimedTrainer(assembly.trainer(), timer),
+        transport=InMemoryTransport(config.num_nodes, with_server=server),
+        schedule=assembly.schedule,
+        mixing=assembly.policy,
         server_path=server,
     )
-    counts = np.array(stats.node_class_counts, dtype=float)
-    distributions = counts / counts.sum(axis=1, keepdims=True)
-
-    def evaluator(images: data.ImageSet) -> ClassificationEvaluator:
-        return ClassificationEvaluator(
-            initial_model(config),
-            images.x,
-            images.y,
-            label_distributions=distributions,
-            objective_weights=weights,
-        )
-
-    curve = data.eval_subset(datasets, config.eval.split, config.eval.subset_size)
-    final = datasets.split(config.eval.split)
     observer = Observer(
-        TimedEvaluator(evaluator(curve), timer),
-        tau=algorithm.tau,
+        TimedEvaluator(assembly.evaluator(assembly.curve_set()), timer),
+        tau=config.algorithm.tau,
         total_rounds=config.rounds,
         eval_every_steps=config.eval.every_steps,
     )
-    mixes_statically = schedule is None or (schedule.is_static and config.topology.kind != "local_only")
-    gap = mixing.spectral_gap(engine.weights_at(0)) if mixes_statically and n > 1 else None
+    final = assembly.final_set()
     return RunSetup(
         config=config,
         datasets=datasets,
-        partition=placed,
-        heterogeneity=stats,
-        objective_weights=weights,
-        spectral_gap=gap,
+        partition=assembly.partition,
+        heterogeneity=assembly.heterogeneity,
+        objective_weights=assembly.objective_weights,
+        spectral_gap=assembly.spectral_gap,
         nodes=nodes,
         engine=engine,
         observer=observer,
-        final_evaluator=evaluator(final),
+        final_evaluator=assembly.evaluator(final),
         final_size=len(final.y),
         timer=timer,
     )
@@ -374,13 +449,46 @@ def _check_results_allowed(config: RunConfig, provenance: Provenance) -> None:
         )
 
 
-def _attempt(config: RunConfig, run_dir: Path, provenance: Provenance, data_root: Path, threads: int) -> Path:
+class Driver(Protocol):
+    """Một lượt đã lắp, chạy được bởi một runtime: RunSetup (inprocess) hay process_runtime.ProcessRun."""
+
+    partition: PartitionResult
+    heterogeneity: HeterogeneityStats
+    objective_weights: np.ndarray
+    spectral_gap: float | None
+
+    def execute(self, logger: RunLogger) -> SummaryOk: ...
+
+    def counters(self) -> CommCounters: ...
+
+
+def _driver(
+    config: RunConfig, datasets: data.Datasets, provenance: Provenance, data_root: Path, timeout: float
+) -> Driver:
+    if config.runtime == "inprocess":
+        return build(config, datasets)
+    from dfl.sim import process_runtime  # process_runtime import module này
+
+    return process_runtime.ProcessRun(
+        assemble(config, datasets),
+        data_root=data_root,
+        code_version=provenance.code_version,
+        root=repo_root(),
+        timeout=timeout,
+    )
+
+
+def _attempt(
+    config: RunConfig, run_dir: Path, provenance: Provenance, data_root: Path, threads: int, timeout: float
+) -> Path:
     """Một attempt mới trong `run_dir`: manifest, các round, rồi đúng một summary (ok, diverged, failed)."""
     attempt = next_attempt(run_dir)
     logger = JsonRunLogger(run_dir)
     child_seeds = seeding.child_seeds(config.seed)
     try:
-        setup = build(config, data.load(config.dataset, root=data_root))
+        setup = _driver(
+            config, data.load(config.dataset, root=data_root), provenance, Path(data_root), timeout
+        )
     except Exception as err:
         logger.start(
             unassembled_manifest(
@@ -404,9 +512,9 @@ def _attempt(config: RunConfig, run_dir: Path, provenance: Provenance, data_root
         )
     )
     try:
-        execute(setup, logger)
+        setup.execute(logger)
     except RunDiverged as err:
-        counters = setup.engine.counters()
+        counters = setup.counters()
         logger.finish(
             SummaryDiverged(
                 status="diverged",
@@ -417,7 +525,7 @@ def _attempt(config: RunConfig, run_dir: Path, provenance: Provenance, data_root
             )
         )
     except Exception as err:
-        counters = setup.engine.counters()
+        counters = setup.counters()
         logger.finish(
             SummaryFailed(
                 status="failed",
@@ -468,6 +576,7 @@ def run(
     data_root: Path = Path("data"),
     provenance: Provenance | None = None,
     expected_code_version: str | None = None,
+    process_timeout: float = 600.0,
 ) -> Path:
     """Chạy một lượt; trả về thư mục attempt.
 
@@ -475,15 +584,16 @@ def run(
     `dirty`, `env_match`). Không có `out` thì ghi vào `results_root` (mặc định results/) chỉ khi cây sạch,
     môi trường khớp file khóa, dữ liệu không phải smoke, và run_id chưa có attempt xong; trong lúc chạy giữ
     khóa của run_id. Lượt phân kỳ ghi SummaryDiverged và trả về bình thường; lỗi ghi SummaryFailed rồi raise
-    lại. `expected_code_version` do sweep truyền (xem `_check_code`). `provenance` chỉ để test truyền vào;
-    mặc định đọc từ cây và môi trường hiện tại.
+    lại. `expected_code_version` do sweep truyền (xem `_check_code`). `process_timeout` là thời gian chờ
+    (giây) của mọi phép gloo ở runtime processes. `provenance` chỉ để test truyền vào; mặc định đọc từ cây và
+    môi trường hiện tại.
     """
     threads = set_threads(config.threads)
     provenance = provenance or current_provenance()
     if out is not None:
         run_dir = Path(out) / "runs" / run_id_of(config, provenance)
         _check_code(config, run_dir, provenance, expected_code_version, threads)
-        return _attempt(config, run_dir, provenance, data_root, threads)
+        return _attempt(config, run_dir, provenance, data_root, threads, process_timeout)
     _check_results_allowed(config, provenance)
     run_dir = Path(results_root) / "runs" / run_id_of(config, provenance)
     with results_lock(run_dir):
@@ -491,4 +601,4 @@ def run(
         finished = sorted(k for k, status in attempt_statuses(run_dir).items() if status in FINISHED)
         if finished:
             raise RunRefused(f"run_id {run_dir.name} đã xong ở attempt-{finished[0]}; không tạo attempt mới")
-        return _attempt(config, run_dir, provenance, data_root, threads)
+        return _attempt(config, run_dir, provenance, data_root, threads, process_timeout)

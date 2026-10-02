@@ -206,6 +206,11 @@ class RunConfig:
             raise ValueError("topology central giữ đủ dữ liệu train, không chia; để partition.scheme: iid")
         if self.topology.kind == "central" and self.mixing != "metropolis_hastings":
             raise ValueError("topology central không trộn; để mixing: metropolis_hastings (mặc định)")
+        if self.runtime == "processes" and self.topology.kind in ("server", "central"):
+            raise ValueError(
+                f"topology {self.topology.kind} chỉ có ở runtime inprocess: process runtime chạy các node "
+                "DFL, không có server ảo hay baseline một node (ADR-010)"
+            )
         if self.mixing == "size_corrected" and self.algorithm.mu != 0:
             raise ValueError(
                 "mixing size_corrected chỉ dùng với mu = 0: c_i làm yếu tương đối số hạng prox ở node lớn "
@@ -324,6 +329,14 @@ def merge(base: Mapping[str, object], override: Mapping[str, object]) -> dict[st
 def load_config(path: str | Path) -> RunConfig:
     """Đọc một file cấu hình (có thể kế thừa qua `extends`), điền mặc định và kiểm."""
     return from_mapping(load_mapping(path))
+
+
+def to_yaml(config: RunConfig) -> str:
+    """Cấu hình đầy đủ dạng YAML cho tiến trình con (sweep, process runtime); load_config đọc lại đúng.
+
+    yaml.safe_dump viết số thực có dấu chấm (1.0e-05), nên PyYAML không đọc nhầm thành chuỗi.
+    """
+    return yaml.safe_dump(json.loads(canonical_json(config)), sort_keys=True, allow_unicode=True)
 
 
 def canonical_json(config: RunConfig) -> str:

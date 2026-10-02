@@ -108,7 +108,8 @@ def test_timing_phases_add_up_to_the_wall_time_between_records(smoke_run: tuple[
 
     previous = 0.0
     for record in timing:
-        phases = record["train_s"] + record["combine_s"] + record["eval_s"]
-        assert min(record["train_s"], record["combine_s"], record["eval_s"]) >= 0
+        phases = record["train_s"] + record["combine_s"] + record["eval_s"] + record["comm_s"]
+        assert min(record["train_s"], record["combine_s"], record["eval_s"], record["comm_s"]) >= 0
+        assert record["comm_s"] == 0  # Transport trong bộ nhớ không chờ (ADR-010)
         assert phases == pytest.approx(record["wall_time_s"] - previous, abs=1e-6)
         previous = record["wall_time_s"]

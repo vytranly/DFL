@@ -33,7 +33,14 @@ def round_record(round_number: int, **overrides: object) -> RoundRecord:
 
 
 def timing(round_number: int) -> TimingRecord:
-    return {"round": round_number, "wall_time_s": 1.5, "train_s": 1.0, "combine_s": 0.25, "eval_s": 0.25}
+    return {
+        "round": round_number,
+        "wall_time_s": 1.5,
+        "train_s": 1.0,
+        "combine_s": 0.25,
+        "eval_s": 0.25,
+        "comm_s": 0.0,
+    }
 
 
 OK: SummaryOk = {

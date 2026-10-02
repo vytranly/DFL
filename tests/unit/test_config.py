@@ -124,6 +124,8 @@ def test_a_number_that_pyyaml_reads_as_a_string_is_rejected_with_a_hint(tmp_path
         ("num_nodes: 1\ntopology:\n  kind: central\npartition:\n  scheme: dirichlet\n  alpha: 0.5\n", "iid"),
         ("num_nodes: 1\ntopology:\n  kind: central\nmixing: uniform\n", "metropolis_hastings"),
         ("mixing: size_corrected\nalgorithm:\n  mu: 0.1\n", "mu = 0"),
+        ("runtime: processes\ntopology:\n  kind: server\nmixing: size_weighted\n", "inprocess"),
+        ("runtime: processes\nnum_nodes: 1\ntopology:\n  kind: central\n", "inprocess"),
     ],
     ids=[
         "label-k-small-n",
@@ -160,6 +162,8 @@ def test_a_number_that_pyyaml_reads_as_a_string_is_rejected_with_a_hint(tmp_path
         "central-needs-iid",
         "central-needs-mh",
         "size-corrected-needs-mu-0",
+        "processes-without-server",
+        "processes-without-central",
     ],
 )
 def test_invalid_configs_raise_value_error_naming_the_constraint(

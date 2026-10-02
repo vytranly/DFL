@@ -20,7 +20,7 @@ import pytest
 import yaml
 
 from dfl import cli
-from dfl.config import load_config
+from dfl.config import load_config, to_yaml
 from dfl.contracts import ExperimentIndex
 from dfl.io import manifest
 from dfl.sim import sweep
@@ -171,7 +171,7 @@ def test_a_cell_config_survives_the_yaml_given_to_the_child(tmp_path: Path) -> N
     )
     path = tmp_path / "cell.yaml"
 
-    path.write_text(sweep.cell_yaml(config))
+    path.write_text(to_yaml(config))
 
     assert load_config(path) == config
 

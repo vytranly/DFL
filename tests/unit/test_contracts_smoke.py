@@ -45,7 +45,8 @@ RECORD_KEYS = {
         "acc_per_node",
         "acc_local_per_node",
     },
-    "TimingRecord": {"round", "wall_time_s", "train_s", "combine_s", "eval_s"},
+    # comm_s: thời gian chờ gửi và nhận, lớn nhất qua node; 0 ở runtime inprocess (ADR-010, T22b).
+    "TimingRecord": {"round", "wall_time_s", "train_s", "combine_s", "eval_s", "comm_s"},
     "SummaryOk": {
         "status",
         "messages_total",

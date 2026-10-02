@@ -617,7 +617,7 @@ T22a, T22b và T09c là code của lưới: phải xong trước T14b (E0a), đ�
   - Phụ thuộc: T10c
   - File: `src/dfl/sim/torchdist.py`, `tests/unit/test_torchdist_codec.py`, `tests/integration/test_torchdist.py`
 
-- [ ] **T22b · Process runtime: mỗi node một tiến trình, cộng observer** ⚠ — TV2 · M
+- [x] **T22b · Process runtime: mỗi node một tiến trình, cộng observer** ⚠ — TV2 · M
   - Mô tả: `sim/process_runtime.py` (ADR-010).
     - Vòng lặp của tiến trình node: cùng một round ATC bằng `Node`, `combine`, `make_snapshot` và TorchDistTransport; G_t tự tính từ seed chung (G18); trước round đầu gọi `check_union_connected` như `run_rounds` (INV-4 của gossip); kiểm hữu hạn và kiểm inbox như engine; dừng mọi tiến trình khi phân kỳ hay lỗi.
     - Vòng lặp của observer: nhận state và số đếm ở mốc đánh giá qua kênh đo (không tính phí), dựng RoundRecord, ghi kết quả bằng RunLogger.

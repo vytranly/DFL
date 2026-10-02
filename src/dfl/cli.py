@@ -1,5 +1,5 @@
 """Dòng lệnh `python -m dfl <lệnh>` (SPEC §4, §5.2; QS-7): `download` (T03), `run` (T11b), `describe` (T05a),
-`sweep` (T12).
+`sweep` (T12), `node` (T22b: một tiến trình node của process runtime, cũng là lệnh của container Docker).
 
 Module này không import torch: mỗi lệnh con import module của nó bên trong hàm xử lý. Nhờ vậy `run` đọc cấu
 hình, đặt OMP_NUM_THREADS, OPENBLAS_NUM_THREADS, MKL_NUM_THREADS theo `threads` của cấu hình, rồi mới nạp
@@ -17,6 +17,7 @@ https://docs.python.org/3.12/library/argparse.html#sub-commands
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import os
 import sys
 from collections.abc import Sequence
@@ -50,6 +51,8 @@ def _run(args: argparse.Namespace) -> int:
         )
         return EXIT_CODE_MISMATCH
     config = load_config(args.config)
+    if args.runtime is not None:  # ghi đè trước khi tính run_id, nên runtime vẫn nằm trong cấu hình chuẩn hóa
+        config = dataclasses.replace(config, runtime=args.runtime)
     for name in THREAD_VARIABLES:
         os.environ[name] = str(config.threads)
     from dfl.sim import run as run_module  # nạp torch sau khi đã đặt số luồng
@@ -133,6 +136,32 @@ def _sweep(args: argparse.Namespace) -> int:
     return 1 if report.stopped or any(o.outcome in problems for o in report.outcomes) else 0
 
 
+def _node(args: argparse.Namespace) -> int:
+    from dfl.config import load_config  # không nạp torch
+    from dfl.io.manifest import current_code_version
+
+    config = load_config(args.config)
+    for name in THREAD_VARIABLES:
+        os.environ[name] = str(config.threads)
+    if args.expect_code_version is not None and current_code_version() != args.expect_code_version:
+        print("code: code_version của node khác của tiến trình chạy lượt", file=sys.stderr)
+        return EXIT_CODE_MISMATCH
+    if args.world_size != config.num_nodes + 1:
+        print(f"world-size phải là N + 1 = {config.num_nodes + 1} (N node và một observer)", file=sys.stderr)
+        return 2
+    from dfl.sim import process_runtime  # nạp torch sau khi đã đặt số luồng
+
+    process_runtime.run_node(
+        config,
+        rank=args.rank,
+        init_method=args.init_method,
+        data_root=args.data_root,
+        ready_dir=args.ready_dir,
+        timeout=args.timeout,
+    )
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="python -m dfl", description="Mô phỏng học liên kết phi tập trung (DFL) trên dữ liệu Non-IID."
@@ -150,6 +179,12 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--data-root", type=Path, default=DATA_ROOT, help="thư mục dữ liệu (mặc định: data)")
     run.add_argument(
         "--results", type=Path, default=Path("results"), help="thư mục results (khi không có --out)"
+    )
+    run.add_argument(
+        "--runtime",
+        choices=["inprocess", "processes"],
+        default=None,
+        help="ghi đè runtime của cấu hình (ADR-010)",
     )
     run.add_argument("--expect-code-version", default=None, help="sweep truyền: code_version phải có")
     run.add_argument(
@@ -182,6 +217,18 @@ def build_parser() -> argparse.ArgumentParser:
     sweep.add_argument("--only", action="append", default=[], help="chỉ các ô có khóa=giá trị, lặp được")
     sweep.add_argument("--data-root", type=Path, default=DATA_ROOT, help="thư mục dữ liệu (mặc định: data)")
     sweep.set_defaults(handler=_sweep)
+    node = commands.add_parser("node", help="một tiến trình node của process runtime (ADR-010)")
+    node.add_argument("--rank", type=int, required=True, help="id của node, 0 … N − 1")
+    node.add_argument("--world-size", type=int, required=True, help="N + 1 (N node và observer)")
+    node.add_argument(
+        "--init-method", required=True, help="rendezvous của gloo: file://… hay tcp://host:port"
+    )
+    node.add_argument("--config", type=Path, required=True, help="file YAML của lượt chạy")
+    node.add_argument("--data-root", type=Path, default=DATA_ROOT, help="thư mục dữ liệu (mặc định: data)")
+    node.add_argument("--ready-dir", type=Path, default=None, help="tạo file ready-<rank> ở đây khi sẵn sàng")
+    node.add_argument("--expect-code-version", default=None, help="code_version mà tiến trình chạy lượt có")
+    node.add_argument("--timeout", type=float, default=600.0, help="thời gian chờ của gloo, giây")
+    node.set_defaults(handler=_node)
     return parser
 
 

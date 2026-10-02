@@ -557,3 +557,26 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - Lệch quy trình: chạm 15 file, vượt 5 file của K8: các module nền được mở rộng thêm (config.load_mapping, merge; manifest.provenance_of, is_linked_worktree; run_logger chuyển helper sang; run có --expect-*). Diff khoảng 900 dòng
 - Câu hỏi mở: không
 - Việc tiếp theo: T22b
+
+## 2026-10-02 — Phiên #17 (tiếp) — T22b Process runtime: mỗi node một tiến trình, cộng observer (TV2)
+- Trạng thái: T22b ✅
+- File đã đổi: src/dfl/sim/process_runtime.py, tests/integration/test_process_runtime.py (mới), src/dfl/sim/run.py, src/dfl/sim/observer.py, src/dfl/contracts.py (TimingRecord.comm_s), src/dfl/config.py, src/dfl/cli.py, src/dfl/sim/sweep.py, tests/unit/test_contracts_smoke.py, tests/unit/test_config.py, tests/unit/test_run_logger.py, tests/unit/test_cli.py, tests/integration/test_sweep.py, tests/e2e/test_smoke_run.py, tasks/todo.md, tasks/SESSION_LOG.md
+- Kiểm chứng:
+  - RED (chưa có `dfl.sim.process_runtime`, `comm_s`) → GREEN; `make check-task` → 606 passed, coverage 95.2%; **`make check-inv` xanh đủ 13 T-INV** (72 test); **`make check-full` xanh** (610 test, `pip check` sạch), lần đầu kể từ T11b
+  - **T-INV-13**: với smoke rút gọn N = 4 (2 round) trên ring, gossip và FC, `rounds.jsonl` của runtime processes trùng từng byte với runtime inprocess; `summary.json` trùng toàn bộ; manifest trùng ở node_class_counts, objective_weights, spectral_gap, partition_retries. Chạy tay `python -m dfl run --config configs/profiles/smoke.yaml --runtime processes --out build/smoke-proc` (profile smoke đầy đủ, 6 round): `cmp` với bản inprocess trùng từng byte; mất 12.0 s so với 8.0 s
+  - T-INV-6 ở N = 4: ring 8 message/round, byte = message × 4 × 46,730, nên kênh tới observer không bị đếm; timing có `comm_s` (5–12 ms mỗi khoảng trên smoke; 0 ở inprocess)
+  - Phân kỳ (η = 1e4): mọi tiến trình dừng gọn ở cùng `diverged_at_round` với bản inprocess, cùng message và byte; rounds.jsonl trùng
+  - Node không khởi động được (code_version khác) → lượt dừng ngay với NodeFailed và SummaryFailed, không đợi hết thời gian chờ của gloo
+  - Kiểm tay (không thành test vì dễ chập chờn): giết node 1 bằng SIGKILL giữa lượt → observer nhận "Connection closed by peer" ngay, ghi SummaryFailed (24 message tới lúc lỗi), không còn tiến trình con nào. Lần thử đầu giết nhầm shell bash vì `pgrep -f` khớp cả chuỗi lệnh của chính shell; đã chuyển sang đọc /proc/<pid>/task/*/children
+  - Mutation (chép cả repo để tiến trình con cũng nạp code mutant): 4/4 bị bắt (cộng byte bằng max, drift tính trên state sau tổng hợp, node không dừng khi phân kỳ, lệch round phân kỳ). Mutant "node không dừng khi phân kỳ" làm lượt treo tới hết thời gian chờ, lộ ra rằng observer đợi tiến trình con tới hết `timeout` (600 s); nay chỉ đợi tối đa 60 s sau lần gom cuối rồi kill (NodeFailed)
+- Quyết định mới (không cần ADR, khớp ADR-010):
+  - Tiến trình chạy lượt kiêm observer (rank N) và là nơi duy nhất ghi kết quả; nó khởi chạy N tiến trình con `python -m dfl node --rank i --world-size N+1 --init-method file://… --config …`, tức N + 1 tiến trình. Rendezvous qua file:// trong thư mục tạm (không tranh cổng TCP); node báo sẵn sàng bằng file `ready-<rank>` trước khi vào process group
+  - Mỗi round có hai lần `all_gather` [mã, message, byte, tải], ứng đúng hai chỗ engine kiểm hữu hạn; lý do phân kỳ lấy node id nhỏ nhất theo thứ tự ưu tiên của engine (mất mát, rồi tham số sau Adapt, rồi sau tổng hợp)
+  - Ở mốc đánh giá, node gửi observer state sau tổng hợp, snapshot trước tổng hợp, mất mát và thời gian các pha bằng send/recv. Timing của processes: train_s, comm_s, combine_s lấy lớn nhất qua node
+  - `run.assemble` / `Assembly` là phần lắp dùng chung cho hai runtime; `run.build` dựng trên nó; `_attempt` chạy qua một driver (RunSetup hay ProcessRun), nên quy tắc results/, khóa và summary dùng chung. `observer.is_due` là hàm dùng chung cho mốc đánh giá
+  - Config từ chối `runtime: processes` với topology server và central; `run --runtime` ghi đè runtime của cấu hình trước khi tính run_id (SPEC §4); `config.to_yaml` dùng chung cho sweep và process runtime
+- Coverage: `process_runtime.py` báo 68%, vì thân node chạy trong tiến trình con và không được đo (như `torchdist.py`). Muốn đo thì bật đo coverage cho tiến trình con, tức sửa cấu hình coverage trong pyproject (thắt chặt; hỏi trước)
+- Ngân sách: `make check-task` 108 s khi máy tải 18/8 lõi (chỉ cảnh báo); test process runtime khoảng 35 s
+- Lệch quy trình: chạm 16 file (run.py tái cấu trúc, observer.py, config.py, sweep.py dùng `to_yaml`); diff lớn, khoảng 800 dòng
+- Câu hỏi mở: bật coverage cho tiến trình con không? Có tách các test chạy tiến trình con (sweep, process runtime; khoảng 65 s) ra khỏi check-task không (sửa CONSTRAINTS/Makefile, hỏi trước)?
+- Việc tiếp theo: lô T09c, T11b, T05a, T11c, T11d, T12, T22b đã xong. E0a (T14b, P3.6) còn chờ T11e, T13, T14a, T14e, checkpoint C3 và Gate G1

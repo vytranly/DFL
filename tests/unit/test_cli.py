@@ -11,6 +11,7 @@ from pathlib import Path
 import pytest
 
 from dfl import cli
+from dfl.config import RunConfig
 from dfl.data import datasets
 from dfl.sim import run as run_module
 
@@ -94,6 +95,22 @@ def test_run_sets_thread_variables_before_torch_is_imported() -> None:
     assert result.returncode == 0, result.stderr
     seen = json.loads(result.stdout.splitlines()[-1])
     assert seen == {"torch": False, "threads": 1, "out": "build/x", "env": ["1", "1", "1"]}
+
+
+def test_run_runtime_flag_overrides_the_config_before_the_run_id(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: list[str] = []
+
+    def record(config: RunConfig, **kwargs: object) -> Path:
+        seen.append(config.runtime)
+        return Path("x")
+
+    monkeypatch.setattr(run_module, "run", record)
+    for name in THREAD_VARIABLES:
+        monkeypatch.setenv(name, "1")
+
+    cli.main(["run", "--config", str(SMOKE), "--out", "build/x", "--runtime", "processes"])
+
+    assert seen == ["processes"]
 
 
 def test_run_without_out_writes_to_results() -> None:

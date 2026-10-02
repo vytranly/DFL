@@ -55,7 +55,7 @@ from typing import Any
 
 import yaml
 
-from dfl.config import RunConfig, canonical_json, from_mapping, load_mapping, merge
+from dfl.config import RunConfig, canonical_json, from_mapping, load_mapping, merge, to_yaml
 from dfl.contracts import ExperimentIndex, ExperimentVersion
 from dfl.io.manifest import Provenance, is_linked_worktree, provenance_of, repo_root, run_id
 from dfl.io.run_logger import FINISHED, attempt_statuses, file_lock
@@ -242,11 +242,6 @@ def plan(cells: Sequence[Cell], provenance: Provenance, target: Path, *, retry_f
     )
 
 
-def cell_yaml(config: RunConfig) -> str:
-    """Cấu hình của một ô cho tiến trình con; safe_dump viết số thực có dấu chấm (1.0e-05), đọc lại đúng."""
-    return yaml.safe_dump(json.loads(canonical_json(config)), sort_keys=True, allow_unicode=True)
-
-
 def _check(
     experiment: Experiment, cells: Sequence[Cell], provenance: Provenance, root: Path, results: bool
 ) -> None:
@@ -340,7 +335,7 @@ def _execute(
             if stop.is_set():
                 return None
             config_path = Path(scratch) / f"cell-{index}.yaml"
-            config_path.write_text(cell_yaml(cell.config), encoding="utf-8")
+            config_path.write_text(to_yaml(cell.config), encoding="utf-8")
             command = [sys.executable, "-m", "dfl", "run", "--config", str(config_path)]
             command += ["--data-root", str(data_root), "--expect-root", str(root)]
             command += ["--expect-code-version", provenance.code_version]

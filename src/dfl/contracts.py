@@ -328,7 +328,7 @@ class TimingRecord(TypedDict):
     """Một dòng của timing.jsonl, ghi cùng lúc với mỗi dòng rounds.jsonl (cùng `round`).
 
     Thời gian các pha tính từ lần ghi trước; `wall_time_s` tính từ đầu lượt chạy. Không tất định, nên
-    tách khỏi rounds.jsonl (INV-6, G21).
+    tách khỏi rounds.jsonl (INV-6, G21). Ở process runtime, train_s, combine_s và comm_s là lớn nhất qua node.
     """
 
     round: int
@@ -336,6 +336,9 @@ class TimingRecord(TypedDict):
     train_s: float
     combine_s: float
     eval_s: float
+    # Thời gian chờ gửi và nhận snapshot trong các round từ lần ghi trước, lớn nhất qua node; chỉ có ở process
+    # runtime, bằng 0 ở runtime inprocess vì Transport trong bộ nhớ không chờ (ADR-010; Q13).
+    comm_s: float
 
 
 class SummaryOk(TypedDict):
