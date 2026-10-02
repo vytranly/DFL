@@ -1,0 +1,14 @@
+# Cột JS (bit) của bảng KH §3.2: trung bình qua 20 seed, MNIST, N = 20, 55k ảnh train, min_size = 64.
+# `python -m dfl describe --config configs/base.yaml --seeds 20 --check-req02` so JS đo được với các giá trị này
+# (SPEC REQ-02): lệch không quá max(10% giá trị, 0.002), và JS tăng nghiêm ngặt
+# IID < α100 < α1 < α0.5 < α0.1 < α0.05, #C2 < #C1. Bảng do spike sinh ra, nên phép so chỉ kiểm bản cài khớp
+# spike trên nhãn thật. Không sửa file này để một lần kiểm qua được (CONSTRAINTS.md).
+iid: 0.001
+dirichlet_100: 0.002
+dirichlet_1: 0.185
+dirichlet_0.5: 0.283
+dirichlet_0.1: 0.553
+dirichlet_0.05: 0.631
+label_2: 0.613
+label_1: 0.758
+quantity_0.5: 0.003

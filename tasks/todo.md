@@ -128,7 +128,7 @@
 
 ## Tuần 4 — C1, C2 (M2), engine bắt đầu
 
-- [ ] **T05a · `dfl describe`: dữ liệu** — TV1 · M · ∥ T08
+- [x] **T05a · `dfl describe`: dữ liệu** — TV1 · M · ∥ T08
   - Mô tả: `sim/describe.py` và lệnh `python -m dfl describe --config … --seeds 20 --out build/describe`. Với mỗi cách chia × seed, ghi `describe.json` (ma trận node × lớp, JS, TV, CV, lệch mục tiêu) và bảng CSV. Không huấn luyện.
   - Chấp nhận:
     - Test tích hợp trên dữ liệu tổng hợp: có đủ mọi cách chia × seed, JSON đọc lại được, không có NaN.

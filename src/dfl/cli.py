@@ -1,5 +1,5 @@
-"""Dòng lệnh `python -m dfl <lệnh>` (SPEC §4, §5.2; QS-7): `download` (T03), `run` (T11b); `describe` và
-`sweep` được thêm ở T05a, T12.
+"""Dòng lệnh `python -m dfl <lệnh>` (SPEC §4, §5.2; QS-7): `download` (T03), `run` (T11b), `describe` (T05a);
+`sweep` được thêm ở T12.
 
 Module này không import torch: mỗi lệnh con import module của nó bên trong hàm xử lý. Nhờ vậy `run` đọc cấu
 hình, đặt OMP_NUM_THREADS, OPENBLAS_NUM_THREADS, MKL_NUM_THREADS theo `threads` của cấu hình, rồi mới nạp
@@ -42,6 +42,28 @@ def _run(args: argparse.Namespace) -> int:
     return 0
 
 
+def _describe(args: argparse.Namespace) -> int:
+    from dfl.config import load_config  # không nạp torch
+
+    config = load_config(args.config)
+    for name in THREAD_VARIABLES:
+        os.environ[name] = str(config.threads)
+    from dfl.data import datasets  # nạp torch sau khi đã đặt số luồng
+    from dfl.sim import describe
+
+    labels = datasets.load(config.dataset, root=args.data_root).train.y.numpy()
+    report = describe.describe(config, labels, seeds=args.seeds)
+    describe.write(report, args.out)
+    print(f"đã ghi {args.out / 'describe.json'} và {args.out / 'describe.csv'}")
+    if not args.check_req02:
+        return 0
+    problems = describe.check_req02(describe.js_means(report), describe.load_table(args.table))
+    for problem in problems:
+        print(f"✗ {problem}")
+    print("REQ-02: đạt" if not problems else f"REQ-02: không đạt ({len(problems)} vi phạm)")
+    return 1 if problems else 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="python -m dfl", description="Mô phỏng học liên kết phi tập trung (DFL) trên dữ liệu Non-IID."
@@ -56,6 +78,18 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--out", type=Path, required=True, help="thư mục kết quả, ví dụ build/smoke")
     run.add_argument("--data-root", type=Path, default=DATA_ROOT, help="thư mục dữ liệu (mặc định: data)")
     run.set_defaults(handler=_run)
+    describe = commands.add_parser("describe", help="mô tả các cách chia dữ liệu, không huấn luyện")
+    describe.add_argument("--config", type=Path, required=True, help="file YAML (dùng dataset, N, min_size)")
+    describe.add_argument("--seeds", type=int, default=20, help="số seed, 0 … seeds − 1 (mặc định: 20)")
+    describe.add_argument("--out", type=Path, required=True, help="thư mục ghi describe.json, describe.csv")
+    describe.add_argument(
+        "--data-root", type=Path, default=DATA_ROOT, help="thư mục dữ liệu (mặc định: data)"
+    )
+    describe.add_argument("--check-req02", action="store_true", help="so JS với bảng KH §3.2 (REQ-02)")
+    describe.add_argument(
+        "--table", type=Path, default=Path("configs/reference/kh_js_table.yaml"), help="bảng JS tham chiếu"
+    )
+    describe.set_defaults(handler=_describe)
     return parser
 
 

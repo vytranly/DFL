@@ -483,3 +483,18 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - Ghi chú cho T13: trên smoke, đánh giá chiếm khoảng 0.5 s mỗi round, nhiều gấp 7 lần huấn luyện (4 node + w̄ trên 500 ảnh). Với MNIST, 21 model × 2,000 ảnh × 40 mốc có thể chiếm phần lớn thời gian của một lượt; cần đo ở T13
 - Câu hỏi mở: không
 - Việc tiếp theo: T05a
+
+## 2026-10-02 — Phiên #17 (tiếp) — T05a `dfl describe`: dữ liệu (TV1)
+- Trạng thái: T05a ✅
+- File đã đổi: src/dfl/sim/describe.py, src/dfl/cli.py, configs/reference/kh_js_table.yaml, tests/integration/test_describe.py, tests/unit/test_req02_check.py (mới), tasks/todo.md, tasks/SESSION_LOG.md
+- Kiểm chứng:
+  - RED (chưa có `dfl.sim.describe`) → GREEN, 17 test; `make check-task` xanh, `describe.py` 100%
+  - Tích hợp trên dữ liệu tổng hợp (N = 10, 3 seed): đủ 10 cách chia × 3 seed, ma trận node × lớp 10 × 10, JSON đọc lại không có NaN; mỗi seed dùng đúng luồng partition rồi placement như `sim.run` (ma trận trùng lượt chạy cùng seed); CSV một hàng trung bình mỗi cách chia, theo thứ tự hàng của bảng KH §3.2; N < 10 thì #C = k bị bỏ qua và ghi lý do (G23); `--check-req02` trên dữ liệu tổng hợp trả mã 1 và vẫn ghi file
+  - Unit (số giả): khớp bảng trong sai số thì đạt; lệch 12% (> 10%), lệch tuyệt đối 0.0025 (> 0.002), sai thứ tự Dirichlet, sai thứ tự #C, thiếu một cách chia đều báo đúng tên; bảng YAML hỏng (`1e-3` là chuỗi với PyYAML, list, NaN) bị từ chối
+  - **REQ-02 trên MNIST thật** (máy chủ, N = 20, 20 seed, 55k ảnh): `python -m dfl describe --config configs/base.yaml --seeds 20 --out build/describe --check-req02` → mã 0 ("REQ-02: đạt"), 6.9 s. JS (bit) đo / bảng KH §3.2: IID 0.0006 / 0.001; α100 0.0018 / 0.002; α1 0.176 / 0.185; α0.5 0.276 / 0.283; α0.1 0.562 / 0.553; α0.05 0.636 / 0.631; #C2 0.614 / 0.613; #C1 0.758 / 0.758; quantity β = 0.5 0.0032 / 0.003. Số lần lấy mẫu lại trung bình: α0.1 0.35, α0.05 2.95, quantity 12.9 (KH ghi 1.1, 4.0, 11). P2' (shards): JS 0.594, CV 0 (kích thước đều)
+- Quyết định mới (không cần ADR):
+  - Một `describe.json` (mọi cách chia × seed, kèm cấu hình chuẩn hóa) và một `describe.csv` (trung bình qua seed); lệch mục tiêu với π = 1/N như bảng KH §3.2; seed 0 … S − 1
+  - Khóa cách chia: `iid`, `dirichlet_<α>`, `label_<k>`, `quantity_0.5`, `shards`; `--table` mặc định `configs/reference/kh_js_table.yaml`
+- Lệch quy trình: thêm `tests/unit/test_req02_check.py` cho hàm so sánh ("hàm so sánh có unit test với số giả"); đặt tên khác `test_describe.py` vì pytest không cho hai module test trùng tên gốc
+- Câu hỏi mở: không
+- Việc tiếp theo: T11c
