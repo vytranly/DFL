@@ -410,7 +410,7 @@ RESULTS_ROOT = Path("results")
 
 class RunRefused(Exception):
     """Lượt không được ghi vào results/ (SPEC §5.3): cây bẩn, môi trường lệch, dữ liệu smoke, hay run_id
-    đã xong."""
+    đã xong; hoặc `--out` dẫn vào results/."""
 
 
 class RunLocked(RunRefused):
@@ -446,6 +446,17 @@ def _check_results_allowed(config: RunConfig, provenance: Provenance) -> None:
     if not provenance.env_match:
         raise RunRefused(
             "môi trường lệch requirements.lock: " + "; ".join(provenance.mismatches) + "; hoặc ghi ra --out"
+        )
+
+
+def _check_out(out: Path, run_dir: Path, results_root: Path) -> None:
+    """`out` bỏ qua mọi quy tắc của results/, nên không được dẫn vào results/, kể cả qua symlink hay `..`
+    (REVIEW-C3-P4.1 I1)."""
+    results = results_root.resolve()
+    if any(path.resolve().is_relative_to(results) for path in (out, run_dir)):
+        raise RunRefused(
+            f"--out {out} dẫn vào thư mục kết quả {results}, mà --out bỏ qua các quy tắc của results/ (cây "
+            "sạch, môi trường, khóa, run_id đã xong); bỏ --out để ghi vào results/, hoặc chọn thư mục khác"
         )
 
 
@@ -581,17 +592,18 @@ def run(
     """Chạy một lượt; trả về thư mục attempt.
 
     Có `out` thì ghi vào `out`/runs/<run_id>/attempt-<k>/ ở mọi trạng thái cây và môi trường (manifest ghi
-    `dirty`, `env_match`). Không có `out` thì ghi vào `results_root` (mặc định results/) chỉ khi cây sạch,
-    môi trường khớp file khóa, dữ liệu không phải smoke, và run_id chưa có attempt xong; trong lúc chạy giữ
-    khóa của run_id. Lượt phân kỳ ghi SummaryDiverged và trả về bình thường; lỗi ghi SummaryFailed rồi raise
-    lại. `expected_code_version` do sweep truyền (xem `_check_code`). `process_timeout` là thời gian chờ
-    (giây) của mọi phép gloo ở runtime processes. `provenance` chỉ để test truyền vào; mặc định đọc từ cây và
-    môi trường hiện tại.
+    `dirty`, `env_match`), miễn là nó không dẫn vào `results_root`. Không có `out` thì ghi vào `results_root`
+    (mặc định results/) chỉ khi cây sạch, môi trường khớp file khóa, dữ liệu không phải smoke, và run_id chưa
+    có attempt xong; trong lúc chạy giữ khóa của run_id. Lượt phân kỳ ghi SummaryDiverged và trả về bình
+    thường; lỗi ghi SummaryFailed rồi raise lại. `expected_code_version` do sweep truyền (xem `_check_code`).
+    `process_timeout` là thời gian chờ (giây) của mọi phép gloo ở runtime processes. `provenance` chỉ để test
+    truyền vào; mặc định đọc từ cây và môi trường hiện tại.
     """
     threads = set_threads(config.threads)
     provenance = provenance or current_provenance()
     if out is not None:
         run_dir = Path(out) / "runs" / run_id_of(config, provenance)
+        _check_out(Path(out), run_dir, Path(results_root))
         _check_code(config, run_dir, provenance, expected_code_version, threads)
         return _attempt(config, run_dir, provenance, data_root, threads, process_timeout)
     _check_results_allowed(config, provenance)

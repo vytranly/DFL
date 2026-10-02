@@ -693,3 +693,19 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - Sửa: `_observe` chỉ trả SummaryOk về; `execute` đợi node thoát (`_settle`) rồi mới `finish`. Sau khi mọi round đã được quan sát, node chậm thoát hay thoát lỗi chỉ in cảnh báo; node còn sống bị kill
 - Kiểm chứng: `make check-full` → mã 0 (614 passed)
 - Việc tiếp theo: I1 và I2 (quy tắc ghi results/ khi dùng `--out`, và results/ trong worktree)
+
+## 2026-10-02 — Phiên #18 (tiếp) — Sửa I1: `--out` dẫn vào results/ bỏ qua mọi quy tắc (P3.4)
+- Trạng thái: I1 ✅ (REVIEW-C3-P4.1)
+- File đã đổi: src/dfl/sim/run.py, src/dfl/sim/sweep.py, src/dfl/cli.py (chữ trợ giúp của `run --results`), tests/integration/test_results_rules.py, tests/integration/test_sweep.py, tasks/todo.md, tasks/SESSION_LOG.md
+- **Nguyên nhân gốc (một câu):** nhánh `--out` của `run` và của `sweep` không đối chiếu đích ghi với thư mục kết quả, nên `--out results` (hay một symlink, hay `..` dẫn tới đó) ghi thẳng vào results/ mà bỏ qua mọi quy tắc của nó: dữ liệu smoke, cây bẩn, môi trường, khóa, run_id đã xong
+- Tái hiện: `python -m dfl run --config configs/profiles/smoke.yaml --out results`, chạy trong thư mục tạm để không đụng results/ thật. Trước khi sửa, các test Prove-It dưới đây báo "DID NOT RAISE"; sau khi sửa, lệnh thoát mã 3, in đường dẫn đã resolve, không ghi attempt nào
+- Canh gác:
+  - `test_out_inside_results_is_refused_so_the_results_rules_cannot_be_bypassed[same-directory, inside]` (run) và `test_sweep_out_inside_results_is_refused` (sweep): FAIL trước khi sửa, PASS sau khi sửa
+  - `test_out_whose_runs_directory_links_into_results_is_refused`: viết sau phần sửa, cho nhánh xét `out/runs/<run_id>`. Nó giết mutant "chỉ xét `out`" (plugin pytest thay hàm trong bộ nhớ, không sửa `src/`)
+- Sửa:
+  - `run`: `_check_out` từ chối (RunRefused, mã thoát 3) khi `out` hay `out/runs/<run_id>`, sau khi resolve, nằm trong `results_root`. Phép kiểm chạy trước `_check_code`, nên lượt bị từ chối không ghi gì
+  - `sweep._check` nhận `out` và `results` đã resolve, và từ chối `--out` nằm trong thư mục kết quả trước mọi phép kiểm khác. `--dry-run` vẫn chỉ lập kế hoạch như trước. Dòng lệnh của tiến trình con giữ nguyên: nó tự so `--out` với `results/` mặc định trong cùng thư mục làm việc, nên chỉ có thể từ chối nhiều hơn sweep, không bao giờ ít hơn
+  - SPEC §5.3 vốn ghi "`run --out` ra ngoài `results/`", nên code giờ khớp SPEC; không sửa SPEC
+- Kích thước: I1 và I2 tách thành hai commit để mỗi commit giữ trong giới hạn của K5 (tối đa 5 file); gộp lại thì chạm 7 file. Trước khi tách, `make check-full` đã chạy trên trạng thái có cả I1 lẫn I2 (xem mục I2)
+- Kiểm chứng: `make check-task` trên trạng thái chỉ có I1 → mã 0: "Sàn: đạt (618 test)", 613 passed, coverage 95.16%. Mất 155 s, vượt ngân sách 90 s (T1 chỉ cảnh báo), khi máy chủ có load average 17–20 trên 8 lõi
+- Việc tiếp theo: I2 (results/ nằm trong worktree liên kết)

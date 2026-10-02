@@ -228,6 +228,17 @@ def test_sweep_refuses_a_dirty_tree_even_with_out(tmp_path: Path, here: manifest
         )
 
 
+def test_sweep_out_inside_results_is_refused(tmp_path: Path, here: manifest.Provenance) -> None:
+    # REVIEW-C3-P4.1 I1: --out bỏ qua quy tắc của results/, nên không được trỏ vào chính results/.
+    path = write_experiment(tmp_path / "exp", "inside", [{"seeds": [0], "set": TINY}])
+    results = tmp_path / "results"
+
+    with pytest.raises(sweep.SweepRefused, match="--out"):
+        sweep.run_sweep(path, out=results, results_root=results, provenance=here, root=ROOT)
+
+    assert not results.exists()
+
+
 def test_results_need_a_linked_worktree_a_matching_environment_and_real_data(
     tmp_path: Path, here: manifest.Provenance
 ) -> None:

@@ -140,6 +140,38 @@ def test_a_failed_attempt_can_be_retried_by_hand_as_a_new_attempt(
     assert summary_of(second.parent / "attempt-1")["status"] == "failed"
 
 
+@pytest.mark.parametrize("below", ["", "nested"], ids=["same-directory", "inside"])
+def test_out_inside_results_is_refused_so_the_results_rules_cannot_be_bypassed(
+    tmp_path: Path, below: str
+) -> None:
+    # REVIEW-C3-P4.1 I1: --out bỏ qua quy tắc của results/, nên không được trỏ vào chính results/.
+    results = tmp_path / "results"
+
+    with pytest.raises(run.RunRefused, match="--out"):
+        run.run(
+            SMOKE,
+            out=results / below,
+            results_root=results,
+            provenance=dataclasses.replace(CLEAN, dirty=True),
+        )
+
+    assert list(tmp_path.rglob("attempt-*")) == []
+
+
+def test_out_whose_runs_directory_links_into_results_is_refused(tmp_path: Path) -> None:
+    # Attempt nằm ở out/runs/<run_id>, nên phép kiểm xét cả đường dẫn đó sau khi resolve, không chỉ out.
+    results = tmp_path / "results"
+    (results / "runs").mkdir(parents=True)
+    out = tmp_path / "build"
+    out.mkdir()
+    (out / "runs").symlink_to(results / "runs", target_is_directory=True)
+
+    with pytest.raises(run.RunRefused, match="--out"):
+        run.run(SMOKE, out=out, results_root=results, provenance=dataclasses.replace(CLEAN, dirty=True))
+
+    assert list(results.rglob("attempt-*")) == []
+
+
 @pytest.mark.usefixtures("synthetic_as_mnist")
 def test_out_runs_despite_a_dirty_tree_and_records_it(tmp_path: Path) -> None:
     provenance = dataclasses.replace(CLEAN, dirty=True, env_match=False)

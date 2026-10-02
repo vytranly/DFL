@@ -178,7 +178,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     run.add_argument("--data-root", type=Path, default=DATA_ROOT, help="thư mục dữ liệu (mặc định: data)")
     run.add_argument(
-        "--results", type=Path, default=Path("results"), help="thư mục results (khi không có --out)"
+        "--results", type=Path, default=Path("results"), help="thư mục results; --out không được dẫn vào nó"
     )
     run.add_argument(
         "--runtime",

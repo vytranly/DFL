@@ -17,9 +17,10 @@ Trong một khối, seed là vòng ngoài cùng: seed đầu của mọi ô ch�
 - Trạng thái một run_id theo các attempt của nó: có attempt ok hay diverged là xong; nếu không thì attempt mới
   nhất quyết định: chưa có summary là bị ngắt (chạy lại), failed là failed (chỉ chạy lại khi có
   --retry-failed).
-- Sweep luôn đòi cây sạch, kể cả khi ghi ra --out (CLAUDE.md). Ghi vào results/ thì còn đòi: môi trường khớp
-  file khóa, không có ô dữ liệu tổng hợp, chạy từ một worktree liên kết (`git worktree add`) có gốc là `root`,
-  và file thí nghiệm cùng profile nằm trong worktree đó (cây sạch nên chúng đã được commit).
+- Sweep luôn đòi cây sạch, kể cả khi ghi ra --out (CLAUDE.md); --out bỏ qua các quy tắc của results/, nên
+  không được nằm trong thư mục kết quả. Ghi vào results/ thì còn đòi: môi trường khớp file khóa, không có ô
+  dữ liệu tổng hợp, chạy từ một worktree liên kết (`git worktree add`) có gốc là `root`, và file thí
+  nghiệm cùng profile nằm trong worktree đó (cây sạch nên chúng đã được commit).
 - Mỗi lượt là `python -m dfl run` trong một tiến trình con mới (subprocess, không fork; SPEC §5.2), với
   PYTHONPATH=<root>/src và các biến số luồng. Tiến trình con kiểm nó nạp dfl từ `root` và có cùng
   code_version với sweep. Mã thoát của nó (cli.py): 0 xong, 1 lỗi, 3 bị từ chối, 4 run_id đang bị khóa (bỏ
@@ -243,20 +244,31 @@ def plan(cells: Sequence[Cell], provenance: Provenance, target: Path, *, retry_f
 
 
 def _check(
-    experiment: Experiment, cells: Sequence[Cell], provenance: Provenance, root: Path, results: bool
+    experiment: Experiment,
+    cells: Sequence[Cell],
+    provenance: Provenance,
+    root: Path,
+    out: Path | None,
+    results: Path,
 ) -> None:
+    """Các phép kiểm trước khi ghi gì; `out` và `results` đã resolve, không có `out` là ghi vào `results`."""
+    if out is not None and out.is_relative_to(results):
+        raise SweepRefused(
+            f"--out {out} nằm trong thư mục kết quả {results}, mà --out bỏ qua các quy tắc của results/; bỏ "
+            "--out để ghi vào results/, hoặc chọn thư mục khác"
+        )
     if provenance.dirty:
         raise SweepRefused(
             "cây làm việc bẩn (src/, configs/ hay requirements.lock có thay đổi chưa commit, hoặc có file "
             "*.py, *.yaml bị ignore); sweep luôn đòi cây sạch, kể cả khi ghi ra --out"
         )
     if not provenance.env_match:
-        if results:
+        if out is None:
             raise SweepRefused("môi trường lệch requirements.lock: " + "; ".join(provenance.mismatches))
         print(
             "cảnh báo: môi trường lệch requirements.lock; manifest sẽ ghi env_match: false", file=sys.stderr
         )
-    if not results:
+    if out is not None:
         return
     if any(cell.config.dataset == "synthetic" for cell in cells):
         raise SweepRefused("dữ liệu tổng hợp (profile smoke) không bao giờ được ghi vào results/; dùng --out")
@@ -382,19 +394,15 @@ def run_sweep(
     provenance = provenance or provenance_of(root)
     experiment = load_experiment(experiment_path)
     cells = select(experiment.cells, only)
-    target = (Path(out) if out is not None else Path(results_root)).resolve()
+    results = Path(results_root).resolve()
+    out_dir = Path(out).resolve() if out is not None else None
+    target = results if out_dir is None else out_dir
     the_plan = plan(cells, provenance, target, retry_failed=retry_failed)
     if dry_run:
         return SweepReport(experiment=experiment, plan=the_plan, outcomes=[], stopped=False)
-    _check(experiment, cells, provenance, root, results=out is None)
-    _write_index(experiment, provenance, target, lock=out is None)
+    _check(experiment, cells, provenance, root, out_dir, results)
+    _write_index(experiment, provenance, target, lock=out_dir is None)
     outcomes, stopped = _execute(
-        the_plan.to_run,
-        provenance,
-        root,
-        target,
-        target if out is not None else None,
-        Path(data_root).resolve(),
-        workers,
+        the_plan.to_run, provenance, root, target, out_dir, Path(data_root).resolve(), workers
     )
     return SweepReport(experiment=experiment, plan=the_plan, outcomes=outcomes, stopped=stopped)
