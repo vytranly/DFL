@@ -97,7 +97,7 @@
   - Phụ thuộc: T02a, T07
   - File: `src/dfl/network/topology.py`, `tests/unit/test_topology.py`
 
-- [ ] **T03 · Datasets + lệnh `download`** — TV1 · M · ∥ T06
+- [x] **T03 · Datasets + lệnh `download`** — TV1 · M · ∥ T06
   - Mô tả: `data/datasets.py` nạp MNIST qua torchvision thành tensor trong RAM và chuẩn hóa bằng mean/std của tập train. Validation 5k và tập con đánh giá 2,000 ảnh được chọn phân tầng bằng luồng dữ liệu cố định. Có bộ dữ liệu tổng hợp cùng shape cho test và smoke. Tạo khung CLI (`cli.py`, `__main__.py`) với `python -m dfl download mnist`. `cli.py` chỉ import module dùng torch bên trong từng lệnh con, để `run` còn đặt được biến môi trường số luồng trước khi torch được nạp (T11b).
   - Chấp nhận:
     - Trên dataset giả: tách 55k/5k phân tầng, đếm lớp đúng. Ảnh là float32 shape (n, 1, 28, 28), nhãn là int64. Tập con đánh giá 2,000 ảnh của test và của validation phân tầng. Cùng `DATA_SEED` thì cùng cách tách và cùng tập con ở mọi seed của lượt.

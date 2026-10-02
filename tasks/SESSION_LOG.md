@@ -400,3 +400,24 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
   - w⁰: `skip_init(SmallCNN)` rồi `uniform_(−b, b, generator=…)` với b = 1/√fan_in, theo thứ tự lớp, weight trước bias. `init_from_stream` raise ValueError nếu còn tham số hay buffer không có quy tắc khởi tạo (sau skip_init chúng là bộ nhớ rác); T09c dùng lại hàm này cho M0, M2, M3
 - Câu hỏi mở: không
 - Việc tiếp theo: T03
+
+## 2026-10-02 — Phiên #16 (tiếp) — T03 Datasets + lệnh `download` (TV1)
+- Trạng thái: T03 ✅
+- File đã đổi: src/dfl/data/datasets.py, src/dfl/cli.py, src/dfl/__main__.py, tests/unit/test_datasets.py, tests/unit/test_cli.py (mới), tasks/todo.md, tasks/SESSION_LOG.md
+- Kiểm chứng:
+  - RED (chưa có module) → GREEN, 38 test; `make check-task` → 419 passed, coverage 96.8% (`datasets.py` 100%; `__main__.py` chỉ chạy trong tiến trình con nên không được đo)
+  - Phân tầng: trên nhãn giả cùng tỉ lệ lớp với MNIST, validation 5,000/60,000 và tập con 2,000/10,000 lệch tỉ lệ dưới 1 ảnh mỗi lớp; phương pháp số dư lớn nhất kiểm bằng ví dụ tính tay; cùng luồng thì cùng chỉ số, khác khóa thì khác
+  - `prepare`: validation lấy đúng từ luồng VAL_SPLIT; phần còn lại giữ thứ tự gốc; mean/std khớp phép tính độc lập trên phần chia cho node (rel 1e-12), cả khi đếm qua 158 khối; test được chuẩn hóa bằng thống kê của train; float32 (n, 1, 28, 28) và nhãn int64 (cả khi nhãn đầu vào là uint8)
+  - File MNIST giả theo định dạng IDX: bộ nạp (đọc `.data`/`.targets`, UNVERIFIED) cho đúng mảng đã ghi và khớp `__getitem__` có tài liệu; `load("mnist")` tách 55,000/5,000/10,000; thiếu file thì FileNotFoundError kèm lệnh tải
+  - Dữ liệu tổng hợp: cố định, cân bằng lớp, 1,800/200/500 như SPEC §5.2; phân loại theo ảnh trung bình của lớp đúng hơn 90% ảnh test
+  - CLI: `import dfl.cli` và `python -m dfl --help` không nạp torch (tiến trình sạch); `download mnist` gọi đúng thư mục (mặc định `data`); dòng lệnh sai thoát mã 2
+  - Mutation: 20/20 mutant bị bắt (một mutant viết sai lúc đầu, tương đương code gốc, đã viết lại)
+  - Kiểm tay trên máy chủ: `python -m dfl download mnist` tải 4 file vào `data/MNIST/raw` trong 14.6 s (torchvision kiểm md5), chạy lại thì không tải; `data/` không hiện trong `git status`. MNIST thật: 55,000/5,000/10,000, validation lớp 0 có 494 ảnh (≈ 5923/12), mean 0.130613, std 0.308059, nạp 0.46 s; tập con test 2,000 ảnh phân tầng
+- Quyết định mới (không cần ADR):
+  - Đọc MNIST bằng `.data`/`.targets` (UNVERIFIED theo tài liệu 0.29): đo trên 60k ảnh giả, `__getitem__` có tài liệu mất 7.1 s, `.data` mất 0.06 s. Test giữ hai đường khớp nhau
+  - Chuẩn hóa bằng mean/std của 55k ảnh chia cho node (không gồm validation), tính từ histogram 256 mức theo khối 4,096 ảnh (tránh mảng tạm int64 345 MB), rồi tra bảng 256 giá trị float32
+  - Khóa luồng EVAL_SUBSET: test 0, validation 1. Phân tầng chọn trong từng lớp bằng `Generator.choice(replace=False)`, lớp 0 trước; lớp có định mức 0 không gọi `choice`
+  - `Datasets.split(name)` trả đủ tập cho đánh giá cuối; `eval_subset` cho learning curve
+- Lệch quy trình: thêm `tests/unit/test_cli.py`, không có trong danh sách file của T03 (test của `cli.py`, vốn có trong danh sách)
+- Câu hỏi mở: không
+- Việc tiếp theo: T11a
