@@ -229,7 +229,7 @@
   - Phụ thuộc: T10a
   - File: `src/dfl/sim/engine.py`, `tests/integration/test_engine_consensus.py`, `tests/integration/test_engine_fedavg.py`, `tests/integration/test_engine_messages.py`
 
-- [ ] **T11a · Manifest, `code_version`, RunLogger** — TV3 · M · ∥ T09b, T10b
+- [x] **T11a · Manifest, `code_version`, RunLogger** — TV3 · M · ∥ T09b, T10b
   - Mô tả:
     - `io/manifest.py` dựng `ManifestRecord`:
       - `code_version`: hash dãy cặp (đường dẫn, nội dung) của thư mục gói `dfl` đang được nạp (`dfl.__file__`), không của thư mục làm việc, chuẩn hóa xuống dòng, cùng file khóa;

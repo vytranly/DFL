@@ -428,3 +428,24 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - Kiểm chứng: báo cáo coverage của T03 lộ ra nhánh `raise ValueError` của `init_from_stream` (models.py:67) chưa có test. Thêm test: model có tham số hay buffer không thuộc Conv2d/Linear thì raise ValueError nêu tên tensor. Test FAIL khi bỏ guard (bản sao src ở scratchpad), PASS với code hiện tại; `make check-task` xanh
 - Câu hỏi mở: không
 - Việc tiếp theo: T11a
+
+## 2026-10-02 — Phiên #16 (tiếp) — T11a Manifest, `code_version`, RunLogger (TV3)
+- Trạng thái: T11a ✅
+- File đã đổi: src/dfl/io/manifest.py, src/dfl/io/run_logger.py, tests/unit/test_manifest.py, tests/unit/test_run_logger.py (mới), tasks/todo.md, tasks/SESSION_LOG.md
+- Kiểm chứng:
+  - RED (chưa có module) → GREEN, 57 test; `make check-task` → 478 passed, coverage 97.2% (hai module mới 100%); import-linter 5/5
+  - `code_version` (trên gói giả trong thư mục tạm): không đổi khi đổi CRLF ↔ LF, sửa file ngoài gói (docs, configs), sửa file không phải `.py` trong gói, hay đổi thứ tự, khoảng trắng, dòng trống của file khóa; đổi khi sửa, đổi tên hay thêm file `.py`, hay đổi phiên bản trong file khóa. `current_code_version()` hash đúng gói đang nạp (`dfl.__file__`) cùng `requirements.lock` của repo
+  - `run_id` đổi khi cấu hình, `code_version` hay máy đổi. Máy = tên CPU kèm hash cờ CPU đã sắp xếp (đổi thứ tự cờ không đổi máy, thêm cờ thì đổi)
+  - Cây sạch, trên repo git tạm: sửa file đã track, file chưa track trong `src/` hay `configs/`, sửa file khóa, và file `*.py`/`*.yaml`/`*.yml` bị ignore (kể cả trong thư mục bị ignore) đều làm bẩn; `__pycache__`, `*.egg-info` và thay đổi ngoài `src/`, `configs/` thì không. Không có git, repo chưa có commit, máy không có lệnh git, hay gọi từ thư mục con của repo đều cho ("none", bẩn)
+  - Môi trường: gói lệch phiên bản hay chưa cài thì `env_match: false` và có mô tả từng gói; công cụ dev không có trong file khóa bị bỏ qua; file khóa của repo khớp venv hiện tại; dòng không có dạng `tên==phiên bản` thì ValueError
+  - RunLogger: ghi đủ 4 file; cùng bản ghi (khác thứ tự khóa) cho `rounds.jsonl` trùng từng byte; attempt đã có thì FileExistsError và không đụng tới file cũ; gọi sai thứ tự thì RuntimeError; NaN hay vô cực thì ValueError mà không ghi dòng dở; summary bị từ chối thì attempt vẫn mở để ghi SummaryFailed; khóa lệch schema của contracts.py, status lạ, manifest thiếu trường hay `attempt` không phải số nguyên dương thì ValueError trước khi tạo thư mục
+  - Đọc provenance và import hai module không nạp torch (tiến trình sạch), để sweep tính run_id rẻ
+  - Mutation: 24/24 mutant bị bắt, mỗi mutant bởi đúng test dự định. Lần chạy đầu cho kết quả giả (bản sao `src/` thiếu `requirements.lock`, nên mọi mutant chết ở cùng một test vì môi trường); đã chép file khóa vào bản sao và in tên test fail để kiểm
+  - Trên máy chủ: `env_match: true`; máy "Intel(R) Xeon(R) Platinum 8176 CPU @ 2.10GHz (flags 395ae1858272)"
+- Quyết định mới (không cần ADR):
+  - `run_id` = 16 ký tự hex đầu của sha256(JSON của [cấu hình chuẩn hóa, code_version, máy]); `code_version` là đủ 64 ký tự hex. Mỗi phần của hash `code_version` đi kèm độ dài, đường dẫn tính từ thư mục chứa gói (`dfl/...`)
+  - Thư mục bị ignore được kiểm từng file bằng `git status --porcelain -z --ignored --untracked-files=all` (tài liệu git: chế độ traditional cùng `-uall` hiện từng file); đuôi `.yml` cũng tính, chặt hơn SPEC một chút
+  - `Provenance` (code_version, commit, dirty, env_match, versions, máy, các gói lệch) tính một lần mỗi tiến trình; `build_manifest` nhận thêm các giá trị của lượt chạy (T11b) và kiểm các dãy theo node có đúng N phần tử
+  - RunLogger mở file theo từng lần ghi (không giữ file mở giữa các lời gọi); manifest và summary ghi qua file tạm rồi `os.replace`
+- Câu hỏi mở: có thêm `dfl.config`, `dfl.io.manifest`, `dfl.io.run_logger` vào contract `pure-no-torch` không (thắt chặt; sửa pyproject, hỏi trước)? Hiện có test bằng tiến trình con
+- Việc tiếp theo: lô T22a, T02b, T09a, T03, T11a đã xong. P3.5 (T13) áp dụng khi T11c, T11d, T12, T22b, T09c xong
