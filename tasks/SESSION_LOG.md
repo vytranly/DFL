@@ -461,3 +461,25 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - Lệch quy trình: `src/dfl/config.py` có trong danh sách file nhưng không phải sửa: trường `model` và danh sách `MODELS` đã có từ T02b
 - Câu hỏi mở: không
 - Việc tiếp theo: T11b
+
+## 2026-10-02 — Phiên #17 (tiếp) — T11b `python -m dfl run` + smoke e2e (TV2)
+- Trạng thái: T11b ✅ (trừ ý "make check-inv xanh": còn thiếu T-INV-13, thuộc T22b của cùng lô)
+- File đã đổi: src/dfl/sim/run.py, src/dfl/cli.py, tests/e2e/test_smoke_run.py, tests/integration/test_seeds.py (mới), tests/unit/test_cli.py, Makefile, tasks/todo.md, tasks/SESSION_LOG.md
+- Kiểm chứng:
+  - RED (chưa có `dfl.sim.run`) → GREEN; `make check-task` → 516 passed, coverage 97.5% (`sim/run.py` 99%, dòng còn lại là guard runtime processes, thay ở T22b)
+  - ENG-4: `python -m dfl run --config configs/profiles/smoke.yaml --out build/smoke` xong trong 8.2 s (ngân sách 60 s); đủ 4 file đúng schema của contracts.py; `rounds.jsonl` 6 dòng (round 1…6, local_steps 2…12); manifest có `cpu_threads` = 1 = `threads`, cấu hình chuẩn hóa, run_id trùng tên thư mục, spectral gap 2/3 (ring N = 4, MH), π = 1/4; message 8/round và byte = message × 4 × 46,730; các pha của timing.jsonl cộng lại đúng khoảng thời gian giữa hai lần ghi. Accuracy tăng từ 0.15 lên khoảng 0.3, mất mát huấn luyện giảm đều qua 6 round
+  - T-INV-5: cùng seed thì `rounds.jsonl` trùng từng byte; RNG toàn cục của torch không đổi sau một lượt; khác seed thì khác cách chia và khác w⁰ ở mọi tensor; cùng seed thì cùng cách chia, vị trí, w⁰, luồng batch và dữ liệu node ở 11 biến thể (FC, ER, gossip, ER-gossip, star, local_only, server, uniform, size-corrected, prox, τ = 1); mọi cách chia (IID, Dirichlet, quantity, #C = 2 với N = 10) cố định theo seed và phủ đủ dữ liệu; vị trí node đúng bằng hoán vị của luồng placement; mọi node cùng w⁰ nhưng bộ nhớ riêng, luồng batch đúng (BATCH, i)
+  - CLI: trong tiến trình sạch, `run` đọc cấu hình, đặt OMP/OPENBLAS/MKL_NUM_THREADS = `threads`, rồi mới nạp sim.run, lúc torch chưa được nạp; thiếu `--out` thì thoát mã 2
+  - Mutation trên `sim/run.py`: 6/6 mutant bị bắt đúng test (bỏ gán vị trí, w⁰ riêng từng node, sai luồng batch, sai luồng partition, combine_s tính cả train và eval, spectral gap luôn None)
+  - `make check-inv`: chỉ còn thiếu T-INV-13 (T22b); 68 test T-INV hiện có đều xanh. `make check-full` vì vậy đỏ ở đúng bước này cho tới T22b
+- Quyết định mới (không cần ADR):
+  - `sim/run.py` lắp được mọi giá trị hợp lệ của schema cấu hình hiện tại (mọi topology kể cả server và local_only; MH, uniform, size_weighted, size_corrected), không chỉ ring/MH. T11c còn thêm B1 (cần trường cấu hình mới), profile fast và test của baseline
+  - π: MH 1/N; uniform (d_j + 1) trên đồ thị tĩnh; gossip 1/N (mỗi W^(t) là ma trận matching, đối xứng); size-weighted, size-corrected, server n_j/n. Spectral gap: W tĩnh và ma trận hiệu dụng của server; None với gossip và local_only
+  - Đánh giá cuối trên đủ tập của `eval.split` (REQ-03) làm luôn ở đây, vì SummaryOk cần các trường final_*. T11e vẫn còn: không nạp ảnh test khi split là validation, và `test_final_eval.py`
+  - Mỗi node dựng model từ một Generator mới của luồng init (cùng w⁰, bộ nhớ riêng), không dùng deepcopy
+  - Ghi ra `<out>/runs/<run_id>/attempt-<k>/` với k = số lớn nhất đã có + 1; `--out` bắt buộc cho tới T11d (ghi vào results/)
+  - timing.jsonl: train_s và eval_s đo quanh trainer và evaluator; combine_s là phần còn lại của khoảng giữa hai lần ghi
+  - Makefile: `check-full: check-static check-inv` theo bảng kích hoạt của CONSTRAINTS.md (dòng T11)
+- Ghi chú cho T13: trên smoke, đánh giá chiếm khoảng 0.5 s mỗi round, nhiều gấp 7 lần huấn luyện (4 node + w̄ trên 500 ảnh). Với MNIST, 21 model × 2,000 ảnh × 40 mốc có thể chiếm phần lớn thời gian của một lượt; cần đo ở T13
+- Câu hỏi mở: không
+- Việc tiếp theo: T05a

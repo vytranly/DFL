@@ -312,7 +312,7 @@
   - Phụ thuộc: T01 (test dùng `rounds.jsonl` giả theo `contracts.py`; khi đã có kết quả smoke thật thì chạy lại test với file thật). Phần đọc chỉ mục thí nghiệm theo TypedDict do task sweep thêm vào contracts.py; nếu chưa có thì viết theo schema ở SPEC §5.3 rồi kiểm lại khi có
   - File: `analysis/aggregate.py`, `analysis/checks.py`, `tests/unit/test_aggregate.py`, `tests/unit/test_checks.py`
 
-- [ ] **T11b · `python -m dfl run` + smoke e2e** — TV2 · M
+- [x] **T11b · `python -m dfl run` + smoke e2e** — TV2 · M
   - Mô tả:
     - `sim/run.py` lắp một lượt từ cấu hình: data → partition → placement → topology → mixing → engine → observer → logger, và ghi ra `--out`. Manifest có `partition_retries`, `node_class_counts`, `objective_weights`, lệch mục tiêu, và spectral gap (topology tĩnh; `None` với gossip, W = I và B1).
     - Lệnh `run` trong `cli.py` đọc cấu hình (không import torch), đặt `OMP_NUM_THREADS`, `OPENBLAS_NUM_THREADS`, `MKL_NUM_THREADS`, rồi mới import `sim.run`; `sim.run` gọi `torch.set_num_threads` trước mọi phép tính.

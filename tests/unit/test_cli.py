@@ -2,6 +2,8 @@
 §4, §5.2; QS-7). Không dùng mạng: hàm tải được thay bằng bản ghi lại lời gọi.
 """
 
+import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -57,3 +59,44 @@ def test_python_m_dfl_runs_the_cli_without_importing_torch() -> None:
 
     assert result.returncode == 0, result.stderr
     assert "download" in result.stdout
+
+
+SMOKE = Path(__file__).resolve().parents[2] / "configs" / "profiles" / "smoke.yaml"
+THREAD_VARIABLES = ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS")
+
+
+def test_run_sets_thread_variables_before_torch_is_imported() -> None:
+    # SPEC §5.2: CLI đọc cấu hình (không nạp torch), đặt biến môi trường số luồng, rồi mới nạp sim.run. Kiểm
+    # trong tiến trình sạch, với một dfl.sim.run giả ghi lại trạng thái lúc được gọi.
+    code = (
+        "import json, os, sys, types\n"
+        "import dfl.sim\n"
+        "seen = {}\n"
+        "def run(config, *, out, data_root):\n"
+        "    seen.update(torch='torch' in sys.modules, threads=config.threads, out=str(out),\n"
+        f"                env=[os.environ.get(k) for k in {THREAD_VARIABLES!r}])\n"
+        "    return out\n"
+        "fake = types.ModuleType('dfl.sim.run')\n"
+        "fake.run = run\n"
+        "sys.modules['dfl.sim.run'] = dfl.sim.run = fake\n"
+        "from dfl.cli import main\n"
+        f"status = main(['run', '--config', {str(SMOKE)!r}, '--out', 'build/x'])\n"
+        "print(json.dumps(seen))\n"
+        "sys.exit(status)\n"
+    )
+    env = {k: v for k, v in os.environ.items() if k not in THREAD_VARIABLES}
+
+    result = subprocess.run(
+        [sys.executable, "-c", code], capture_output=True, text=True, check=False, env=env
+    )
+
+    assert result.returncode == 0, result.stderr
+    seen = json.loads(result.stdout.splitlines()[-1])
+    assert seen == {"torch": False, "threads": 1, "out": "build/x", "env": ["1", "1", "1"]}
+
+
+def test_run_requires_an_output_directory() -> None:
+    with pytest.raises(SystemExit) as exit_info:
+        cli.main(["run", "--config", str(SMOKE)])
+
+    assert exit_info.value.code == 2

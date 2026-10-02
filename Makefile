@@ -30,7 +30,7 @@ check-task:
 	if [ $$elapsed -gt $(TASK_BUDGET_S) ]; then echo "CẢNH BÁO T1: check-task vượt ngân sách $(TASK_BUDGET_S) s"; fi; \
 	exit $$status
 
-check-full: check-static
+check-full: check-static check-inv
 	$(PY) -m pytest -q --cov --cov-report=term-missing:skip-covered --durations=5
 	$(PY) -m pip check
 
