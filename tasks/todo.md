@@ -645,7 +645,7 @@ T22a, T22b và T09c là code của lưới: phải xong trước T14b (E0a), đ�
   - Phụ thuộc: T22b
   - File: `docker/Dockerfile`, `docker/compose.py`, `Makefile`, `docs/DOCKER.md`, `tests/unit/test_compose.py`
 
-- [ ] **T09c · Thang model M0–M3 (ADR-011)** — TV1 · M · ∥ T22a
+- [x] **T09c · Thang model M0–M3 (ADR-011)** — TV1 · M · ∥ T22a
   - Mô tả: `learning/models.py` thêm M0 (logistic regression), M2 (2NN-MLP) và M3 (CNN của McMahan et al. 2017) bên cạnh SmallCNN, cùng `build_model(name, generator)`. Cấu hình có trường `model`; mặc định là SmallCNN, nên thí nghiệm lõi không đổi.
   - Chấp nhận:
     - Số tham số đúng 7,850 / 46,730 / 199,210 / 1,663,370; không có BatchNorm hay Dropout.

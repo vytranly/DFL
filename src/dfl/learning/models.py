@@ -2,6 +2,12 @@
 
 SmallCNN là model của mọi thí nghiệm lõi: Conv(1→16, 5×5) → ReLU → MaxPool 2 → Conv(16→32, 5×5) → ReLU →
 MaxPool 2 → FC(512→64) → ReLU → FC(64→10), 46,730 tham số, không BatchNorm, không dropout (ADR-004).
+Thang model của E8 (ADR-011), chọn bằng trường `model` của cấu hình; không model nào có BatchNorm hay dropout:
+- M0 `logreg`: Linear 784 → 10, 7,850 tham số;
+- M1 `smallcnn`: SmallCNN;
+- M2 `mlp2nn`: 784 → 200 → 200 → 10 với ReLU, 199,210 tham số (2NN của McMahan et al. 2017);
+- M3 `cnn_mcmahan`: Conv 5×5 (1→32, padding 2) → ReLU → MaxPool 2 → Conv 5×5 (32→64, padding 2) → ReLU →
+  MaxPool 2 → FC 3136 → 512 → ReLU → FC 512 → 10, 1,663,370 tham số (CNN của McMahan et al. 2017).
 
 w⁰ lấy mẫu từ luồng init (seeding.Stream.INIT), không từ RNG toàn cục của torch. Model được dựng bằng
 `skip_init`, tức tham số chưa khởi tạo, rồi mỗi tham số được điền bằng `uniform_(…, generator=…)` theo đúng
@@ -46,6 +52,56 @@ class SmallCNN(torch.nn.Module):
         return self.fc2(torch.nn.functional.relu(self.fc1(x.flatten(1))))
 
 
+class LogisticRegression(torch.nn.Module):
+    """M0 của ADR-011: hồi quy logistic trên 784 điểm ảnh."""
+
+    def __init__(self, *, device: torch.device | str | None = None, dtype: torch.dtype | None = None) -> None:
+        super().__init__()
+        self.fc = torch.nn.Linear(28 * 28, 10, device=device, dtype=dtype)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.fc(x.flatten(1))
+
+
+class TwoLayerMLP(torch.nn.Module):
+    """M2 của ADR-011: 2NN của McMahan et al. 2017."""
+
+    def __init__(self, *, device: torch.device | str | None = None, dtype: torch.dtype | None = None) -> None:
+        super().__init__()
+        self.fc1 = torch.nn.Linear(28 * 28, 200, device=device, dtype=dtype)
+        self.fc2 = torch.nn.Linear(200, 200, device=device, dtype=dtype)
+        self.fc3 = torch.nn.Linear(200, 10, device=device, dtype=dtype)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = torch.nn.functional.relu(self.fc1(x.flatten(1)))
+        return self.fc3(torch.nn.functional.relu(self.fc2(x)))
+
+
+class McMahanCNN(torch.nn.Module):
+    """M3 của ADR-011: CNN của McMahan et al. 2017; padding 2 giữ 28 × 28 qua mỗi lớp conv."""
+
+    def __init__(self, *, device: torch.device | str | None = None, dtype: torch.dtype | None = None) -> None:
+        super().__init__()
+        self.conv1 = torch.nn.Conv2d(1, 32, 5, padding=2, device=device, dtype=dtype)
+        self.conv2 = torch.nn.Conv2d(32, 64, 5, padding=2, device=device, dtype=dtype)
+        self.fc1 = torch.nn.Linear(64 * 7 * 7, 512, device=device, dtype=dtype)
+        self.fc2 = torch.nn.Linear(512, 10, device=device, dtype=dtype)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = torch.nn.functional.max_pool2d(torch.nn.functional.relu(self.conv1(x)), 2)
+        x = torch.nn.functional.max_pool2d(torch.nn.functional.relu(self.conv2(x)), 2)
+        return self.fc2(torch.nn.functional.relu(self.fc1(x.flatten(1))))
+
+
+# Tên trong cấu hình (config.MODELS) → lớp model.
+MODEL_CLASSES: dict[str, type[torch.nn.Module]] = {
+    "logreg": LogisticRegression,
+    "smallcnn": SmallCNN,
+    "mlp2nn": TwoLayerMLP,
+    "cnn_mcmahan": McMahanCNN,
+}
+
+
 def init_from_stream(model: torch.nn.Module, generator: torch.Generator) -> None:
     """Điền mọi tham số bằng U(−√k, √k), k = 1/fan_in, lấy từ `generator` theo thứ tự lớp.
 
@@ -67,8 +123,19 @@ def init_from_stream(model: torch.nn.Module, generator: torch.Generator) -> None
         raise ValueError(f"không có quy tắc khởi tạo cho {missing}: sau skip_init chúng chứa bộ nhớ rác")
 
 
-def make_smallcnn(generator: torch.Generator) -> SmallCNN:
-    """SmallCNN float32 trên CPU với w⁰ lấy từ `generator` (luồng init của seeding.py)."""
-    model = torch.nn.utils.skip_init(SmallCNN)
+def _build[M: torch.nn.Module](cls: type[M], generator: torch.Generator) -> M:
+    model = torch.nn.utils.skip_init(cls)
     init_from_stream(model, generator)
     return model
+
+
+def build_model(name: str, generator: torch.Generator) -> torch.nn.Module:
+    """Model `name` (config.MODELS), float32 trên CPU, w⁰ lấy từ `generator` (luồng init của seeding.py)."""
+    if name not in MODEL_CLASSES:
+        raise ValueError(f"model phải là một trong {sorted(MODEL_CLASSES)}, nhận {name!r}")
+    return _build(MODEL_CLASSES[name], generator)
+
+
+def make_smallcnn(generator: torch.Generator) -> SmallCNN:
+    """SmallCNN, model của thí nghiệm lõi; cho cùng w⁰ như build_model("smallcnn", generator)."""
+    return _build(SmallCNN, generator)

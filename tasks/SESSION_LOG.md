@@ -449,3 +449,15 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
   - RunLogger mở file theo từng lần ghi (không giữ file mở giữa các lời gọi); manifest và summary ghi qua file tạm rồi `os.replace`
 - Câu hỏi mở: có thêm `dfl.config`, `dfl.io.manifest`, `dfl.io.run_logger` vào contract `pure-no-torch` không (thắt chặt; sửa pyproject, hỏi trước)? Hiện có test bằng tiến trình con
 - Việc tiếp theo: lô T22a, T02b, T09a, T03, T11a đã xong. P3.5 (T13) áp dụng khi T11c, T11d, T12, T22b, T09c xong
+
+## 2026-10-02 — Phiên #17 — T09c Thang model M0–M3 (TV1)
+- Trạng thái: T09c ✅
+- File đã đổi: src/dfl/learning/models.py, tests/unit/test_models.py, tasks/todo.md, tasks/SESSION_LOG.md
+- Kiểm chứng:
+  - RED (chưa có `MODEL_CLASSES`, `build_model`) → GREEN; 23 test trong `test_models.py`; `make check-task` xanh
+  - Số tham số 7,850 / 46,730 / 199,210 / 1,663,370 và byte state = 4 × số tham số (bảng ADR-011); không BatchNorm/Dropout, không buffer; đầu ra (B, 10); tạo model không đổi `torch.get_rng_state()`; cùng seed cùng w⁰, khác seed khác ở mọi tensor; `build_model("smallcnn")` cho đúng w⁰ của `make_smallcnn` (lõi không đổi); tên model khớp `config.MODELS`
+  - Oracle kiến trúc: test tự viết forward bằng `torch.nn.functional` theo mô tả ở ADR-004/ADR-011 và so với model. Test này được thêm sau khi mutant "bỏ ReLU giữa fc2 và fc3 của M2" sống sót (số tham số và shape không đổi); giờ mutant đó bị bắt. Mutation: 6/6 bị bắt
+- Quyết định mới (không cần ADR): tên lớp `LogisticRegression`, `TwoLayerMLP`, `McMahanCNN`; `MODEL_CLASSES` ánh xạ tên của cấu hình sang lớp; `make_smallcnn` giữ lại cho code và test cũ
+- Lệch quy trình: `src/dfl/config.py` có trong danh sách file nhưng không phải sửa: trường `model` và danh sách `MODELS` đã có từ T02b
+- Câu hỏi mở: không
+- Việc tiếp theo: T11b
