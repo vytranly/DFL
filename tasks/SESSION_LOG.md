@@ -350,3 +350,18 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
   - Diff khoảng 1,450 dòng; bản sửa sau phản biện vượt khoảng 300 dòng, nên được ghi thành T10d nhưng gộp cùng commit, vì sửa đan xen trong `engine.py` và trạng thái trung gian chưa từng được test
 - Câu hỏi mở: không
 - Việc tiếp theo: T22a (Transport gloo), cùng T11a, T09a, T02b, T03 theo thứ tự phụ thuộc
+
+## 2026-10-02 — Phiên #16 — T22a TorchDistTransport (gloo) (TV2)
+- Trạng thái: T22a ✅
+- File đã đổi: src/dfl/sim/torchdist.py, tests/unit/test_torchdist_codec.py, tests/integration/test_torchdist.py (mới), tasks/todo.md, tasks/SESSION_LOG.md
+- Kiểm chứng:
+  - RED (chưa có module) → GREEN, 16 test; `make check-task` → 315 passed, coverage tổng 95.8%
+  - Unit: mã hóa rồi giải mã trùng từng bit với float32, float64, int64, bool, tensor rỗng, tensor 0 chiều và tensor không liền bộ nhớ; số byte = `nbytes` của snapshot; tensor giải mã có bộ nhớ riêng; layout lệch thì ValueError; tự gửi, người gửi lạ, dst ngoài 0..N-1, và đọc inbox của node khác (INV-1) đều bị chặn trước khi chạm mạng
+  - Integration: 4 tiến trình `spawn`, rendezvous `file://` (không tranh cổng), ring và FC, 2 round mỗi đồ thị, có hạn giờ 90 s. Mỗi node nhận đúng snapshot của láng giềng, trùng từng bit và đúng dtype. Message, byte và tải của từng node bằng InMemoryTransport; tổng qua node bằng số đếm của InMemoryTransport. Chạy 3.3 s
+- Quyết định mới (không cần ADR):
+  - Primitive: `isend`/`irecv` có tag = round; `irecv` đăng ký trước bằng `expect(round, senders)`. Theo tài liệu thì UNVERIFIED cho gloo (bảng backend không có dòng `isend`/`irecv`); đã kiểm bằng thực nghiệm (thăm dò ở scratchpad và test tích hợp)
+  - Message là một tensor uint8 liền theo `StateLayout`, giải mã bằng `view(dtype)` trên bản clone (tránh điều kiện căn lề của offset)
+  - CommCounters của một tiến trình là của riêng node: message và byte nó gửi, `max_node_bytes_cum` = tải gửi + nhận của nó; observer của T22b cộng lại
+  - Buffer đã gửi được giữ tới `end_round`, theo cảnh báo của tài liệu `isend`; `end_round` báo lỗi nếu còn snapshot đã expect mà chưa đọc inbox
+- Câu hỏi mở: coverage của tiến trình con không được đo (torchdist.py 66% theo báo cáo, dù các dòng còn lại chạy trong test tích hợp). T22b chạy phần lớn code trong tiến trình con, nên giải quyết ở đó: bật đo coverage cho tiến trình con. Nếu cần sửa cấu hình coverage trong pyproject (thắt chặt, không nới) thì hỏi nhóm
+- Việc tiếp theo: T02b

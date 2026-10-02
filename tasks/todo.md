@@ -604,7 +604,7 @@
 
 T22a, T22b và T09c là code của lưới: phải xong trước T14b (E0a), để lưới, E8 và demo cùng một `code_version` (K7). T22c (Docker) là tùy chọn (Q12) và nằm ngoài `src/`, nên không chặn E0a.
 
-- [ ] **T22a · `TorchDistTransport` (gloo)** ⚠ — TV2 · M · ∥ T09c, T11a
+- [x] **T22a · `TorchDistTransport` (gloo)** ⚠ — TV2 · M · ∥ T09c, T11a
   - Mô tả: Transport cho một tiến trình node ở `sim/torchdist.py` (ADR-010).
     - Mã hóa state thành một tensor liền (thứ tự khóa cố định) và giải mã lại.
     - Mỗi round, trao đổi đúng một message với mỗi láng giềng của G_t theo thứ tự không deadlock: id nhỏ gửi trước. Dùng `isend`/`irecv` nếu kiểm được trên gloo; nếu không thì ghi UNVERIFIED và dùng `send`/`recv`.
