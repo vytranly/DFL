@@ -310,10 +310,20 @@ def _read(path: Path, chain: tuple[Path, ...]) -> dict[str, object]:
     return _merge(_read(parent_path, (*chain, parent_path)), data)
 
 
+def load_mapping(path: str | Path) -> dict[str, object]:
+    """Mapping của một file cấu hình sau khi trộn chuỗi `extends`, chưa điền mặc định hay kiểm."""
+    resolved = Path(path).resolve()
+    return _read(resolved, (resolved,))
+
+
+def merge(base: Mapping[str, object], override: Mapping[str, object]) -> dict[str, object]:
+    """Trộn như `extends`: mapping được trộn đệ quy theo từng khóa, giá trị khác thì bị thay."""
+    return _merge(dict(base), override)
+
+
 def load_config(path: str | Path) -> RunConfig:
     """Đọc một file cấu hình (có thể kế thừa qua `extends`), điền mặc định và kiểm."""
-    resolved = Path(path).resolve()
-    return from_mapping(_read(resolved, (resolved,)))
+    return from_mapping(load_mapping(path))
 
 
 def canonical_json(config: RunConfig) -> str:

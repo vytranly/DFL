@@ -79,6 +79,9 @@ RECORD_KEYS = {
         "objective_shift_tv",
         "node_class_counts",
     },
+    # results/experiments/<exp>.json, do sweep ghi (T12; SPEC §5.3).
+    "ExperimentIndex": {"experiment", "versions"},
+    "ExperimentVersion": {"run_ids", "git_commit", "machine", "updated_at"},
 }
 
 VALUE_OBJECTS = ["PartitionResult", "Snapshot", "CommCounters", "NodeDataset", "EvalResult"]

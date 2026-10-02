@@ -535,3 +535,25 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - Lệch quy trình: chạm 10 file (gồm `io/manifest.py` và hai file test của T11b, T11c để rút gọn thời gian test)
 - Câu hỏi mở: không
 - Việc tiếp theo: T12
+
+## 2026-10-02 — Phiên #17 (tiếp) — T12 Sweep (TV3)
+- Trạng thái: T12 ✅
+- File đã đổi: src/dfl/sim/sweep.py, tests/integration/test_sweep.py (mới), src/dfl/cli.py, src/dfl/contracts.py, tests/unit/test_contracts_smoke.py, src/dfl/config.py, src/dfl/io/manifest.py, src/dfl/io/run_logger.py, src/dfl/sim/run.py, src/dfl/data/datasets.py, tests/unit/test_cli.py, tests/unit/test_datasets.py, tests/unit/test_manifest.py, tasks/todo.md, tasks/SESSION_LOG.md
+- Kiểm chứng:
+  - RED (chưa có `ExperimentIndex`, `dfl.sim.sweep`) → GREEN, 33 test của sweep; `make check-task` → 597 passed, coverage 97.7% (`sweep.py`, `manifest.py` 100%)
+  - Lưới: khối = tích Descartes các trục × seeds, seed là vòng ngoài; `set` và giá trị trục trộn như `extends`; `--only khóa=giá trị`; 13 dạng YAML sai đều raise ValueError nêu chỗ sai (khóa lạ, không có khối, seeds thiếu hay trùng, trục không phải danh sách hay rỗng, trục không phải khóa cấu hình, seed trong set, ô trùng, ô sai cấu hình, tên nhóm không hợp lệ, khối không phải mapping, profile không phải đường dẫn); cấu hình của ô qua YAML cho tiến trình con đọc lại đúng (cả 1.0e-05)
+  - Kế hoạch: attempt ok hay diverged là xong; nếu không thì attempt mới nhất quyết định (chưa có summary là bị ngắt, chạy lại; failed chỉ chạy lại khi có --retry-failed); `--dry-run` in "tổng / đã xong / failed / sẽ chạy" và không ghi gì
+  - Chạy thật bằng tiến trình con `python -m dfl run` (ENG-9): 2 worker và 1 worker cho `rounds.jsonl` trùng từng byte; chạy lại thì không chạy gì; chỉ mục có run_id của code_version hiện tại và giữ nguyên mục của code_version khác; lượt bị ngắt chạy lại thành attempt-2, lượt failed chỉ chạy lại với --retry-failed; tiến trình con có code_version khác ghi attempt failed và sweep dừng xếp lượt mới; sweep từ chối cây bẩn kể cả với --out; --out chỉ cảnh báo khi môi trường lệch
+  - results/: từ chối khi không chạy từ worktree liên kết, môi trường lệch, ô dữ liệu tổng hợp, hay file thí nghiệm ngoài worktree. Trên một repo tạm (bản sao code hiện tại, đã commit) cùng worktree `grid` có MNIST giả 5,400/1,000 ảnh: hai sweep chạy đồng thời dùng chung ô ring chỉ chạy ô đó một lần (nơi kia nhận `locked` hay `done`), mọi attempt ok; commit chỉ đổi docs/ không đổi code_version, nên chạy lại không chạy gì. Tiến trình con nạp dfl ngoài `--expect-root` thì thoát mã 5
+  - Mutation: 16 mutant, đều bị bắt đúng test. Harness lần đầu cho kết quả giả: test truyền `root=ROOT` là repo thật, trong khi code mutant nằm ở bản sao, nên code_version lệch và tiến trình con lượt nào cũng chết vì môi trường; lần thứ hai thì `ignore_patterns("data")` bỏ luôn `src/dfl/data`. Sau khi sửa (chép cả repo, chỉ bỏ thư mục cấp gốc), bản sao không mutant xanh. Mutant "bỏ kiểm worktree" sống sót vì thông báo của phép kiểm vị trí file cũng chứa chữ "worktree"; đã tách thành hai test với thông báo riêng
+- Quyết định mới (không cần ADR; định dạng YAML ghi trong docstring của `sim/sweep.py`):
+  - YAML thí nghiệm: `experiment` (tên chỉ mục), `profile`, `blocks`; mỗi khối có `seeds`, `set`, `grid` (trục là khóa cấu hình cấp đầu)
+  - Tiến trình con nhận `--expect-code-version`, `--expect-root`, `--results`; mã thoát: 0 xong, 1 lỗi, 3 từ chối, 4 đang bị khóa, 5 code khác của sweep. Sweep dừng xếp lượt mới khi gặp 5, hay 3 với run_id chưa xong
+  - Chỉ mục ghi lúc bắt đầu (sau các phép kiểm), liệt kê run_id của cả lưới, kể cả khi có --only; mục của code_version khác giữ nguyên
+  - Ghi vào results/ thì sweep phải chạy với `PYTHONPATH=<worktree>/src` từ một worktree liên kết, và file thí nghiệm cùng profile phải nằm trong worktree đó (đã commit)
+  - Đọc cấu trúc results/ (trạng thái attempt, số attempt kế tiếp, khóa flock) chuyển vào `io/run_logger.py`, không nạp torch; tiến trình cha của sweep không nạp torch
+  - Hiệu năng: `dfl.data.datasets` chỉ import torchvision trong hàm đọc hay tải MNIST, vì import torchvision nạp mọi model (2.4 s). Import `dfl.sim.run` giảm từ 5.7 s xuống 2.7 s; một tiến trình con smoke tí hon từ 6.2 s xuống khoảng 3.5 s
+- Ngân sách: `make check-task` 104 s, vượt 90 s (chỉ cảnh báo), khi máy tải 17/8 lõi; test sweep chạy khoảng 11 tiến trình con thật (khoảng 30 s). Xem lại ở T13
+- Lệch quy trình: chạm 15 file, vượt 5 file của K8: các module nền được mở rộng thêm (config.load_mapping, merge; manifest.provenance_of, is_linked_worktree; run_logger chuyển helper sang; run có --expect-*). Diff khoảng 900 dòng
+- Câu hỏi mở: không
+- Việc tiếp theo: T22b

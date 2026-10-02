@@ -9,17 +9,25 @@
   summary.json là attempt đã xong, nên summary không bao giờ được nằm dở trên đĩa. Summary bị từ chối thì
   attempt vẫn mở, để lượt ghi SummaryFailed thay thế.
 
+- Đọc cấu trúc results/ cho `run` và sweep: trạng thái từng attempt, số attempt kế tiếp, và khóa flock
+  (ADR-008). fcntl chỉ có trên Unix nên chỉ được import bên trong `file_lock`, tức chỉ khi ghi vào results/.
+
 os.mkdir, os.replace: https://docs.python.org/3.12/library/os.html#os.mkdir
 https://docs.python.org/3.12/library/os.html#os.replace
 json.dumps (allow_nan, sort_keys, ensure_ascii): https://docs.python.org/3.12/library/json.html#json.dumps
 TypedDict.__required_keys__: https://docs.python.org/3.12/library/typing.html#typing.TypedDict.__required_keys__
+fcntl.flock (thất bại thì OSError; với LOCK_NB, errno là EWOULDBLOCK khi khóa đang bị giữ):
+https://docs.python.org/3.12/library/fcntl.html#fcntl.flock
+https://man7.org/linux/man-pages/man2/flock.2.html
 """
 
 from __future__ import annotations
 
+import errno
 import json
 import os
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
+from contextlib import contextmanager
 from pathlib import Path
 
 from dfl.contracts import (
@@ -33,6 +41,51 @@ from dfl.contracts import (
 )
 
 SUMMARY_SCHEMAS = {"ok": SummaryOk, "diverged": SummaryDiverged, "failed": SummaryFailed}
+# Attempt có summary với một trong các status này là xong; mỗi run_id có nhiều nhất một attempt xong.
+FINISHED = ("ok", "diverged")
+
+
+class LockBusy(Exception):
+    """Một tiến trình khác đang giữ khóa flock (chỉ khi gọi file_lock với wait=False)."""
+
+
+@contextmanager
+def file_lock(path: Path, *, wait: bool) -> Iterator[None]:
+    """Giữ flock(LOCK_EX) trên `path` (tạo nếu chưa có); wait=False thì không đợi mà raise LockBusy.
+
+    Khóa tự nhả khi file descriptor đóng, kể cả khi tiến trình chết, nên không có khóa bỏ quên phải xóa tay.
+    """
+    import fcntl
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd = os.open(path, os.O_RDWR | os.O_CREAT, 0o644)
+    try:
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX if wait else fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError as err:
+            if wait or err.errno not in (errno.EAGAIN, errno.EACCES, errno.EWOULDBLOCK):
+                raise
+            raise LockBusy(f"{path} đang bị một tiến trình khác giữ") from err
+        yield
+    finally:
+        os.close(fd)
+
+
+def attempt_statuses(run_dir: Path) -> dict[int, str | None]:
+    """k → status trong summary.json của attempt-<k>; None với attempt chưa có summary (bị ngắt)."""
+    statuses: dict[int, str | None] = {}
+    for path in run_dir.glob("attempt-*"):
+        number = path.name.removeprefix("attempt-")
+        if number.isdigit():
+            summary = path / "summary.json"
+            status = json.loads(summary.read_text(encoding="utf-8"))["status"] if summary.exists() else None
+            statuses[int(number)] = status
+    return statuses
+
+
+def next_attempt(run_dir: Path) -> int:
+    """Số attempt kế tiếp trong `run_dir`: 1 + số lớn nhất trong các thư mục attempt-<k> đã có."""
+    return max(attempt_statuses(run_dir), default=0) + 1
 
 
 def _check_keys(record: Mapping[str, object], schema: type, what: str) -> None:

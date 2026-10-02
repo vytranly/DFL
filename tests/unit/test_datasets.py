@@ -328,7 +328,7 @@ def test_download_asks_torchvision_for_both_splits_with_download_enabled(
 ) -> None:
     calls: list[tuple[Path, bool, bool]] = []
     monkeypatch.setattr(
-        ds.torchvision.datasets,
+        torchvision.datasets,
         "MNIST",
         lambda root, *, train, download: calls.append((root, train, download)),
     )

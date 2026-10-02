@@ -192,13 +192,30 @@ class Provenance:
     mismatches: tuple[str, ...] = ()
 
 
+def is_linked_worktree(root: Path) -> bool:
+    """True khi `root` là gốc của một worktree liên kết (`git worktree add`), không phải cây chính.
+
+    Ở worktree liên kết, `--git-dir` là .git/worktrees/<tên> của repo chính, khác `--git-common-dir`.
+    https://git-scm.com/docs/git-rev-parse#Documentation/git-rev-parse.txt---git-common-dir
+    """
+    git_dir = _git(root, "rev-parse", "--git-dir")
+    common_dir = _git(root, "rev-parse", "--git-common-dir")
+    if git_dir is None or common_dir is None:
+        return False
+    return (root / git_dir.strip()).resolve() != (root / common_dir.strip()).resolve()
+
+
 def current_provenance() -> Provenance:
-    root = repo_root()
+    return provenance_of(repo_root())
+
+
+def provenance_of(root: Path) -> Provenance:
+    """Provenance của code trong `root`/src/dfl cùng `root`/requirements.lock, và của môi trường hiện tại."""
     lock_file = root / LOCK_FILE
     commit, dirty = git_state(root)
     env = check_environment(read_lock(lock_file))
     return Provenance(
-        code_version=code_version(package_dir(), lock_file),
+        code_version=code_version(root / "src" / "dfl", lock_file),
         git_commit=commit,
         dirty=dirty,
         env_match=env.env_match,

@@ -213,6 +213,13 @@ def test_a_machine_without_git_is_dirty_with_no_commit(repo: Path, monkeypatch: 
     assert mf.git_state(repo) == ("none", True)
 
 
+def test_only_a_worktree_added_with_git_worktree_is_linked(repo: Path, tmp_path: Path) -> None:
+    git(repo, "worktree", "add", "-q", "-b", "grid", str(tmp_path / "wt"))
+
+    assert (mf.is_linked_worktree(tmp_path / "wt"), mf.is_linked_worktree(repo)) == (True, False)
+    assert mf.is_linked_worktree(tmp_path / "missing-or-plain") is False
+
+
 def test_a_directory_without_git_is_dirty_with_no_commit(tmp_path: Path) -> None:
     make_package(tmp_path)
 

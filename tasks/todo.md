@@ -392,7 +392,7 @@
 
 ## Tuần 7 — Sweep, hiệu năng, hình, E0a (mọi code `src/` phải xong trước T14b)
 
-- [ ] **T12 · Sweep** — TV3 · M · ∥ T16a
+- [x] **T12 · Sweep** — TV3 · M · ∥ T16a
   - Mô tả: `sim/sweep.py` và lệnh `sweep`.
     - YAML thí nghiệm → lưới → run_id; chỉ mục `results/experiments/<exp>.json` theo từng `code_version`.
     - Bỏ qua run_id đã xong. Tự chạy lại attempt bị ngắt. Chỉ chạy lại attempt `failed` khi có `--retry-failed`.

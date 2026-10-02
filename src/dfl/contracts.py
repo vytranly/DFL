@@ -431,6 +431,29 @@ class ManifestRecord(TypedDict):
     node_class_counts: list[list[int]]
 
 
+class ExperimentVersion(TypedDict):
+    """Một mục của chỉ mục nhóm thí nghiệm: các run_id của lưới dưới một code_version (ADR-008)."""
+
+    # run_id của mọi ô của lưới, sắp tăng dần; có thể có run_id chưa có attempt xong (analysis kiểm).
+    run_ids: list[str]
+    # Commit HEAD của cây chạy sweep, và máy (cũng nằm trong run_id).
+    git_commit: str
+    machine: str
+    # Lần sweep gần nhất ghi mục này, ISO 8601.
+    updated_at: str
+
+
+class ExperimentIndex(TypedDict):
+    """results/experiments/<exp>.json, do sweep ghi (SPEC §5.3; ADR-008); analysis chọn lượt qua file này.
+
+    Mỗi code_version một mục. Sweep chỉ thay mục của code_version của chính nó; mục của code_version khác
+    không bao giờ bị xóa hay ghi đè, để lượt cũ thành "stale" mà vẫn truy được.
+    """
+
+    experiment: str
+    versions: dict[str, ExperimentVersion]
+
+
 @runtime_checkable
 class RunLogger(Protocol):
     """Ghi kết quả của một attempt vào results/runs/<run_id>/attempt-<k>/ (module metrics-io; ADR-008).

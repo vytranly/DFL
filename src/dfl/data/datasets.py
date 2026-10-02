@@ -12,6 +12,8 @@
 
 torchvision.datasets.MNIST (root, train, download; khi tải có kiểm md5):
 https://docs.pytorch.org/vision/0.29/generated/torchvision.datasets.MNIST.html
+torchvision chỉ được import trong hai hàm cần nó: import gói này nạp mọi model (khoảng 2.4 s trên máy chủ, đo
+ngày 2026-10-02 bằng `python -X importtime`), mà lượt chạy trên dữ liệu tổng hợp không cần nó.
 UNVERIFIED: thuộc tính .data (uint8, (n, 28, 28)) và .targets (int64, (n,)) không có trong trang tài liệu
 0.29, chỉ có trong mã nguồn đã cài (xem contracts.NodeDataset). Dự án vẫn dùng chúng vì đọc 60k ảnh qua
 __getitem__ có tài liệu mất 7.1 s, còn qua .data mất 0.06 s (đo ngày 2026-10-02). Test so hai đường đọc trên
@@ -33,7 +35,6 @@ from pathlib import Path
 
 import numpy as np
 import torch
-import torchvision
 
 from dfl import seeding
 from dfl.seeding import Stream
@@ -195,6 +196,8 @@ def synthetic_raw() -> tuple[RawSplit, RawSplit]:
 
 def load_mnist_raw(root: Path | str) -> tuple[RawSplit, RawSplit]:
     """Train (60k) và test (10k) của MNIST đã tải vào `root`; không tải gì (ENG-8)."""
+    import torchvision
+
     splits = []
     for is_train in (True, False):
         try:
@@ -209,6 +212,8 @@ def load_mnist_raw(root: Path | str) -> tuple[RawSplit, RawSplit]:
 
 def download_mnist(root: Path | str) -> None:
     """Tải train và test của MNIST vào `root`/MNIST/raw (torchvision kiểm md5); đã có thì không tải lại."""
+    import torchvision
+
     for is_train in (True, False):
         torchvision.datasets.MNIST(root, train=is_train, download=True)
 

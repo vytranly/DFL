@@ -73,7 +73,7 @@ def test_run_sets_thread_variables_before_torch_is_imported() -> None:
         "import json, os, sys, types\n"
         "import dfl.sim\n"
         "seen = {}\n"
-        "def run(config, *, out, data_root):\n"
+        "def run(config, *, out, data_root, results_root, expected_code_version):\n"
         "    seen.update(torch='torch' in sys.modules, threads=config.threads, out=str(out),\n"
         f"                env=[os.environ.get(k) for k in {THREAD_VARIABLES!r}])\n"
         "    return out\n"
