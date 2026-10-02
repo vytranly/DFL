@@ -745,3 +745,16 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
   - Thống kê P_i theo các phần trước khi gán vị trí: bị test P0-4 bắt. Vài test của B1 cũng đỏ theo, nhưng đó là do plugin giữ trạng thái cũ ở đường central, không phải hiệu ứng thật
 - Kiểm chứng: `make check-task` → mã 0: "Sàn: đạt (634 test)", 629 passed, coverage 95.19%. Mất 139 s, vượt ngân sách 90 s (T1 chỉ cảnh báo), khi load average 16–18 trên 8 lõi
 - Việc tiếp theo: test P1-1…P1-7 của P3.7 (P1-8 đã xong ở C3), rồi README, rồi phần còn lại của I6
+
+## 2026-10-02 — Phiên #18 (tiếp) — README sau C3
+- Trạng thái: README ✅ (mục còn mở của C3)
+- File đã đổi: README.md, tasks/todo.md, tasks/SESSION_LOG.md
+- Nội dung:
+  - trạng thái sau C3: cái đã chạy được, cái chưa có (`analysis/`, thẻ và kết quả thí nghiệm);
+  - lệnh tải MNIST;
+  - bảng lệnh `make check-*`, `run` (smoke, fast, `--runtime processes`), `describe --check-req02`, `sweep --dry-run`;
+  - quy tắc ghi kết quả, gồm hai quy tắc mới I1 và I2;
+  - liên kết tới SPEC, CONSTRAINTS, docs/decisions/, tasks/
+- Kiểm: lệnh smoke đúng như README (`--out build/smoke`) ghi đủ 4 file trong 10 s; `download`, `run`, `describe`, `sweep` đều có `--help`; lệnh `describe` là lệnh đã cho "REQ-02: đạt" trên MNIST thật (mục T05a)
+- Kiểm chứng: `make check-task` → mã 0: "Sàn: đạt (634 test)", 629 passed, coverage 95.19%; mất 131 s (vượt ngân sách 90 s, chỉ cảnh báo)
+- Việc tiếp theo: test P1-1…P1-7 của P3.7, phần còn lại của I6 (vòng round dùng chung, lý do phân kỳ trùng giữa hai runtime), T11e, smoke trên laptop demo (QS-8)
