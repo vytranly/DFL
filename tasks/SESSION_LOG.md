@@ -613,3 +613,56 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
   - Mục C3 trong todo còn thiếu: T11e chưa làm; smoke trên laptop demo (QS-8) chưa chạy (cần laptop của nhóm)
 - Câu hỏi mở (cần nhóm): duyệt C3 có điều kiện hay đợi sửa xong P0-1, I1, I6, S1 và thêm test P0 của P3.7? Các quyết định I3 (chuỗi máy và chỉ mục, ADR-008), I4 (Docker), I5 (tải máy trong manifest; workers của E8), S2 (CodeMismatch), S8 (định nghĩa lệch mục tiêu), S9 (fast đánh giá trên validation), S12 (định nghĩa train_loss)
 - Việc tiếp theo: dừng chờ nhóm duyệt C3
+
+## 2026-10-02 — Phiên #16–#17 (kết thúc) — Ranh giới phiên (P3.9)
+- Trạng thái:
+  - Xong (mỗi task một commit):
+    - phiên #16: T22a ✅ (48fbff4), T02b ✅ (191290d), T09a ✅ (e2c59f3, bổ sung test 0e02a97), T03 ✅ (c13686f), T11a ✅ (99fc7d5);
+    - phiên #17: T09c ✅ (7a42ee6), T11b ✅ (a973a08), T05a ✅ (06965ce), T11c ✅ (26ab64a), T11d ✅ (692a2a8), T12 ✅ (7e611a6), T22b ✅ (8e807f4);
+    - rà soát: P3.7 ✅ (2adb226, `docs/decisions/REVIEW-C3-P3.7.md`).
+  - Đang chờ: checkpoint C3 ⏳ **chờ nhóm duyệt** (bcde002; `docs/decisions/REVIEW-C3-P4.1.md`, `tasks/plan.md` §13).
+  - Không task nào đang làm dở. Lỗi P0-1 (process runtime không kiểm INV-4 hợp các round) mới được ghi nhận, chưa sửa: P3.7 không cho sửa code, và C3 đang chờ nhóm quyết.
+- File đã đổi trong phiên:
+  - `src/dfl`: sim/{torchdist, run, describe, sweep, process_runtime}.py (mới); config.py, cli.py, `__main__.py`, data/datasets.py, io/{manifest, run_logger}.py, learning/{models, local_train}.py (mới); contracts.py (`ExperimentIndex`, `TimingRecord.comm_s`), sim/observer.py (`is_due` dùng chung).
+  - Test: unit (config, datasets, cli, manifest, run_logger, models, local_train, req02_check, torchdist_codec, contracts_smoke); integration (torchdist, seeds, baselines, results_rules, describe, sweep, process_runtime); e2e (smoke_run).
+  - configs: base.yaml, profiles/{smoke, fast}.yaml, reference/kh_js_table.yaml.
+  - Khác: Makefile (`check-full` gồm `check-inv`; `MIN_TESTS` 611), CONSTRAINTS.md (chỉ cập nhật giá trị đo ở bảng "Đo và giữ" lúc checkpoint), tasks/{todo, plan, SESSION_LOG}.md, docs/decisions/REVIEW-C3-{P3.7, P4.1}.md.
+- Trạng thái git:
+  - Mọi thay đổi của phiên đã được commit trên `main`, HEAD = bcde002. Không có stash.
+  - Cây làm việc chỉ còn `docs/đath1.docx` bị sửa. Người khác sửa file này từ 2026-10-01 17:46 (55 KB → 297 KB), trước phiên này; cố ý không commit, chờ người sửa hay nhóm quyết. `docs/đath1_revised.docx` đã commit từ P1.4 và không đổi.
+  - Thư mục bị ignore, không commit: `data/` (MNIST, 64 MB, tải bằng `python -m dfl download mnist`); `build/` (1.9 MB: describe, fast, c3, smoke, smoke-proc, review). Không có `results/` nào: chưa chạy lượt nào vào results/.
+  - Không còn tiến trình `dfl` nào chạy nền.
+- Kiểm chứng:
+  - `make check-full` ở bcde002 → mã 0: "Sàn: đạt (611 test)", ruff, format, import-linter 5/5, `check-inv` 13/13 T-INV (72 test), 611 passed, coverage 95.16%, `pip check` sạch; 3 phút 25 giây.
+  - Kiểm tay trên máy chủ:
+    - `describe --check-req02` trên MNIST (N = 20, 20 seed) → mã 0;
+    - demo fast ring/FC IID cho 0.9797/0.9816 trên test;
+    - pilot B1 và FC-IID chỉ trên validation cho 0.9626/0.9794;
+    - smoke processes trùng từng byte với inprocess;
+    - giết một node giữa lượt thì lượt ghi SummaryFailed, không treo.
+- Quyết định mới, không cần ADR (chi tiết ở mục của từng task):
+  - B1 là `topology.kind: central`;
+  - định dạng YAML thí nghiệm (`experiment`, `profile`, `blocks`, `seeds`, `set`, `grid`);
+  - mã thoát của `run`: 0/1/3/4/5;
+  - quy tắc results/ (khóa flock, `unassembled_manifest`);
+  - process runtime: tiến trình chạy lượt kiêm observer, hai lần gom mỗi round, `comm_s`;
+  - torchvision chỉ được import khi đọc MNIST;
+  - `MIN_TESTS` = 611.
+- Quyết định cần ADR hay sửa SPEC (Ask first, chưa làm):
+  - I3: chuỗi máy chỉ hash cờ ISA; khóa chỉ mục theo (code_version, máy) — sửa ADR-008;
+  - S2: CodeMismatch không ghi vào run_id của code mới — ADR-008;
+  - I4: Docker chưa có, và ADR-010 mô tả launcher khác code — ADR-010;
+  - I5: tải máy chủ trong manifest như ADR-011 đòi — sửa schema trước Tier 1;
+  - S8: định nghĩa `objective_shift_tv` (so với phân bố test hay train gộp) — contracts/SPEC.
+- Câu hỏi mở:
+  1. Duyệt C3 có điều kiện, hay đợi sửa P0-1, I1, I6, S1 và thêm test P0 của P3.7?
+  2. Các mục I3, I4, I5, S2, S8, S9 (fast đánh giá trên validation), S12 (định nghĩa `train_loss_mean`), P2-6 (config từ chối ring N < 3).
+  3. Tách các test chạy tiến trình con (khoảng 65 s) khỏi `check-task`? Sửa CONSTRAINTS/Makefile, hỏi trước.
+  4. Bật coverage cho tiến trình con (sửa pyproject)?
+  5. Thêm `dfl.config`, `dfl.io.manifest`, `dfl.io.run_logger`, `dfl.sim.sweep` vào contract `pure-no-torch`?
+  6. Q10, Q11 (người dùng quyết sau); Gate G1 (GVHD duyệt SPEC và ADR-001…011).
+- Việc tiếp theo:
+  1. Nhóm duyệt C3 (cả smoke trên laptop demo, QS-8).
+  2. Nếu được duyệt hướng "sửa trước": P0-1 theo P3.4 (preflight dùng chung với engine, I6), rồi I1, S1, các test P0 và P1 của P3.7, README.
+  3. T11e (tập đánh giá + đánh giá cuối), rồi T15a, T15b (R@x: dùng 15 test RED ở REVIEW-C3-P3.7 §5), T14a, T14e, T13 (P3.5).
+  4. Sau đó G1, rồi E0a theo P3.6 (24 lượt, lớn hơn 10, nên trình `--dry-run` cho nhóm trước khi chạy).
