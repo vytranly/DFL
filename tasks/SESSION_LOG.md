@@ -580,3 +580,16 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - Lệch quy trình: chạm 16 file (run.py tái cấu trúc, observer.py, config.py, sweep.py dùng `to_yaml`); diff lớn, khoảng 800 dòng
 - Câu hỏi mở: bật coverage cho tiến trình con không? Có tách các test chạy tiến trình con (sweep, process runtime; khoảng 65 s) ra khỏi check-task không (sửa CONSTRAINTS/Makefile, hỏi trước)?
 - Việc tiếp theo: lô T09c, T11b, T05a, T11c, T11d, T12, T22b đã xong. E0a (T14b, P3.6) còn chờ T11e, T13, T14a, T14e, checkpoint C3 và Gate G1
+
+## 2026-10-02 — Phiên #17 (tiếp) — P3.7 Rà soát kiểm thử ở C3 (subagent test-engineer)
+- Trạng thái: báo cáo xong (`docs/decisions/REVIEW-C3-P3.7.md`); không sửa code
+- File đã đổi: docs/decisions/REVIEW-C3-P3.7.md (mới), tasks/SESSION_LOG.md
+- Cách làm: đo coverage dòng và nhánh trên 611 test (tổng 94.6%). Subagent test-engineer rà soát ở chế độ chỉ đọc, đối chiếu T-INV-1…12 (KH §5.2, SPEC §9.2) và CONSTRAINTS.md theo `testing-patterns.md`, cài mutant trong bộ nhớ bằng plugin pytest. Tiến trình chính tự chạy lại các khẳng định quan trọng nhất: probe P0-1, probe P2-1, hai mutant ghim seed (28 passed mỗi mutant), grep các trường tổng hợp, Makefile, SPEC REQ-04
+- Kết quả: P0 = 4, P1 = 8, P2 = 14, cùng 15 test RED cho T15b. 18 mutant mới sống sót qua test hiện có; mỗi mutant bị một test đề xuất giết (chạy dạng script)
+  - **Lỗi thật, đã tái hiện (P0-1):** process runtime không gọi `check_union_connected`. Cùng cấu hình gossip có hợp các round không liên thông: inprocess raise ValueError (INV-4), còn processes ghi `ok`, nên T-INV-13 lệch ở các cấu hình như vậy. Lưới N = 20 (inprocess) không bị ảnh hưởng; E8 và demo thì có. Lỗi nằm trong code T22b
+  - Khoảng trống P0: dây seed của 5 luồng trong `sim/run.py` không được test với seed khác 0, và test "khác seed thì khác cách chia" qua được chỉ nhờ hoán vị vị trí node; các trường F1, acc^loc, acc^eff tổng hợp của RoundRecord không được kiểm giá trị; thứ tự `node_class_counts` theo id node không được kiểm
+  - Lỗi tiềm ẩn (P2): `mixing.uniform` đọc thuộc tính cạnh `weight`; `size_weighted` nhận sizes NaN; thông báo khi cạn số lần lấy mẫu lại nêu sai nguyên nhân; `confusion_matrix` broadcast khi độ dài lệch
+  - Quy trình: `MIN_TESTS` vẫn là 34 trong khi có 611 test (P1-8, việc của C3)
+- Lệch quy trình: không
+- Câu hỏi mở: sửa P0-1 theo P3.4 ngay không (P3.7 không cho sửa code); config có nên từ chối ring với N < 3 không (P2-6)
+- Việc tiếp theo: chờ nhóm duyệt báo cáo; đề xuất sửa P0-1, rồi thêm test P0-2…P0-4 và P1
