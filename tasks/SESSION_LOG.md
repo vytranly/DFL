@@ -383,3 +383,20 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
   - Profile kế thừa bằng `extends` (đường dẫn tính từ file đang đọc; trộn mapping đệ quy)
 - Câu hỏi mở: có nên thêm `dfl.config` vào contract `pure-no-torch` của import-linter không (thắt chặt; sửa pyproject, hỏi trước)? Hiện đã có test bằng tiến trình con
 - Việc tiếp theo: T09a
+
+## 2026-10-02 — Phiên #16 (tiếp) — T09a SmallCNN + huấn luyện cục bộ (TV1)
+- Trạng thái: T09a ✅
+- File đã đổi: src/dfl/learning/models.py, src/dfl/learning/local_train.py, tests/unit/test_models.py, tests/unit/test_local_train.py (mới), tasks/todo.md, tasks/SESSION_LOG.md
+- Kiểm chứng:
+  - RED (chưa có module) → GREEN, 24 test; `make check-task` → 381 passed, coverage 96.6% (hai module mới 100%)
+  - T-INV-7: với μ = 0, `SgdTrainer` trùng từng bit với `torch.optim.SGD` (momentum 0, weight decay 0, `foreach=False`) trên cùng minibatch, ở c_i = 1 và c_i = 2.5; Generator batch kết thúc cùng trạng thái; mất mát trả về là trung bình τ bước. Gradient của `prox_term` bằng μ(w − anchor); anchor là bản clone + detach, không gradient, không chung bộ nhớ. Với μ = 5, kết quả khớp oracle có anchor cố định từ đầu lời gọi và lệch SGD không prox 0.017 (ngưỡng test 1e-3)
+  - n_i = 8 < B = 32 vẫn chạy và khớp oracle (lấy có hoàn lại)
+  - Mất mát inf hay NaN ở bước 3: trả về đúng giá trị đó, chỉ 3 lần forward, và tham số bằng model sinh đôi chạy 2 bước (bước hỏng không cập nhật)
+  - SmallCNN: đúng 46,730 tham số, không BatchNorm/Dropout (theo danh sách của engine), không buffer; dựng model và huấn luyện không đổi `torch.get_rng_state()`; cùng seed cùng w⁰, khác seed khác ở mọi tensor; w⁰ nằm trong U(−1/√fan_in, 1/√fan_in)
+  - Mutation: 16/16 mutant bị bắt (anchor lấy lại mỗi bước, anchor không clone, sai dấu, cập nhật trước khi kiểm hữu hạn, chạy tiếp sau NaN, trả mất mát cuối, RNG toàn cục, lấy không hoàn lại, μ thay vì μ/2, bỏ prox, c_i chỉ vào gradient, cận khởi tạo sai hai kiểu, khởi tạo bằng RNG toàn cục, bỏ khởi tạo bias, khởi tạo mặc định)
+- Quyết định mới (không cần ADR):
+  - Cập nhật bằng `torch.autograd.grad` rồi `param.add_(grad, alpha=-lr)`, đúng phép cập nhật vòng for của `torch.optim.SGD` (đã đọc mã nguồn torch 2.14 đã cài; trên CPU mặc định không dùng foreach); model không giữ `.grad`
+  - Mất mát trả về gồm cả c_i và số hạng prox, đúng định nghĩa trong `contracts.LocalTrainer`; với μ = 0 không tính prox
+  - w⁰: `skip_init(SmallCNN)` rồi `uniform_(−b, b, generator=…)` với b = 1/√fan_in, theo thứ tự lớp, weight trước bias. `init_from_stream` raise ValueError nếu còn tham số hay buffer không có quy tắc khởi tạo (sau skip_init chúng là bộ nhớ rác); T09c dùng lại hàm này cho M0, M2, M3
+- Câu hỏi mở: không
+- Việc tiếp theo: T03

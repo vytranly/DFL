@@ -190,7 +190,7 @@
   - Phụ thuộc: T06, T07, T08
   - File: `src/dfl/sim/node.py`, `src/dfl/sim/engine.py`, `tests/conftest.py`, `tests/integration/conftest.py`, `tests/integration/test_engine_core.py`
 
-- [ ] **T09a · SmallCNN + huấn luyện cục bộ** — TV1 (QS-9) · M · ∥ T10a
+- [x] **T09a · SmallCNN + huấn luyện cục bộ** — TV1 (QS-9) · M · ∥ T10a
   - Mô tả:
     - `learning/models.py`: SmallCNN 46,730 tham số, không BatchNorm, không dropout. Tạo module mà không tiêu thụ RNG toàn cục, bằng `skip_init` hoặc `fork_rng`. $w^0$ lấy mẫu từ luồng init.
     - `learning/local_train.py`: τ bước SGD; minibatch có hoàn lại bằng `torch.randint(generator=…)`; số hạng prox μ với anchor clone + detach; `loss_scale`; dừng ngay khi mất mát không hữu hạn.
