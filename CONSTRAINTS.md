@@ -74,11 +74,11 @@ Các kiểm tra sau không do chính test của dự án tự chấm:
 
 ## Đo và giữ (ratchet)
 
-| Chỉ số | Hôm nay (2026-09-30) | Hướng | Kiểm bằng |
+| Chỉ số | Giá trị đo ở C3 (2026-10-02; P1.9 ngày 2026-09-30 là 34 test, 100%, 1 s) | Hướng | Kiểm bằng |
 |---|---|---|---|
-| Số test thu thập được | 34 (P1.9) | Không giảm. `MIN_TESTS` trong Makefile chỉ được tăng, cập nhật ở mỗi checkpoint | `check-floor` (F5) |
-| Coverage tổng (`src/dfl` + `analysis/`) | 100% (mới có `contracts.py`) | Không dưới 80%. Ghi lại giá trị ở mỗi checkpoint | `check-task` |
-| Thời gian check-task | khoảng 1 s | ≤ 90 s (chỉ cảnh báo) | `check-task` |
+| Số test thu thập được | 611 | Không giảm. `MIN_TESTS` trong Makefile chỉ được tăng, cập nhật ở mỗi checkpoint | `check-floor` (F5) |
+| Coverage tổng (`src/dfl` + `analysis/`) | 95.2% dòng (94.6% dòng + nhánh). Hai module chạy trong tiến trình con không được đo: `process_runtime.py` 65%, `torchdist.py` 61% | Không dưới 80%. Ghi lại giá trị ở mỗi checkpoint | `check-task` |
+| Thời gian check-task | 66–134 s tùy tải máy chủ (tải 11–18 trên 8 lõi); khoảng 65 s là test chạy tiến trình con thật | ≤ 90 s (chỉ cảnh báo) | `check-task` |
 
 ## Kích hoạt theo task
 

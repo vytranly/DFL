@@ -593,3 +593,23 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - Lệch quy trình: không
 - Câu hỏi mở: sửa P0-1 theo P3.4 ngay không (P3.7 không cho sửa code); config có nên từ chối ring với N < 3 không (P2-6)
 - Việc tiếp theo: chờ nhóm duyệt báo cáo; đề xuất sửa P0-1, rồi thêm test P0-2…P0-4 và P1
+
+## 2026-10-02 — Phiên #17 (tiếp) — P3.8 Checkpoint C3 (M3)
+- Trạng thái: các bước của checkpoint đã chạy; **chờ nhóm duyệt** (chưa đạt, xem dưới)
+- File đã đổi: Makefile (`MIN_TESTS` 34 → 611), CONSTRAINTS.md (giá trị đo ở bảng "Đo và giữ", đúng quy tắc "cập nhật ở mỗi checkpoint"), tasks/plan.md (§13, dòng C3), docs/decisions/REVIEW-C3-P4.1.md (mới), tasks/SESSION_LOG.md
+- Bước 1: `make check-full` ở 2adb226 xanh: sàn, ruff, format, import-linter 5/5, `check-inv` 13/13 T-INV (72 test), 611 test, coverage 95.16% dòng, `pip check`; 3 phút 12 giây
+- Bước 2: C1 và C2 chưa từng chạy (T05b, T08b chưa xong), nên danh sách tính từ Gate G2 (59ea6a7). 25 commit task: T02a, T04a, T04b, T02c, T04c, T07, T06, T08, T10a, T10b, T09b, T10c/T10d, T22a, T02b, T09a (2 commit), T03, T11a, T09c, T11b, T05a, T11c, T11d, T12, T22b, P3.7
+- Bước 3 (MNIST thật, máy chủ, `dirty: false`, `env_match: true`; cấu hình ở build/c3/):
+  - demo fast IID trên test: ring trung bình 0.9797 (thấp nhất 0.9755, acc(w̄) 0.9811), gap 0.0326, 4,000 message, 7.2 phút; FC 0.9816 ở mọi node, gap 1.0, 38,000 message, 7.3 phút. Trùng đúng con số của demo ở T11c
+  - pilot chỉ đánh giá trên validation (5,000 ảnh), ngoài lưới: B1 (central, 1,000 bước, η 0.05) 0.9626 trong 31 s; DFedAvg-FC-IID (fast) 0.9794. Không thấp bất thường. B1 ở đây chỉ chạy 1,000 bước (khoảng 0.58 epoch) nên chưa so được với SAN-1 hay SAN-2
+- Bước 4: subagent code-reviewer (chỉ đọc) review 319a604..HEAD và canh gác CONSTRAINTS trên 59ea6a7..HEAD: Critical 0, Important 6, Suggestion 12. Tiến trình chính đã kiểm lại trên code I1, I4, S1, S5, S8. Không có gì bị nới trong CONSTRAINTS hay Makefile
+- Bước 5, đối chiếu DoD (H§4.2):
+  - Đạt: lint/format; không regression; chạy thật được (smoke, demo, pilot, cả hai runtime); manifest đầy đủ; không đổi siêu tham số hay ngưỡng; bảo mật ở phạm vi hẹp; log có cấu trúc; rollback bằng `git revert`
+  - Chưa đạt:
+    - ca biên và đường lỗi: P0-1 và các khoảng trống của P3.7;
+    - logic lặp: vòng ATC viết lại ở process runtime (I6);
+    - phạm vi commit: 5 commit vượt 300 dòng hay 5 file;
+    - tài liệu: README vẫn ghi "chưa có code chạy được"; ADR-010 mô tả launcher và Docker khác với code; contracts ghi `objective_shift_tv` so với phân bố test (S8)
+  - Mục C3 trong todo còn thiếu: T11e chưa làm; smoke trên laptop demo (QS-8) chưa chạy (cần laptop của nhóm)
+- Câu hỏi mở (cần nhóm): duyệt C3 có điều kiện hay đợi sửa xong P0-1, I1, I6, S1 và thêm test P0 của P3.7? Các quyết định I3 (chuỗi máy và chỉ mục, ADR-008), I4 (Docker), I5 (tải máy trong manifest; workers của E8), S2 (CodeMismatch), S8 (định nghĩa lệch mục tiêu), S9 (fast đánh giá trên validation), S12 (định nghĩa train_loss)
+- Việc tiếp theo: dừng chờ nhóm duyệt C3

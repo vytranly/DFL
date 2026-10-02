@@ -297,7 +297,7 @@ Còn mở:
 |---|---|---|---|---|---|
 | C1 | | | | | |
 | C2 | | | | | |
-| C3 | | | | | |
+| C3 | 2026-10-02 | 2adb226 | Xanh: sàn, ruff, import-linter 5/5, `check-inv` 13/13 T-INV (72 test), 611 test, `pip check`; 3 phút 12 giây | 34 → 611; coverage 95.2% dòng (94.6% dòng + nhánh) | **Chờ nhóm duyệt.** Đạt: check-full, check-inv, demo fast ring/FC trên MNIST (0.9797/0.9816), pilot B1 và FC-IID chỉ trên validation (0.9626/0.9794, không thấp bất thường), P3.7, review P4.1. Chưa đạt: T11e chưa làm (todo ghi là điều kiện của C3, bảng §7 không ghi); smoke trên laptop demo (QS-8) chưa chạy; lỗi thật P0-1 (process runtime thiếu kiểm INV-4 union) cùng I1, I6, S1 chưa sửa; các khoảng trống P0 của P3.7 chưa có test; README lỗi thời. Cần nhóm quyết I3, I4, I5, S2, S8, S9, S12 (xem docs/decisions/REVIEW-C3-P3.7.md, REVIEW-C3-P4.1.md) |
 | C4 | | | | | |
 | C5 | | | | | |
 
