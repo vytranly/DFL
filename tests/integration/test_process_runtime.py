@@ -99,3 +99,24 @@ def test_a_node_that_fails_to_start_fails_the_run_quickly(tmp_path: Path, here: 
     (attempt,) = sorted(tmp_path.glob("runs/*/attempt-*"))
     summary = read(attempt, "summary.json")
     assert summary["status"] == "failed" and "NodeFailed" in summary["error"]
+
+
+def test_t_inv_13_processes_refuse_a_gossip_schedule_whose_union_never_connects(
+    tmp_path: Path, here: manifest.Provenance
+) -> None:
+    # Seed 1: round 0 và round 1 dùng cùng một matching trên K₄, nên hợp hai round không liên thông (INV-4).
+    # Cả hai runtime phải từ chối trước round đầu với cùng lý do (REVIEW-C3-P3.7, P0-1).
+    config = dataclasses.replace(SHORT, topology=TopologyConfig(kind="gossip"), seed=1)
+    summaries = []
+
+    for runtime in ("inprocess", "processes"):
+        out = tmp_path / runtime
+        with pytest.raises(ValueError, match="hợp các round"):
+            run.run(
+                dataclasses.replace(config, runtime=runtime), out=out, provenance=here, process_timeout=60
+            )
+        (attempt,) = sorted(out.glob("runs/*/attempt-*"))
+        summaries.append(read(attempt, "summary.json"))
+
+    assert summaries[0] == summaries[1]
+    assert summaries[0]["status"] == "failed" and summaries[0]["messages_total"] == 0

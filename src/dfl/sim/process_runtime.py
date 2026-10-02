@@ -57,7 +57,15 @@ from dfl.contracts import (
     TopologySchedule,
 )
 from dfl.data import datasets as data
-from dfl.sim.engine import RoundResult, RunDiverged, _check_inbox, _check_round, _first_non_finite
+from dfl.sim.engine import (
+    RoundResult,
+    RunDiverged,
+    _check_inbox,
+    _check_round,
+    _first_non_finite,
+    check_schedule_union,
+    preflight,
+)
 from dfl.sim.node import Node, combine, make_snapshot
 from dfl.sim.observer import Observer, is_due
 from dfl.sim.run import Assembly, PhaseTimer, TimedEvaluator, assemble, initial_model, set_threads
@@ -121,6 +129,9 @@ def run_node(
     schedule, policy, sizes = assembly.schedule, assembly.policy, assembly.sizes
     if schedule is None or policy is None:
         raise ValueError("process runtime cần topology có đồ thị (config đã từ chối server và central)")
+    check_schedule_union(
+        schedule, n, config.rounds
+    )  # INV-4; tiến trình chạy lượt cũng đã kiểm trước khi spawn
     del assembly  # chỉ giữ dữ liệu của node này (INV-1)
     layout = StateLayout.of(node.model.state_dict())
     if ready_dir is not None:
@@ -219,6 +230,13 @@ class ProcessRun:
 
     def execute(self, logger: RunLogger) -> SummaryOk:
         config = self.assembly.config
+        # Cùng các phép kiểm trước round đầu như runtime inprocess (INV-4, G3, INV-5), trên các node mà tiến
+        # trình này tự lắp: lượt bị engine từ chối thì cũng bị từ chối ở đây, trước khi có tiến trình con nào.
+        preflight(
+            tuple(self.assembly.node(i) for i in range(config.num_nodes)),
+            self.assembly.schedule,
+            config.rounds,
+        )
         with tempfile.TemporaryDirectory(prefix="dfl-processes-") as scratch_name:
             scratch = Path(scratch_name)
             config_path = scratch / "config.yaml"

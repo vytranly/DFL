@@ -275,8 +275,8 @@ def _check_inbox(inbox: Mapping[int, Snapshot], dst: int, round_idx: int) -> Non
 def check_union_connected(schedule: TopologySchedule, num_nodes: int, total_rounds: int) -> None:
     """INV-4 cho lịch thay đổi theo round: hợp các G_t của round 0 … total_rounds − 1 phải liên thông.
 
-    Dừng ngay khi hợp đã liên thông, nên với gossip đúng chỉ tốn vài lần gọi `graph_at`. Process runtime
-    (ADR-010) dùng lại hàm này.
+    Dừng ngay khi hợp đã liên thông, nên với gossip đúng chỉ tốn vài lần gọi `graph_at`. Engine và process
+    runtime (ADR-010) đều gọi qua `check_schedule_union`.
     """
     components = UnionFind(range(num_nodes))
     groups = num_nodes
@@ -291,6 +291,25 @@ def check_union_connected(schedule: TopologySchedule, num_nodes: int, total_roun
         f"hợp các round 0…{total_rounds - 1} của lịch gossip không liên thông: {groups} nhóm node "
         "không bao giờ trao đổi với nhau (INV-4)"
     )
+
+
+def check_schedule_union(schedule: TopologySchedule | None, num_nodes: int, total_rounds: int) -> None:
+    """Kiểm INV-4 theo hợp các round khi lịch thay đổi theo round; lịch tĩnh và đường server không cần."""
+    if total_rounds < 1:
+        raise ValueError(f"total_rounds phải ≥ 1, nhận {total_rounds}")
+    if schedule is not None and not schedule.is_static and num_nodes > 1:
+        check_union_connected(schedule, num_nodes, total_rounds)
+
+
+def preflight(nodes: Sequence[Node], schedule: TopologySchedule | None, total_rounds: int) -> None:
+    """Các phép kiểm trước round đầu mà mọi runtime phải qua: node (G3, INV-5, G22; như lúc dựng Engine) và
+    INV-4 theo hợp các round.
+
+    Process runtime (ADR-010) chạy hàm này trên các node mà tiến trình chạy lượt tự lắp, trước khi khởi chạy
+    tiến trình node, để hai runtime từ chối đúng cùng các lượt (T-INV-13).
+    """
+    _check_nodes(nodes)
+    check_schedule_union(schedule, len(nodes), total_rounds)
 
 
 class Engine:
@@ -351,11 +370,7 @@ class Engine:
 
         `run_rounds` gọi hàm này. Đồ thị tĩnh được kiểm ở `_check_round`; đường server không có đồ thị.
         """
-        if total_rounds < 1:
-            raise ValueError(f"total_rounds phải ≥ 1, nhận {total_rounds}")
-        schedule = self._schedule
-        if schedule is not None and self._dynamic and len(self._nodes) > 1:
-            check_union_connected(schedule, len(self._nodes), total_rounds)
+        check_schedule_union(self._schedule, len(self._nodes), total_rounds)
         self._checked_rounds = max(self._checked_rounds, total_rounds)
 
     def _plan(self, round_idx: int) -> tuple[nx.Graph | None, np.ndarray]:

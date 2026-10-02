@@ -673,3 +673,14 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - Các mục còn mở, làm trước E0a: T11e; smoke trên laptop demo (QS-8); sửa P0-1 (process runtime thiếu kiểm INV-4 hợp các round), I1 (`--out` vào results/), I2 (results/ trong worktree), I6 (preflight dùng chung với engine), S1 (thứ tự ghi summary ở process runtime); thêm test P0 và P1 của P3.7; cập nhật README
 - Chưa đụng tới (cần nhóm quyết): I3, I4, I5, S2, S8, S9, S12, P2-6
 - Việc tiếp theo: sửa P0-1 theo P3.4 (Prove-It FAIL trước)
+
+## 2026-10-02 — Phiên #18 (tiếp) — Sửa P0-1: process runtime thiếu các phép kiểm trước round đầu (P3.4)
+- Trạng thái: P0-1 ✅ (REVIEW-C3-P3.7 P0-1, REVIEW-C3-P4.1 I6 phần preflight)
+- File đã đổi: src/dfl/sim/engine.py, src/dfl/sim/process_runtime.py, tests/integration/test_process_runtime.py, tasks/SESSION_LOG.md
+- **Nguyên nhân gốc (một câu):** process runtime tự viết lại vòng ATC mà không gọi các phép kiểm trước round đầu của engine (`_check_nodes` lúc dựng Engine và `check_union_connected` trong `check_schedule`), nên lượt gossip có hợp các round không liên thông vẫn chạy ở runtime processes trong khi engine từ chối
+- Tái hiện → khoanh vùng → rút gọn: smoke rút gọn (2 round), gossip, seed 1 (round 0 và 1 cùng một matching trên K₄): inprocess raise ValueError, processes ghi `ok`
+- Canh gác: `test_t_inv_13_processes_refuse_a_gossip_schedule_whose_union_never_connects`. Trước khi sửa: FAIL ("DID NOT RAISE ValueError" ở runtime processes). Sau khi sửa: PASS. Hai runtime ghi SummaryFailed trùng nhau, cùng lý do
+- Sửa: thêm `engine.preflight(nodes, schedule, total_rounds)` (`_check_nodes` cộng INV-4 theo hợp các round) và `engine.check_schedule_union`, dùng chung cho `Engine.check_schedule`. `ProcessRun.execute` chạy preflight trên các node mà tiến trình chạy lượt tự lắp, trước khi spawn; mỗi tiến trình node cũng tự kiểm INV-4 trước khi báo sẵn sàng (cho các lần khởi chạy từ bên ngoài, như Docker ở T22c)
+- Kiểm chứng: `make check-full` → mã 0: 612 passed, `check-inv` 73 test (13 T-INV), coverage 95.14%, `pip check` sạch
+- Còn lại của I6 (chưa làm): vòng round của node vẫn là bản viết riêng; lý do phân kỳ của processes vẫn ở dạng chung, không có tên tensor hay giá trị mất mát như engine
+- Việc tiếp theo: S1 (thứ tự ghi summary ở process runtime)
