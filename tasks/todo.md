@@ -380,7 +380,7 @@
   - Phụ thuộc: T11b, T10b
   - File: `src/dfl/config.py`, `src/dfl/sim/run.py`, `configs/profiles/fast.yaml`, `tests/integration/test_baselines.py`
 
-- [x] **Checkpoint C3 (M3)** — sau T11c, T11d, T11e (plan §7). Nhóm duyệt ngày 2026-10-02 (plan §13); còn mở, làm trước E0a: T11e; smoke trên laptop demo (QS-8); sửa P0-1, I1, I2, I6, S1 và thêm test P0/P1 theo docs/decisions/REVIEW-C3-P3.7.md, REVIEW-C3-P4.1.md (đã sửa theo P3.4: P0-1 ở 7ae771f, S1 ở 27b890a, I1 ở 63bbada, I2; còn: phần còn lại của I6, test P0/P1, README):
+- [x] **Checkpoint C3 (M3)** — sau T11c, T11d, T11e (plan §7). Nhóm duyệt ngày 2026-10-02 (plan §13); còn mở, làm trước E0a: T11e; smoke trên laptop demo (QS-8); sửa P0-1, I1, I2, I6, S1 và thêm test P0/P1 theo docs/decisions/REVIEW-C3-P3.7.md, REVIEW-C3-P4.1.md (đã sửa theo P3.4: P0-1 ở 7ae771f, S1 ở 27b890a, I1 ở 63bbada, I2 ở d583df7; đã thêm test P0-2…P0-4; còn: phần còn lại của I6, test P1, README):
   - `make check-full` và `make check-inv`, đủ 12 T-INV;
   - pilot trên MNIST thật, ngoài lưới, ghi ra `build/`: B1 và DFedAvg-FC-IID với profile fast, chỉ đánh giá trên validation (không nhìn test), để thấy sớm nếu accuracy thấp bất thường so với SAN-1, SAN-2 (F6, P2.2 vòng 2);
   - demo profile fast cho ring và FC;

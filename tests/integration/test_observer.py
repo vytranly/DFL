@@ -394,3 +394,50 @@ def test_std_across_nodes_is_exactly_zero_when_every_node_scores_the_same() -> N
     record = observer.record(result, states, CommCounters(0, 0, 0))
 
     assert record["acc_std"] == record["acc_local_std"] == record["f1_macro_std"] == 0.0
+
+
+class PerNodeEvaluator:
+    """Evaluator giả: mỗi độ đo một bộ giá trị theo node, khác các bộ kia ở trung bình, độ lệch và min."""
+
+    def evaluate(self, states: list[StateDict]) -> EvalResult:
+        return EvalResult(
+            acc=(0.1, 0.2, 0.3, 0.6),
+            acc_local=(0.5, 0.4, 0.9, 0.2),
+            acc_eff=(0.7, 0.1, 0.3, 0.25),
+            f1_macro=(0.05, 0.15, 0.35, 0.95),
+            acc_avg_model=0.42,
+        )
+
+
+def test_round_record_aggregates_are_population_statistics_of_the_matching_per_node_values() -> None:
+    # REVIEW-C3-P3.7 P0-3: rounds.jsonl không ghi F1 hay acc^eff theo node, nên analysis không tính lại được
+    # các trường này; trường nào lấy nhầm bộ giá trị hay nhầm phép thống kê đều lệch khỏi giá trị tính tay.
+    states = [{"w": torch.zeros(1)} for _ in range(N)]
+    result = RoundResult(
+        round_idx=0,
+        weights=np.full((N, N), 1 / N),
+        train_losses=(0.5,) * N,
+        snapshots=tuple(Snapshot(i, 0, {"w": torch.zeros(1)}, 4) for i in range(N)),
+    )
+    observer = Observer(PerNodeEvaluator(), tau=1, total_rounds=1, eval_every_steps=None)
+
+    record = observer.record(result, states, CommCounters(0, 0, 0))
+
+    # Tính tay; độ lệch chuẩn theo ddof = 0 (contracts.RoundRecord), ví dụ acc: (0.04 + 0.01 + 0 + 0.09) / 4.
+    expected = {
+        "acc_mean": 0.3,
+        "acc_std": math.sqrt(0.035),
+        "acc_min": 0.1,
+        "acc_max": 0.6,
+        "acc_local_mean": 0.5,
+        "acc_local_std": math.sqrt(0.065),
+        "acc_local_min": 0.2,
+        "f1_macro_mean": 0.375,
+        "f1_macro_std": math.sqrt(0.121875),
+        "f1_macro_min": 0.05,
+        "acc_eff_mean": 0.3375,
+        "acc_avg_model": 0.42,
+    }
+    assert {key: record[key] for key in expected} == pytest.approx(expected, rel=1e-12)
+    assert record["acc_per_node"] == [0.1, 0.2, 0.3, 0.6]
+    assert record["acc_local_per_node"] == [0.5, 0.4, 0.9, 0.2]

@@ -2,13 +2,17 @@
 
 Cùng seed và `code_version` thì `rounds.jsonl` trùng từng byte; khác seed thì khác cách chia và khác w⁰ ở mọi
 tensor; cùng seed thì cùng cách chia, cùng vị trí node, cùng w⁰ và cùng luồng batch ở mọi topology và thuật
-toán; RNG toàn cục của torch không đổi sau một lượt.
+toán; RNG toàn cục của torch không đổi sau một lượt. Mỗi luồng theo seed lấy đúng seed của cấu hình, và P_i
+(`node_class_counts`) xếp theo đúng id node (REVIEW-C3-P3.7 P0-2, P0-4).
 """
 
 import dataclasses
-from collections.abc import Callable
+import json
+from collections.abc import Callable, Mapping
+from functools import partial
 from pathlib import Path
 
+import networkx as nx
 import numpy as np
 import pytest
 import torch
@@ -17,6 +21,8 @@ from dfl import seeding
 from dfl.config import AlgorithmConfig, EvalConfig, PartitionConfig, RunConfig, TopologyConfig, load_config
 from dfl.data import datasets
 from dfl.data.partition import IIDPartitioner, assign_positions
+from dfl.learning.models import build_model
+from dfl.network import topology
 from dfl.seeding import Stream
 from dfl.sim import run
 
@@ -30,6 +36,10 @@ def data() -> datasets.Datasets:
 
 def w0(setup: run.RunSetup) -> list[dict[str, torch.Tensor]]:
     return [node.model.state_dict() for node in setup.nodes]
+
+
+def parts_multiset(parts: tuple[np.ndarray, ...]) -> list[tuple[int, ...]]:
+    return sorted(tuple(sorted(part.tolist())) for part in parts)
 
 
 # Lượt chạy thật trong test: 3 round, tập con đánh giá 100 ảnh (đủ 10 lớp), để test nhanh.
@@ -55,7 +65,8 @@ def test_t_inv_5_another_seed_changes_the_partition_and_every_w0_tensor(data: da
     a = run.build(SMOKE, data)
     b = run.build(dataclasses.replace(SMOKE, seed=1), data)
 
-    assert not all(np.array_equal(x, y) for x, y in zip(a.partition.parts, b.partition.parts, strict=True))
+    # So tập các phần, không so theo vị trí: riêng hoán vị vị trí node đã làm các phần nằm ở chỗ khác.
+    assert parts_multiset(a.partition.parts) != parts_multiset(b.partition.parts)
     first, second = w0(a)[0], w0(b)[0]
     assert all(not torch.equal(first[name], second[name]) for name in first)
 
@@ -143,3 +154,105 @@ def test_shards_are_rejected_outside_describe(data: datasets.Datasets) -> None:
 
     with pytest.raises(ValueError, match="QS-11"):
         run.build(config, data)
+
+
+# ------------------------------------------------------------- dây seed của từng luồng (REVIEW-C3-P3.7 P0-2)
+
+GRAPH_P = 0.6
+ROUNDS = range(8)
+
+
+def edges(graph: nx.Graph) -> tuple[tuple[int, int], ...]:
+    return tuple(sorted((min(u, v), max(u, v)) for u, v in graph.edges))
+
+
+def generator_state(generator: torch.Generator) -> bytes:
+    return generator.get_state().numpy().tobytes()
+
+
+def drawn_by_the_run(seed: int, data: datasets.Datasets) -> dict[str, object]:
+    """Những gì sim.run rút từ các luồng theo seed khi lắp lượt smoke có `seed` (cách chia, vị trí node, w⁰,
+    batch của node và của B1, đồ thị ER, matching của gossip và ER-gossip ở 8 round đầu)."""
+
+    def assembled(**changes: object) -> run.Assembly:
+        return run.assemble(dataclasses.replace(SMOKE, seed=seed, **changes), data)
+
+    ring = assembled()
+    er = assembled(topology=TopologyConfig(kind="erdos_renyi", p=GRAPH_P)).schedule
+    gossip = assembled(topology=TopologyConfig(kind="gossip")).schedule
+    er_gossip = assembled(topology=TopologyConfig(kind="er_gossip", p=GRAPH_P)).schedule
+    central = assembled(num_nodes=1, topology=TopologyConfig(kind="central"))
+    assert er is not None and gossip is not None and er_gossip is not None
+    nodes = [ring.node(i) for i in range(SMOKE.num_nodes)]
+    return {
+        "parts": tuple(tuple(part.tolist()) for part in ring.partition.parts),
+        "w0": tuple(t.numpy().tobytes() for t in nodes[0].model.state_dict().values()),
+        "batch": tuple(generator_state(node.generator) for node in nodes),
+        "b1_batch": generator_state(central.node(0).generator),
+        "graph": edges(er.graph_at(0)),
+        "gossip": tuple(edges(gossip.graph_at(t)) for t in ROUNDS),
+        "er_gossip": tuple(edges(er_gossip.graph_at(t)) for t in ROUNDS),
+    }
+
+
+def drawn_from_the_streams(seeds: Mapping[Stream, int], data: datasets.Datasets) -> dict[str, object]:
+    """Cùng các giá trị, dựng thẳng từ các luồng theo SPEC §6, không qua sim.run; `seeds` là seed của từng
+    luồng."""
+    n = SMOKE.num_nodes
+    raw = IIDPartitioner(SMOKE.partition.min_size)(
+        data.train.y.numpy(), n, seeding.numpy_rng(seeds[Stream.PARTITION], Stream.PARTITION)
+    )
+    placed = assign_positions(raw, seeding.numpy_rng(seeds[Stream.PLACEMENT], Stream.PLACEMENT))
+    w0 = build_model(SMOKE.model, seeding.torch_generator(seeds[Stream.INIT], Stream.INIT)).state_dict()
+    base = topology.erdos_renyi(n, GRAPH_P, seeding.numpy_rng(seeds[Stream.GRAPH], Stream.GRAPH))
+    gossip = topology.gossip(n, partial(seeding.numpy_rng, seeds[Stream.GOSSIP], Stream.GOSSIP))
+    er_gossip = topology.er_gossip(
+        base.graph, partial(seeding.numpy_rng, seeds[Stream.GOSSIP_ER], Stream.GOSSIP_ER)
+    )
+    return {
+        "parts": tuple(tuple(part.tolist()) for part in placed.parts),
+        "w0": tuple(t.numpy().tobytes() for t in w0.values()),
+        "batch": tuple(
+            generator_state(seeding.torch_generator(seeds[Stream.BATCH], Stream.BATCH, i)) for i in range(n)
+        ),
+        "b1_batch": generator_state(seeding.torch_generator(seeds[Stream.B1_BATCH], Stream.B1_BATCH)),
+        "graph": edges(base.graph_at(0)),
+        "gossip": tuple(edges(gossip.graph_at(t)) for t in ROUNDS),
+        "er_gossip": tuple(edges(er_gossip.graph_at(t)) for t in ROUNDS),
+    }
+
+
+@pytest.mark.parametrize("seed", [0, 3], ids=["seed=0", "seed=3"])
+def test_t_inv_5_every_seeded_stream_of_a_run_follows_config_seed(data: datasets.Datasets, seed: int) -> None:
+    # Ở seed 0, một luồng bị ghim vào seed 0 vẫn cho đúng giá trị; ca seed 3 mới bắt được lỗi đó.
+    expected = drawn_from_the_streams(dict.fromkeys(seeding.RUN_STREAMS, seed), data)
+
+    assert drawn_by_the_run(seed, data) == expected
+
+
+@pytest.mark.parametrize("stream", sorted(seeding.RUN_STREAMS), ids=lambda stream: stream.name)
+def test_seed_3_tells_apart_a_run_that_pins_any_one_stream_to_seed_0(
+    data: datasets.Datasets, stream: Stream
+) -> None:
+    # Ca seed 3 ở test trên chỉ có nghĩa nếu ghim riêng một luồng vào seed 0 làm đổi những gì lượt rút ra.
+    honest = drawn_from_the_streams(dict.fromkeys(seeding.RUN_STREAMS, 3), data)
+
+    pinned = drawn_from_the_streams({**dict.fromkeys(seeding.RUN_STREAMS, 3), stream: 0}, data)
+
+    assert pinned != honest
+
+
+def test_node_class_counts_follow_node_ids_so_acc_local_uses_each_nodes_own_labels(
+    data: datasets.Datasets, tmp_path: Path
+) -> None:
+    # REVIEW-C3-P3.7 P0-4: với IID mọi hàng P_i như nhau, nên dùng Dirichlet α = 0.1 để mỗi node có P_i riêng.
+    config = dataclasses.replace(SHORT, partition=PartitionConfig(scheme="dirichlet", alpha=0.1, min_size=8))
+
+    setup = run.build(config, data)
+    attempt = run.run(config, out=tmp_path)
+
+    expected = [np.bincount(node.data.y.numpy(), minlength=10).tolist() for node in setup.nodes]
+    assert len({tuple(row) for row in expected}) == len(expected)
+    assert [list(row) for row in setup.heterogeneity.node_class_counts] == expected
+    manifest = json.loads((attempt / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["node_class_counts"] == expected

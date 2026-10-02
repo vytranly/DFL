@@ -729,3 +729,19 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
   - `make check-task` trước commit → mã 0: 617 passed, coverage 95.19%; mất 140 s, vượt ngân sách 90 s (T1 chỉ cảnh báo), khi load average 20–23 trên 8 lõi
 - Câu hỏi mở: SPEC §5.3 có nên ghi thành quy tắc "thư mục kết quả không nằm trong worktree liên kết" không? Hiện đó mới là quy trình ở tasks/todo.md. Việc này là sửa SPEC, nên phải hỏi trước
 - Việc tiếp theo: các test P0 của P3.7 (P0-2 dây seed, P0-3 trường tổng hợp của RoundRecord, P0-4 thứ tự P_i), rồi P1-1…P1-7, rồi README
+
+## 2026-10-02 — Phiên #18 (tiếp) — Test P0 của REVIEW-C3-P3.7 (P0-2, P0-3, P0-4)
+- Trạng thái: test P0-2, P0-3, P0-4 ✅. Đây là test Prove-It cho code đúng (kỳ vọng PASS), giết các mutant mà P3.7 thấy sống sót
+- File đã đổi: tests/integration/test_seeds.py, tests/integration/test_observer.py, tasks/todo.md, tasks/SESSION_LOG.md
+- Test mới:
+  - P0-2: `test_t_inv_5_every_seeded_stream_of_a_run_follows_config_seed[seed=0, seed=3]`. Nó so những gì `sim.run.assemble` rút ra (cách chia và vị trí node, w⁰, batch của từng node và của B1, cạnh ER, matching của gossip và ER-gossip ở 8 round đầu) với giá trị dựng thẳng từ luồng của seed theo SPEC §6
+  - Kèm `test_seed_3_tells_apart_a_run_that_pins_any_one_stream_to_seed_0[8 luồng]`: ghim riêng một luồng vào seed 0 phải đổi giá trị rút ra, để ca seed 3 không trở nên vô nghĩa nếu profile smoke đổi sau này
+  - Sửa `test_t_inv_5_another_seed_changes_the_partition_and_every_w0_tensor` (test_seeds.py:58 cũ) để so tập các phần thay vì so theo vị trí. Đây là thắt chặt: riêng hoán vị vị trí node không còn đủ cho test qua
+  - P0-3: `test_round_record_aggregates_are_population_statistics_of_the_matching_per_node_values`: Evaluator giả, 12 trường tổng hợp so với giá trị tính tay (ddof = 0), sai số tương đối 1e-12
+  - P0-4: `test_node_class_counts_follow_node_ids_so_acc_local_uses_each_nodes_own_labels`: Dirichlet α = 0.1, min_size = 8 (smoke chia được, 0 lần lấy mẫu lại, 4 hàng P_i khác nhau); `node_class_counts[i]` bằng bincount nhãn của node i, ở cả setup lẫn manifest.json
+- Kiểm bằng mutant (plugin pytest thay hàm trong bộ nhớ, không sửa `src/`; chạy test_seeds, test_observer, test_baselines, test_describe) — 13/13 bị giết:
+  - `sim.run` ghim seed 0 cho từng luồng PARTITION, PLACEMENT, GRAPH, INIT, BATCH, B1_BATCH, GOSSIP, GOSSIP_ER: cả 8 bị ca `[seed=3]` bắt. PARTITION bị thêm test so tập các phần đã sửa bắt; trước đó nó qua test này
+  - 4 mutant của trường tổng hợp (`acc_local_min` dùng max, `f1_macro_mean` lấy acc, `acc_eff_mean` lấy acc_local, `f1_macro_std` tính trên acc): bị test P0-3 bắt
+  - Thống kê P_i theo các phần trước khi gán vị trí: bị test P0-4 bắt. Vài test của B1 cũng đỏ theo, nhưng đó là do plugin giữ trạng thái cũ ở đường central, không phải hiệu ứng thật
+- Kiểm chứng: `make check-task` → mã 0: "Sàn: đạt (634 test)", 629 passed, coverage 95.19%. Mất 139 s, vượt ngân sách 90 s (T1 chỉ cảnh báo), khi load average 16–18 trên 8 lõi
+- Việc tiếp theo: test P1-1…P1-7 của P3.7 (P1-8 đã xong ở C3), rồi README, rồi phần còn lại của I6
