@@ -666,3 +666,10 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
   2. Nếu được duyệt hướng "sửa trước": P0-1 theo P3.4 (preflight dùng chung với engine, I6), rồi I1, S1, các test P0 và P1 của P3.7, README.
   3. T11e (tập đánh giá + đánh giá cuối), rồi T15a, T15b (R@x: dùng 15 test RED ở REVIEW-C3-P3.7 §5), T14a, T14e, T13 (P3.5).
   4. Sau đó G1, rồi E0a theo P3.6 (24 lượt, lớn hơn 10, nên trình `--dry-run` cho nhóm trước khi chạy).
+
+## 2026-10-02 — Phiên #18 — Nhóm duyệt C3
+- Trạng thái: Checkpoint C3 ✅ nhóm duyệt (người dùng trả lời "duyệt" cho câu hỏi duyệt C3 có điều kiện hay đợi sửa xong)
+- File đã đổi: tasks/plan.md (§13, dòng C3), tasks/todo.md (đánh dấu C3, ghi các mục còn mở), tasks/SESSION_LOG.md
+- Các mục còn mở, làm trước E0a: T11e; smoke trên laptop demo (QS-8); sửa P0-1 (process runtime thiếu kiểm INV-4 hợp các round), I1 (`--out` vào results/), I2 (results/ trong worktree), I6 (preflight dùng chung với engine), S1 (thứ tự ghi summary ở process runtime); thêm test P0 và P1 của P3.7; cập nhật README
+- Chưa đụng tới (cần nhóm quyết): I3, I4, I5, S2, S8, S9, S12, P2-6
+- Việc tiếp theo: sửa P0-1 theo P3.4 (Prove-It FAIL trước)
