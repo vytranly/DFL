@@ -684,3 +684,12 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - Kiểm chứng: `make check-full` → mã 0: 612 passed, `check-inv` 73 test (13 T-INV), coverage 95.14%, `pip check` sạch
 - Còn lại của I6 (chưa làm): vòng round của node vẫn là bản viết riêng; lý do phân kỳ của processes vẫn ở dạng chung, không có tên tensor hay giá trị mất mát như engine
 - Việc tiếp theo: S1 (thứ tự ghi summary ở process runtime)
+
+## 2026-10-02 — Phiên #18 (tiếp) — Sửa S1: process runtime ghi summary trước khi node thoát (P3.4)
+- Trạng thái: S1 ✅ (REVIEW-C3-P4.1)
+- File đã đổi: src/dfl/sim/process_runtime.py, tests/integration/test_process_runtime.py, tasks/SESSION_LOG.md
+- **Nguyên nhân gốc (một câu):** `_observe` ghi SummaryOk rồi `execute` mới đợi node thoát. Vì vậy một node chậm thoát làm `_attempt` ghi summary lần hai ("finish sau finish"), và ở đường phân kỳ NodeFailed thay chỗ RunDiverged
+- Canh gác: `test_a_node_lingering_after_the_last_round_does_not_fail_a_finished_run` và `test_a_node_lingering_after_divergence_keeps_the_run_diverged`, giả lập node không thoát bằng cách thay `ProcessRun._wait_exit`. Trước khi sửa: cả hai FAIL ("RuntimeError: finish sau finish"). Sau khi sửa: PASS
+- Sửa: `_observe` chỉ trả SummaryOk về; `execute` đợi node thoát (`_settle`) rồi mới `finish`. Sau khi mọi round đã được quan sát, node chậm thoát hay thoát lỗi chỉ in cảnh báo; node còn sống bị kill
+- Kiểm chứng: `make check-full` → mã 0 (614 passed)
+- Việc tiếp theo: I1 và I2 (quy tắc ghi results/ khi dùng `--out`, và results/ trong worktree)

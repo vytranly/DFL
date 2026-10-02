@@ -255,7 +255,7 @@ class ProcessRun:
                 try:
                     summary = self._observe(logger)
                 except RunDiverged:
-                    self._wait_exit(children, scratch)
+                    self._settle(children, scratch)
                     raise
                 except RuntimeError as err:
                     if isinstance(err, NodeFailed):
@@ -265,7 +265,8 @@ class ProcessRun:
                     ) from err
                 finally:
                     dist.destroy_process_group()
-                self._wait_exit(children, scratch)
+                self._settle(children, scratch)
+                logger.finish(summary)
                 return summary
             finally:
                 for child in children:
@@ -312,6 +313,14 @@ class ProcessRun:
                 raise NodeFailed(f"node chưa sẵn sàng sau {self._timeout} s")
             time.sleep(0.05)
 
+    def _settle(self, children: list[subprocess.Popen[bytes]], scratch: Path) -> None:
+        """Đợi node thoát sau lần gom cuối. Lúc này mọi round đã được quan sát, nên node chậm thoát hay thoát
+        lỗi chỉ là cảnh báo, không đổi kết quả đã có (ok hay diverged); node còn sống bị kill ở `execute`."""
+        try:
+            self._wait_exit(children, scratch)
+        except NodeFailed as err:
+            print(f"cảnh báo: {err}", file=sys.stderr)
+
     def _wait_exit(self, children: list[subprocess.Popen[bytes]], scratch: Path) -> None:
         deadline = time.monotonic() + min(self._timeout, EXIT_GRACE_S)
         for child in children:
@@ -340,6 +349,7 @@ class ProcessRun:
                 raise RunDiverged(round_idx, reason.format(codes.index(code)))
 
     def _observe(self, logger: RunLogger) -> SummaryOk:
+        """Quan sát mọi round và đánh giá cuối; trả SummaryOk để `execute` ghi sau khi node đã thoát."""
         assembly = self.assembly
         config = assembly.config
         n, world = config.num_nodes, config.num_nodes + 1
@@ -401,7 +411,6 @@ class ProcessRun:
             "final_f1_macro_per_node": list(final.f1_macro),
             "final_acc_avg_model": final.acc_avg_model,
         }
-        logger.finish(summary)
         return summary
 
 

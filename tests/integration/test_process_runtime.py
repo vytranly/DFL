@@ -120,3 +120,36 @@ def test_t_inv_13_processes_refuse_a_gossip_schedule_whose_union_never_connects(
 
     assert summaries[0] == summaries[1]
     assert summaries[0]["status"] == "failed" and summaries[0]["messages_total"] == 0
+
+
+def linger(self: process_runtime.ProcessRun, children: object, scratch: object) -> None:
+    raise process_runtime.NodeFailed("node không thoát sau lần gom cuối (giả lập)")
+
+
+def test_a_node_lingering_after_the_last_round_does_not_fail_a_finished_run(
+    tmp_path: Path,
+    here: manifest.Provenance,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    # Mọi round đã được quan sát và đánh giá cuối đã xong, nên summary vẫn là ok, chỉ thêm cảnh báo
+    # (REVIEW-C3-P4.1 S1).
+    monkeypatch.setattr(process_runtime.ProcessRun, "_wait_exit", linger)
+
+    attempt = run.run(dataclasses.replace(SHORT, runtime="processes"), out=tmp_path, provenance=here)
+
+    assert read(attempt, "summary.json")["status"] == "ok"
+    assert "không thoát" in capsys.readouterr().err
+
+
+def test_a_node_lingering_after_divergence_keeps_the_run_diverged(
+    tmp_path: Path, here: manifest.Provenance, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(process_runtime.ProcessRun, "_wait_exit", linger)
+    exploding = dataclasses.replace(
+        SHORT, algorithm=AlgorithmConfig(tau=2, lr=1.0e4), local_steps=12, runtime="processes"
+    )
+
+    attempt = run.run(exploding, out=tmp_path, provenance=here)
+
+    assert read(attempt, "summary.json")["status"] == "diverged"
