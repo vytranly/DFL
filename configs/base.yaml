@@ -1,0 +1,30 @@
+# Mặc định của một lượt chạy (KH §3.5; SPEC §5.2). Profile và cấu hình thí nghiệm chỉ ghi đè khóa cần đổi.
+# Số thực phải có dấu chấm thập phân: PyYAML đọc 5e-2 thành chuỗi, nên viết 0.05 hay 5.0e-2.
+# File này phải ghi đúng mặc định của dfl.config.RunConfig (tests/unit/test_config.py kiểm).
+dataset: mnist
+num_nodes: 20
+seed: 0
+local_steps: 4000          # τ·R, giống nhau cho mọi điều kiện (ADR-006)
+model: smallcnn            # ADR-004; logreg, mlp2nn, cnn_mcmahan chỉ cho E8 (ADR-011)
+mixing: metropolis_hastings
+threads: 1                 # số luồng mỗi lượt, hằng số của cả lưới (chốt ở T13)
+runtime: inprocess         # processes: mỗi node một tiến trình (ADR-010)
+deploy: local              # docker: tùy chọn, chỉ với runtime processes (Q12)
+partition:
+  scheme: iid              # iid | dirichlet (alpha) | label_k (k) | quantity (beta) | shards
+  alpha: null
+  k: null
+  beta: null
+  min_size: 64             # = 2B (G17)
+topology:
+  kind: ring               # ring | fully_connected | erdos_renyi | gossip | er_gossip | star | local_only | server
+  p: null                  # chỉ với erdos_renyi, er_gossip; bỏ trống thì là 0.3
+algorithm:
+  tau: 20
+  lr: 0.05                 # η chọn ở E0a (ADR-007) rồi điền lại ở T14b
+  mu: 0.0
+  batch_size: 32
+eval:
+  split: test              # validation chỉ cho E0a (ADR-007)
+  subset_size: 2000        # tập con phân tầng cố định cho learning curve
+  every_steps: 100         # lưới 100 bước, chung cho mọi τ (ADR-007); null là mỗi round

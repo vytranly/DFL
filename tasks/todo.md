@@ -47,7 +47,7 @@
   - Phụ thuộc: T01
   - File: `src/dfl/seeding.py`, `tests/unit/test_seeding.py`
 
-- [ ] **T02b · Cấu hình + YAML base/smoke** — TV3 · M · ∥ T02a, T02c, T07, T04a
+- [x] **T02b · Cấu hình + YAML base/smoke** — TV3 · M · ∥ T02a, T02c, T07, T04a
   - Mô tả: dataclass cấu hình frozen, đọc bằng `yaml.safe_load`, điền mặc định, kiểm kiểu và giá trị; JSON chuẩn hóa cho `run_id` (khóa sắp xếp, số thực theo `repr`). Tạo `configs/base.yaml` (mặc định KH §3.5, lưới 40 mốc, tập con 2,000, 1 luồng) và `configs/profiles/smoke.yaml` (SPEC §5.2).
   - Chấp nhận:
     - Cấu hình sai thì raise `ValueError` nêu ràng buộc bị vi phạm: kiểu sai, ví dụ `5e-2` (PyYAML đọc thành chuỗi, nên phải viết `0.05` hay `5.0e-2`), #C = k với N < 10, 100 không chia hết cho τ ở profile có lưới 100 bước.

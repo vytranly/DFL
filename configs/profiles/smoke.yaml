@@ -1,0 +1,12 @@
+# Profile smoke (SPEC §5.2): dữ liệu tổng hợp cùng shape MNIST (2,000 ảnh train, 200 trong đó làm validation;
+# 500 ảnh test), N = 4, τ·R = 12 (τ = 2, R = 6), đánh giá mỗi round. Chỉ IID hay Dirichlet, vì #C = k cần
+# N ≥ 10 (G23). Dùng cho test và make check-full; không bao giờ được ghi vào results/.
+extends: ../base.yaml
+dataset: synthetic
+num_nodes: 4
+local_steps: 12
+algorithm:
+  tau: 2
+eval:
+  subset_size: 500         # toàn bộ 500 ảnh test tổng hợp
+  every_steps: null

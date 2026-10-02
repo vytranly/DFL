@@ -365,3 +365,21 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
   - Buffer đã gửi được giữ tới `end_round`, theo cảnh báo của tài liệu `isend`; `end_round` báo lỗi nếu còn snapshot đã expect mà chưa đọc inbox
 - Câu hỏi mở: coverage của tiến trình con không được đo (torchdist.py 66% theo báo cáo, dù các dòng còn lại chạy trong test tích hợp). T22b chạy phần lớn code trong tiến trình con, nên giải quyết ở đó: bật đo coverage cho tiến trình con. Nếu cần sửa cấu hình coverage trong pyproject (thắt chặt, không nới) thì hỏi nhóm
 - Việc tiếp theo: T02b
+
+## 2026-10-02 — Phiên #16 (tiếp) — T02b Cấu hình + YAML base/smoke (TV3)
+- Trạng thái: T02b ✅
+- File đã đổi: src/dfl/config.py, tests/unit/test_config.py, configs/base.yaml, configs/profiles/smoke.yaml (mới), tasks/todo.md, tasks/SESSION_LOG.md
+- Kiểm chứng:
+  - RED (chưa có `dfl.config`) → GREEN, 42 test; `make check-task` → 357 passed, coverage 97% (`config.py` 100%); import-linter 5/5
+  - Đã kiểm PyYAML 6.0.3: `5e-2` thành chuỗi, `5.0e-2` thành 0.05, `yes` thành True
+  - base.yaml ghi đúng mặc định của `RunConfig` (test so JSON chuẩn hóa); smoke.yaml theo SPEC §5.2 (synthetic, N = 4, τ = 2, R = 6, đánh giá mỗi round, 500 ảnh)
+  - Hai YAML tương đương (khác thứ tự khóa, 0.05 so với 5.0e-2, 0 so với 0.0) cho cùng JSON chuẩn hóa; JSON không chứa `extends`, tên nhóm, `--out`, `--workers`
+  - 29 ca cấu hình sai đều ra ValueError nêu ràng buộc, gồm: `5e-2` (có gợi ý viết 5.0e-2), #C = k với N < 10 (G23), lưới 100 bước không chia hết cho τ, khóa lạ, bool hay số thực cho trường số nguyên, `yes` cho trường enum, docker không đi với processes, size_weighted ngoài FC, server không dùng size_weighted, tham số scheme thiếu hay thừa, `extends` vòng
+  - Đọc cấu hình không nạp torch (kiểm trong tiến trình sạch)
+- Quyết định mới (không cần ADR; schema có thể còn thêm trường ở T11c cho B1):
+  - Schema: `dataset`, `num_nodes`, `seed`, `local_steps` (τ·R), `model`, `mixing`, `threads`, `runtime`, `deploy`, và các nhóm con `partition` (scheme, alpha, k, beta, min_size), `topology` (kind, p), `algorithm` (tau, lr, mu, batch_size), `eval` (split, subset_size, every_steps); `rounds` = local_steps / τ
+  - B3/E1c là `topology.kind: server` (đường server của engine), khác star T0; bắt buộc đi với `mixing: size_weighted`
+  - Tham số scheme hay topology không dùng phải là null; ER không ghi p thì p = 0.3; trường số thực luôn là float; mọi `RunConfig` đều được kiểm trong `__post_init__`
+  - Profile kế thừa bằng `extends` (đường dẫn tính từ file đang đọc; trộn mapping đệ quy)
+- Câu hỏi mở: có nên thêm `dfl.config` vào contract `pure-no-torch` của import-linter không (thắt chặt; sửa pyproject, hỏi trước)? Hiện đã có test bằng tiến trình con
+- Việc tiếp theo: T09a
