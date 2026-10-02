@@ -709,3 +709,23 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - Kích thước: I1 và I2 tách thành hai commit để mỗi commit giữ trong giới hạn của K5 (tối đa 5 file); gộp lại thì chạm 7 file. Trước khi tách, `make check-full` đã chạy trên trạng thái có cả I1 lẫn I2 (xem mục I2)
 - Kiểm chứng: `make check-task` trên trạng thái chỉ có I1 → mã 0: "Sàn: đạt (618 test)", 613 passed, coverage 95.16%. Mất 155 s, vượt ngân sách 90 s (T1 chỉ cảnh báo), khi máy chủ có load average 17–20 trên 8 lõi
 - Việc tiếp theo: I2 (results/ nằm trong worktree liên kết)
+
+## 2026-10-02 — Phiên #18 (tiếp) — Sửa I2: results/ nằm trong worktree liên kết (P3.4)
+- Trạng thái: I2 ✅ (REVIEW-C3-P4.1)
+- File đã đổi: src/dfl/io/manifest.py, src/dfl/sim/run.py, src/dfl/sim/sweep.py, tests/unit/test_manifest.py, tests/integration/test_results_rules.py, tests/integration/test_sweep.py, tasks/todo.md, tasks/SESSION_LOG.md. Là 6 file ngoài tasks/, quá giới hạn của K5 một file: hàm dùng chung ở manifest, quy tắc ở cả nơi ghi (`run`) lẫn nơi kiểm sớm (`sweep`), mỗi nơi một test
+- **Nguyên nhân gốc (một câu):** không chỗ nào kiểm thư mục kết quả, sau khi resolve, nằm ở đâu, nên một worktree quên symlink `results/` giữ kết quả ngay trong nó, và `git worktree remove` xóa luôn mà không hỏi (file bị ignore không làm worktree "bẩn")
+- Tái hiện (git 2.43, repo tạm): worktree có `results/runs/abc/summary.json` bị ignore, `git status` sạch, `git worktree remove` thoát mã 0 và xóa cả results/. Tài liệu chỉ chặn "untracked files" và "modification in tracked files": https://git-scm.com/docs/git-worktree#Documentation/git-worktree.txt-remove
+- Canh gác (FAIL trước khi sửa, PASS sau khi sửa):
+  - `test_a_path_resolving_into_a_linked_worktree_names_that_worktree` (unit, manifest)
+  - `test_results_inside_a_linked_worktree_are_refused` (run)
+  - `test_results_inside_the_worktree_are_refused` (sweep)
+  - Thêm `test_results_symlinked_from_a_linked_worktree_to_the_main_repo_are_accepted`, xanh cả trước lẫn sau khi sửa: canh để quy tắc không chặn quy trình đúng ở tasks/todo.md (results/ của worktree là symlink tới results/ của repo chính)
+- Sửa:
+  - `manifest.linked_worktree_of(path)` trả gốc của worktree liên kết chứa `path` sau khi resolve, hoặc None. Symlink tính theo đích; đường dẫn chưa có thì xét thư mục tổ tiên gần nhất đang có
+  - `run` (khi ghi vào results/) và `sweep._check` từ chối khi thư mục kết quả nằm trong một worktree liên kết bất kỳ, và in đường dẫn đã resolve. Sweep kiểm trước khi ghi chỉ mục. Cây chính không bị ảnh hưởng: results/ của repo chính vẫn ghi được như trước
+  - `test_two_sweeps_sharing_a_run_id_in_results_run_it_once` đổi sang results/ là symlink tới thư mục ngoài worktree, đúng quy trình. Trước đây test này ghi results/ ngay trong worktree, tức chính ca I2. Không test nào bị nới
+- Kiểm chứng:
+  - `make check-full` trên trạng thái này (sha256 của 7 file code và test trùng với bản đã kiểm) → mã 0: "Sàn: đạt (622 test)", ruff, format, import-linter 5/5, `check-inv` 73 test, 622 passed, coverage 95.19%, `pip check` sạch
+  - `make check-task` trước commit → mã 0: 617 passed, coverage 95.19%; mất 140 s, vượt ngân sách 90 s (T1 chỉ cảnh báo), khi load average 20–23 trên 8 lõi
+- Câu hỏi mở: SPEC §5.3 có nên ghi thành quy tắc "thư mục kết quả không nằm trong worktree liên kết" không? Hiện đó mới là quy trình ở tasks/todo.md. Việc này là sửa SPEC, nên phải hỏi trước
+- Việc tiếp theo: các test P0 của P3.7 (P0-2 dây seed, P0-3 trường tổng hợp của RoundRecord, P0-4 thứ tự P_i), rồi P1-1…P1-7, rồi README

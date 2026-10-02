@@ -172,6 +172,44 @@ def test_out_whose_runs_directory_links_into_results_is_refused(tmp_path: Path) 
     assert list(results.rglob("attempt-*")) == []
 
 
+@pytest.fixture
+def linked_worktree(tmp_path: Path) -> Path:
+    """Worktree liên kết (`git worktree add -d`, như SPEC §5.3) của một repo tạm có results/ bị ignore."""
+    git = ["git", "-c", "user.name=t", "-c", "user.email=t@example.com", "-c", "commit.gpgsign=false"]
+    repo = tmp_path / "main"
+    repo.mkdir()
+    (repo / ".gitignore").write_text("results/\n", encoding="utf-8")
+    subprocess.run([*git, "init", "-q", "-b", "main"], cwd=repo, check=True)
+    subprocess.run([*git, "add", "."], cwd=repo, check=True)
+    subprocess.run([*git, "commit", "-q", "-m", "init"], cwd=repo, check=True)
+    subprocess.run([*git, "worktree", "add", "-q", "-d", str(tmp_path / "wt")], cwd=repo, check=True)
+    return tmp_path / "wt"
+
+
+@pytest.mark.usefixtures("synthetic_as_mnist")
+def test_results_inside_a_linked_worktree_are_refused(linked_worktree: Path) -> None:
+    # REVIEW-C3-P4.1 I2: `git worktree remove` xóa cả results/ bị ignore trong worktree.
+    with pytest.raises(run.RunRefused, match="nằm trong worktree"):
+        run.run(mnist_like(), results_root=linked_worktree / "results", provenance=CLEAN)
+
+    assert not (linked_worktree / "results").exists()
+
+
+@pytest.mark.usefixtures("synthetic_as_mnist")
+def test_results_symlinked_from_a_linked_worktree_to_the_main_repo_are_accepted(
+    tmp_path: Path, linked_worktree: Path
+) -> None:
+    # Quy trình ở tasks/todo.md: results/ của worktree là symlink tới results/ của repo chính.
+    shared = tmp_path / "main" / "results"
+    shared.mkdir()
+    (linked_worktree / "results").symlink_to(shared, target_is_directory=True)
+
+    attempt = run.run(mnist_like(), results_root=linked_worktree / "results", provenance=CLEAN)
+
+    assert attempt.resolve().is_relative_to(shared.resolve())
+    assert summary_of(attempt)["status"] == "ok"
+
+
 @pytest.mark.usefixtures("synthetic_as_mnist")
 def test_out_runs_despite_a_dirty_tree_and_records_it(tmp_path: Path) -> None:
     provenance = dataclasses.replace(CLEAN, dirty=True, env_match=False)

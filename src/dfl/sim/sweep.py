@@ -19,8 +19,10 @@ Trong một khối, seed là vòng ngoài cùng: seed đầu của mọi ô ch�
   --retry-failed).
 - Sweep luôn đòi cây sạch, kể cả khi ghi ra --out (CLAUDE.md); --out bỏ qua các quy tắc của results/, nên
   không được nằm trong thư mục kết quả. Ghi vào results/ thì còn đòi: môi trường khớp file khóa, không có ô
-  dữ liệu tổng hợp, chạy từ một worktree liên kết (`git worktree add`) có gốc là `root`, và file thí
-  nghiệm cùng profile nằm trong worktree đó (cây sạch nên chúng đã được commit).
+  dữ liệu tổng hợp, chạy từ một worktree liên kết (`git worktree add`) có gốc là `root`, file thí nghiệm
+  cùng profile nằm trong worktree đó (cây sạch nên chúng đã được commit), và thư mục kết quả sau khi resolve
+  không nằm trong worktree liên kết nào, vì `git worktree remove` xóa cả file bị ignore. Trong worktree,
+  results/ là symlink tới results/ của repo chính (tasks/todo.md, E0a).
 - Mỗi lượt là `python -m dfl run` trong một tiến trình con mới (subprocess, không fork; SPEC §5.2), với
   PYTHONPATH=<root>/src và các biến số luồng. Tiến trình con kiểm nó nạp dfl từ `root` và có cùng
   code_version với sweep. Mã thoát của nó (cli.py): 0 xong, 1 lỗi, 3 bị từ chối, 4 run_id đang bị khóa (bỏ
@@ -58,7 +60,14 @@ import yaml
 
 from dfl.config import RunConfig, canonical_json, from_mapping, load_mapping, merge, to_yaml
 from dfl.contracts import ExperimentIndex, ExperimentVersion
-from dfl.io.manifest import Provenance, is_linked_worktree, provenance_of, repo_root, run_id
+from dfl.io.manifest import (
+    Provenance,
+    is_linked_worktree,
+    linked_worktree_of,
+    provenance_of,
+    repo_root,
+    run_id,
+)
 from dfl.io.run_logger import FINISHED, attempt_statuses, file_lock
 
 RESULTS_ROOT = Path("results")
@@ -280,6 +289,12 @@ def _check(
     for path in (experiment.path, experiment.profile):
         if not path.is_relative_to(root):
             raise SweepRefused(f"{path} nằm ngoài worktree {root}; file thí nghiệm phải được commit ở đó")
+    worktree = linked_worktree_of(results)
+    if worktree is not None:
+        raise SweepRefused(
+            f"thư mục kết quả {results} nằm trong worktree {worktree}, nên `git worktree remove` sẽ xóa nó; "
+            "cho results/ của worktree là symlink tới results/ của repo chính"
+        )
 
 
 def _write_index(experiment: Experiment, provenance: Provenance, target: Path, lock: bool) -> None:

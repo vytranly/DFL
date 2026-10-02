@@ -205,6 +205,24 @@ def is_linked_worktree(root: Path) -> bool:
     return (root / git_dir.strip()).resolve() != (root / common_dir.strip()).resolve()
 
 
+def linked_worktree_of(path: Path) -> Path | None:
+    """Gốc của worktree liên kết chứa `path`, hoặc None khi `path` nằm ở cây chính hay ngoài mọi repo.
+
+    `path` được resolve, nên symlink tính theo đích; chưa tồn tại thì xét thư mục tổ tiên gần nhất đang có.
+    Dùng để giữ thư mục kết quả ngoài worktree liên kết: `git worktree remove` chỉ chặn file untracked hay
+    file tracked bị sửa, nên xóa luôn file bị ignore như results/ (REVIEW-C3-P4.1 I2).
+    https://git-scm.com/docs/git-worktree#Documentation/git-worktree.txt-remove
+    """
+    directory = path.resolve()
+    while not directory.is_dir():
+        directory = directory.parent
+    top = _git(directory, "rev-parse", "--show-toplevel")
+    if top is None:
+        return None
+    root = Path(top.strip())
+    return root if is_linked_worktree(root) else None
+
+
 def current_provenance() -> Provenance:
     return provenance_of(repo_root())
 

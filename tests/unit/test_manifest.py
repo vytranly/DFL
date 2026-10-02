@@ -220,6 +220,21 @@ def test_only_a_worktree_added_with_git_worktree_is_linked(repo: Path, tmp_path:
     assert mf.is_linked_worktree(tmp_path / "missing-or-plain") is False
 
 
+def test_a_path_resolving_into_a_linked_worktree_names_that_worktree(
+    repo: Path, tmp_path: Path, tmp_path_factory: pytest.TempPathFactory
+) -> None:
+    # REVIEW-C3-P4.1 I2: đường dẫn chưa có được xét theo thư mục tổ tiên gần nhất, symlink theo đích của nó.
+    wt = tmp_path / "wt"
+    git(repo, "worktree", "add", "-q", "-d", str(wt))
+    (wt / "results").symlink_to(repo, target_is_directory=True)
+
+    assert mf.linked_worktree_of(wt / "build" / "runs") == wt.resolve()
+    assert mf.linked_worktree_of(wt) == wt.resolve()
+    assert mf.linked_worktree_of(wt / "results" / "runs") is None
+    assert mf.linked_worktree_of(repo / "results") is None
+    assert mf.linked_worktree_of(tmp_path_factory.mktemp("plain") / "results") is None
+
+
 def test_a_directory_without_git_is_dirty_with_no_commit(tmp_path: Path) -> None:
     make_package(tmp_path)
 

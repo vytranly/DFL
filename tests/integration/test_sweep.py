@@ -392,7 +392,11 @@ def test_two_sweeps_sharing_a_run_id_in_results_run_it_once(worktree: tuple[Path
             "second": [{"seeds": [0], "set": cell, "grid": RING_AND_FC}],
         },
     )
+    # Như quy trình thí nghiệm: results/ của worktree là symlink tới thư mục kết quả nằm ngoài worktree.
+    outside = wt.parent / "shared-results"
+    outside.mkdir()
     results = wt / "results"
+    results.symlink_to(outside, target_is_directory=True)
     reports: dict[str, sweep.SweepReport] = {}
 
     def go(name: str) -> None:
@@ -536,3 +540,14 @@ def test_child_exit_codes_map_to_outcomes(tmp_path: Path) -> None:
     assert sweep.classify(4, tmp_path / "runs" / "pending") == "locked"
     assert sweep.classify(5, tmp_path / "runs" / "pending") == "code_changed"
     assert sweep.classify(-9, tmp_path / "runs" / "pending") == "crashed"  # bị SIGKILL
+
+
+def test_results_inside_the_worktree_are_refused(worktree: tuple[Path, Path]) -> None:
+    # REVIEW-C3-P4.1 I2: kết quả nằm trong worktree sẽ mất khi `git worktree remove`.
+    _, wt = worktree
+    path = commit_experiments(wt, {"inner": [{"seeds": [0], "set": {**TINY, "dataset": "mnist"}}]})["inner"]
+
+    with pytest.raises(sweep.SweepRefused, match="nằm trong worktree"):
+        sweep.run_sweep(path, results_root=wt / "results-inside", data_root=wt / "data", root=wt)
+
+    assert not (wt / "results-inside").exists()

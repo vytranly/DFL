@@ -74,6 +74,7 @@ from dfl.io.manifest import (
     Provenance,
     build_manifest,
     current_provenance,
+    linked_worktree_of,
     repo_root,
     run_id,
     unassembled_manifest,
@@ -409,8 +410,8 @@ RESULTS_ROOT = Path("results")
 
 
 class RunRefused(Exception):
-    """Lượt không được ghi vào results/ (SPEC §5.3): cây bẩn, môi trường lệch, dữ liệu smoke, hay run_id
-    đã xong; hoặc `--out` dẫn vào results/."""
+    """Lượt không được ghi vào results/ (SPEC §5.3): cây bẩn, môi trường lệch, dữ liệu smoke, thư mục kết quả
+    nằm trong worktree liên kết, hay run_id đã xong; hoặc `--out` dẫn vào results/."""
 
 
 class RunLocked(RunRefused):
@@ -435,7 +436,7 @@ def results_lock(run_dir: Path) -> Iterator[None]:
         raise RunLocked(f"run_id {run_dir.name} đang được một tiến trình khác chạy") from err
 
 
-def _check_results_allowed(config: RunConfig, provenance: Provenance) -> None:
+def _check_results_allowed(config: RunConfig, provenance: Provenance, results_root: Path) -> None:
     if config.dataset == "synthetic":
         raise RunRefused("dữ liệu tổng hợp (profile smoke) không bao giờ được ghi vào results/; dùng --out")
     if provenance.dirty:
@@ -446,6 +447,12 @@ def _check_results_allowed(config: RunConfig, provenance: Provenance) -> None:
     if not provenance.env_match:
         raise RunRefused(
             "môi trường lệch requirements.lock: " + "; ".join(provenance.mismatches) + "; hoặc ghi ra --out"
+        )
+    worktree = linked_worktree_of(results_root)
+    if worktree is not None:
+        raise RunRefused(
+            f"thư mục kết quả {results_root.resolve()} nằm trong worktree {worktree}, nên `git worktree "
+            "remove` sẽ xóa nó; cho results/ của worktree là symlink tới results/ của repo chính"
         )
 
 
@@ -593,11 +600,12 @@ def run(
 
     Có `out` thì ghi vào `out`/runs/<run_id>/attempt-<k>/ ở mọi trạng thái cây và môi trường (manifest ghi
     `dirty`, `env_match`), miễn là nó không dẫn vào `results_root`. Không có `out` thì ghi vào `results_root`
-    (mặc định results/) chỉ khi cây sạch, môi trường khớp file khóa, dữ liệu không phải smoke, và run_id chưa
-    có attempt xong; trong lúc chạy giữ khóa của run_id. Lượt phân kỳ ghi SummaryDiverged và trả về bình
-    thường; lỗi ghi SummaryFailed rồi raise lại. `expected_code_version` do sweep truyền (xem `_check_code`).
-    `process_timeout` là thời gian chờ (giây) của mọi phép gloo ở runtime processes. `provenance` chỉ để test
-    truyền vào; mặc định đọc từ cây và môi trường hiện tại.
+    (mặc định results/) chỉ khi cây sạch, môi trường khớp file khóa, dữ liệu không phải smoke, thư mục kết
+    quả (sau khi resolve) không nằm trong worktree liên kết nào, và run_id chưa có attempt xong; trong lúc
+    chạy giữ khóa của run_id. Lượt phân kỳ ghi SummaryDiverged và trả về bình thường; lỗi ghi SummaryFailed
+    rồi raise lại. `expected_code_version` do sweep truyền (xem `_check_code`). `process_timeout` là thời
+    gian chờ (giây) của mọi phép gloo ở runtime processes. `provenance` chỉ để test truyền vào; mặc định đọc
+    từ cây và môi trường hiện tại.
     """
     threads = set_threads(config.threads)
     provenance = provenance or current_provenance()
@@ -606,7 +614,7 @@ def run(
         _check_out(Path(out), run_dir, Path(results_root))
         _check_code(config, run_dir, provenance, expected_code_version, threads)
         return _attempt(config, run_dir, provenance, data_root, threads, process_timeout)
-    _check_results_allowed(config, provenance)
+    _check_results_allowed(config, provenance, Path(results_root))
     run_dir = Path(results_root) / "runs" / run_id_of(config, provenance)
     with results_lock(run_dir):
         _check_code(config, run_dir, provenance, expected_code_version, threads)
