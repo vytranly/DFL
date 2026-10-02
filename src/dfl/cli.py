@@ -5,6 +5,10 @@ Module này không import torch: mỗi lệnh con import module của nó bên t
 hình, đặt OMP_NUM_THREADS, OPENBLAS_NUM_THREADS, MKL_NUM_THREADS theo `threads` của cấu hình, rồi mới nạp
 sim.run (và torch), vì các thư viện này đọc biến môi trường lúc được nạp (SPEC §5.2).
 
+Mã thoát của `run`: 0 khi lượt xong (ok hay diverged; phân kỳ là kết quả, không phải lỗi); 1 khi lượt lỗi
+(SummaryFailed đã được ghi, traceback in ra stderr); 3 khi lượt bị từ chối ghi vào results/ (SPEC §5.3); 4 khi
+một tiến trình khác đang giữ khóa của run_id. Sweep (T12) dựa vào các mã này.
+
 argparse, lệnh con bằng add_subparsers và set_defaults:
 https://docs.python.org/3.12/library/argparse.html#sub-commands
 """
@@ -13,12 +17,15 @@ from __future__ import annotations
 
 import argparse
 import os
+import sys
 from collections.abc import Sequence
 from pathlib import Path
 
 # Tính từ thư mục đang đứng, tức gốc repo; .gitignore có /data/.
 DATA_ROOT = Path("data")
 THREAD_VARIABLES = ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS")
+EXIT_REFUSED = 3
+EXIT_LOCKED = 4
 
 
 def _download(args: argparse.Namespace) -> int:
@@ -37,7 +44,14 @@ def _run(args: argparse.Namespace) -> int:
         os.environ[name] = str(config.threads)
     from dfl.sim import run as run_module  # nạp torch sau khi đã đặt số luồng
 
-    attempt = run_module.run(config, out=args.out, data_root=args.data_root)
+    try:
+        attempt = run_module.run(config, out=args.out, data_root=args.data_root)
+    except run_module.RunLocked as err:
+        print(f"bỏ qua: {err}", file=sys.stderr)
+        return EXIT_LOCKED
+    except run_module.RunRefused as err:
+        print(f"từ chối: {err}", file=sys.stderr)
+        return EXIT_REFUSED
     print(f"đã ghi {attempt}")
     return 0
 
@@ -75,7 +89,9 @@ def build_parser() -> argparse.ArgumentParser:
     download.set_defaults(handler=_download)
     run = commands.add_parser("run", help="chạy một lượt từ một file cấu hình")
     run.add_argument("--config", type=Path, required=True, help="file YAML của lượt chạy")
-    run.add_argument("--out", type=Path, required=True, help="thư mục kết quả, ví dụ build/smoke")
+    run.add_argument(
+        "--out", type=Path, default=None, help="thư mục kết quả ngoài results/, ví dụ build/smoke"
+    )
     run.add_argument("--data-root", type=Path, default=DATA_ROOT, help="thư mục dữ liệu (mặc định: data)")
     run.set_defaults(handler=_run)
     describe = commands.add_parser("describe", help="mô tả các cách chia dữ liệu, không huấn luyện")

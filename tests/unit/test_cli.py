@@ -12,6 +12,7 @@ import pytest
 
 from dfl import cli
 from dfl.data import datasets
+from dfl.sim import run as run_module
 
 
 def test_download_mnist_fetches_into_the_given_root(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -95,8 +96,25 @@ def test_run_sets_thread_variables_before_torch_is_imported() -> None:
     assert seen == {"torch": False, "threads": 1, "out": "build/x", "env": ["1", "1", "1"]}
 
 
-def test_run_requires_an_output_directory() -> None:
-    with pytest.raises(SystemExit) as exit_info:
-        cli.main(["run", "--config", str(SMOKE)])
+def test_run_without_out_writes_to_results() -> None:
+    args = cli.build_parser().parse_args(["run", "--config", str(SMOKE)])
 
-    assert exit_info.value.code == 2
+    assert args.out is None
+
+
+@pytest.mark.parametrize(
+    ("error", "code"),
+    [(run_module.RunRefused("cây bẩn"), 3), (run_module.RunLocked("đang chạy"), 4)],
+    ids=["refused", "locked"],
+)
+def test_run_maps_refusals_to_exit_codes_for_the_sweep(
+    monkeypatch: pytest.MonkeyPatch, error: Exception, code: int
+) -> None:
+    def refuse(*args: object, **kwargs: object) -> Path:
+        raise error
+
+    monkeypatch.setattr(run_module, "run", refuse)
+    for name in THREAD_VARIABLES:
+        monkeypatch.setenv(name, "1")  # để monkeypatch trả lại môi trường cũ sau test
+
+    assert cli.main(["run", "--config", str(SMOKE)]) == code

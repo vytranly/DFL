@@ -515,3 +515,23 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - Quyết định mới (không cần ADR): B1 và B1-4k là `topology.kind: central` với `num_nodes: 1`; ngân sách 17,200 và 4,000 bước, cùng η riêng của B1, ghi trong YAML thí nghiệm (T14b, T14c), không trong code
 - Câu hỏi mở: không
 - Việc tiếp theo: T11d
+
+## 2026-10-02 — Phiên #17 (tiếp) — T11d Quy tắc ghi results/, phân kỳ, lỗi (TV3)
+- Trạng thái: T11d ✅
+- File đã đổi: src/dfl/sim/run.py, src/dfl/io/manifest.py, src/dfl/cli.py, tests/integration/test_results_rules.py (mới), tests/unit/test_manifest.py, tests/unit/test_cli.py, tests/integration/test_baselines.py, tests/integration/test_seeds.py, tasks/todo.md, tasks/SESSION_LOG.md
+- Kiểm chứng:
+  - RED (`run` chưa nhận `results_root`, `provenance`; chưa có `RunRefused`, `run_id_of`, `unassembled_manifest`) → GREEN, 12 test quy tắc; `make check-task` → 562 passed, coverage 97.6%, 66 s
+  - ENG-10: vào results/ thì từ chối khi cây bẩn, môi trường lệch (nêu tên gói), dữ liệu tổng hợp (profile smoke), hay run_id đã có attempt ok hoặc diverged; không tạo attempt nào khi từ chối. Ra `--out` thì chạy được, và manifest ghi đúng `dirty`, `env_match`. Sau attempt failed, `run` tay tạo được attempt-2
+  - Phân kỳ (η = 1e4 trên dữ liệu tổng hợp): SummaryDiverged có round và lý do; rounds.jsonl chỉ có các round trước round phân kỳ, không có NaN hay Infinity. Ngoại lệ giữa lượt: SummaryFailed có tên lỗi, số message tới lúc lỗi, rồi raise lại. Vượt 1,000 lần lấy mẫu lại: attempt failed trước khi huấn luyện, manifest đủ khóa với các trường của bước lắp để trống, rounds.jsonl rỗng
+  - Hai tiến trình: một tiến trình con giữ flock trên `results/runs/<run_id>/.lock`; lượt trong tiến trình test raise RunLocked và không tạo attempt
+  - CLI: không có `--out` thì ghi vào results/; từ chối → mã 3, khóa đang bị giữ → mã 4 (sweep dựa vào các mã này)
+  - Mutation: 10/10 mutant bị bắt đúng test (bỏ kiểm cây bẩn, bỏ kiểm môi trường, cho smoke vào results/, diverged không tính là xong, failed tính là xong, bỏ flock, không bắt RunDiverged, nuốt lỗi, không ghi lỗi lúc lắp, kiểm "đã xong" ngoài khóa)
+- Quyết định mới (không cần ADR):
+  - Lượt hỏng trước khi lắp xong vẫn có attempt: `unassembled_manifest` để trống các trường của bước lắp (0, None, [], 0.0, []); lý do nằm ở SummaryFailed. `build_manifest` vẫn kiểm chặt N phần tử
+  - `run` tay được chạy lại sau attempt failed; sweep thì chỉ khi có `--retry-failed` (T12)
+  - KeyboardInterrupt (BaseException) không bị bắt, nên attempt bị ngắt không có summary và sẽ được chạy lại
+  - Kiểm "đã xong" và chọn số attempt nằm trong khóa của run_id
+- Bảo trì test: `check-task` đã lên 101 s khi máy tải 14–16. Các test chạy lượt thật (test_results_rules, test_baselines, test_seeds) chuyển sang cấu hình smoke rút gọn (2–3 round, tập con 100 ảnh, B1 100/200 bước); test e2e vẫn chạy đúng profile smoke. `check-task` còn 66 s
+- Lệch quy trình: chạm 10 file (gồm `io/manifest.py` và hai file test của T11b, T11c để rút gọn thời gian test)
+- Câu hỏi mở: không
+- Việc tiếp theo: T12

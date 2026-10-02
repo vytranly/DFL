@@ -208,7 +208,7 @@ def current_provenance() -> Provenance:
     )
 
 
-def build_manifest(
+def _record(
     config: RunConfig,
     *,
     provenance: Provenance,
@@ -221,14 +221,8 @@ def build_manifest(
     objective_shift_tv: float,
     node_class_counts: Sequence[Sequence[int]],
 ) -> ManifestRecord:
-    """ManifestRecord của attempt `attempt` (đếm từ 1); các dãy theo node phải có đúng N phần tử."""
-    n = config.num_nodes
     if attempt < 1:
         raise ValueError(f"attempt đếm từ 1, nhận {attempt}")
-    if len(objective_weights) != n:
-        raise ValueError(f"objective_weights cần {n} phần tử (N), nhận {len(objective_weights)}")
-    if len(node_class_counts) != n or any(len(row) != NUM_CLASSES for row in node_class_counts):
-        raise ValueError(f"node_class_counts phải là ma trận N × {NUM_CLASSES} = {n} × {NUM_CLASSES}")
     return {
         "run_id": run_id(config, provenance.code_version, provenance.machine),
         "code_version": provenance.code_version,
@@ -249,3 +243,63 @@ def build_manifest(
         "objective_shift_tv": objective_shift_tv,
         "node_class_counts": [[int(c) for c in row] for row in node_class_counts],
     }
+
+
+def build_manifest(
+    config: RunConfig,
+    *,
+    provenance: Provenance,
+    attempt: int,
+    child_seeds: Mapping[str, int],
+    partition_retries: int,
+    cpu_threads: int,
+    spectral_gap: float | None,
+    objective_weights: Sequence[float],
+    objective_shift_tv: float,
+    node_class_counts: Sequence[Sequence[int]],
+) -> ManifestRecord:
+    """ManifestRecord của attempt `attempt` (đếm từ 1); các dãy theo node phải có đúng N phần tử."""
+    n = config.num_nodes
+    if len(objective_weights) != n:
+        raise ValueError(f"objective_weights cần {n} phần tử (N), nhận {len(objective_weights)}")
+    if len(node_class_counts) != n or any(len(row) != NUM_CLASSES for row in node_class_counts):
+        raise ValueError(f"node_class_counts phải là ma trận N × {NUM_CLASSES} = {n} × {NUM_CLASSES}")
+    return _record(
+        config,
+        provenance=provenance,
+        attempt=attempt,
+        child_seeds=child_seeds,
+        partition_retries=partition_retries,
+        cpu_threads=cpu_threads,
+        spectral_gap=spectral_gap,
+        objective_weights=objective_weights,
+        objective_shift_tv=objective_shift_tv,
+        node_class_counts=node_class_counts,
+    )
+
+
+def unassembled_manifest(
+    config: RunConfig,
+    *,
+    provenance: Provenance,
+    attempt: int,
+    child_seeds: Mapping[str, int],
+    cpu_threads: int,
+) -> ManifestRecord:
+    """Manifest của attempt hỏng trước khi lắp xong lượt chạy, ví dụ vượt 1,000 lần lấy mẫu lại (REQ-02).
+
+    Các trường chỉ có sau khi lắp (partition_retries, spectral_gap, objective_weights, objective_shift_tv,
+    node_class_counts) để trống: 0, None, [], 0.0, []. Lý do hỏng nằm ở SummaryFailed của attempt.
+    """
+    return _record(
+        config,
+        provenance=provenance,
+        attempt=attempt,
+        child_seeds=child_seeds,
+        partition_retries=0,
+        cpu_threads=cpu_threads,
+        spectral_gap=None,
+        objective_weights=[],
+        objective_shift_tv=0.0,
+        node_class_counts=[],
+    )

@@ -14,7 +14,7 @@ import pytest
 import torch
 
 from dfl import seeding
-from dfl.config import AlgorithmConfig, PartitionConfig, RunConfig, TopologyConfig, load_config
+from dfl.config import AlgorithmConfig, EvalConfig, PartitionConfig, RunConfig, TopologyConfig, load_config
 from dfl.data import datasets
 from dfl.data.partition import IIDPartitioner, assign_positions
 from dfl.seeding import Stream
@@ -32,9 +32,13 @@ def w0(setup: run.RunSetup) -> list[dict[str, torch.Tensor]]:
     return [node.model.state_dict() for node in setup.nodes]
 
 
+# Lượt chạy thật trong test: 3 round, tập con đánh giá 100 ảnh (đủ 10 lớp), để test nhanh.
+SHORT = dataclasses.replace(SMOKE, local_steps=6, eval=EvalConfig(subset_size=100, every_steps=None))
+
+
 def test_t_inv_5_same_seed_and_code_give_byte_identical_rounds_files(tmp_path: Path) -> None:
-    first = run.run(SMOKE, out=tmp_path / "a")
-    second = run.run(SMOKE, out=tmp_path / "b")
+    first = run.run(SHORT, out=tmp_path / "a")
+    second = run.run(SHORT, out=tmp_path / "b")
 
     assert (first / "rounds.jsonl").read_bytes() == (second / "rounds.jsonl").read_bytes()
 
@@ -42,7 +46,7 @@ def test_t_inv_5_same_seed_and_code_give_byte_identical_rounds_files(tmp_path: P
 def test_t_inv_5_a_run_leaves_the_global_torch_rng_untouched(tmp_path: Path) -> None:
     before = torch.get_rng_state()
 
-    run.run(SMOKE, out=tmp_path)
+    run.run(SHORT, out=tmp_path)
 
     assert torch.equal(torch.get_rng_state(), before)
 

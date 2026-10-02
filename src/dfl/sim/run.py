@@ -30,8 +30,12 @@ time.perf_counter: https://docs.python.org/3.12/library/time.html#time.perf_coun
 
 from __future__ import annotations
 
+import errno
+import json
+import os
 import time
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from functools import partial
 from pathlib import Path
@@ -52,6 +56,8 @@ from dfl.contracts import (
     PartitionResult,
     RunLogger,
     StateDict,
+    SummaryDiverged,
+    SummaryFailed,
     SummaryOk,
     TimingRecord,
     TopologySchedule,
@@ -65,7 +71,7 @@ from dfl.data.partition import (
     QuantityPartitioner,
     assign_positions,
 )
-from dfl.io.manifest import build_manifest, current_provenance, run_id
+from dfl.io.manifest import Provenance, build_manifest, current_provenance, run_id, unassembled_manifest
 from dfl.io.run_logger import JsonRunLogger
 from dfl.learning.local_train import SgdTrainer
 from dfl.learning.models import build_model
@@ -73,7 +79,7 @@ from dfl.metrics.classification import ClassificationEvaluator
 from dfl.network import mixing, topology
 from dfl.network.transport import InMemoryTransport
 from dfl.seeding import Stream
-from dfl.sim.engine import Engine
+from dfl.sim.engine import Engine, RunDiverged
 from dfl.sim.node import Node
 from dfl.sim.observer import Observer, run_rounds
 
@@ -327,26 +333,98 @@ def execute(setup: RunSetup, logger: RunLogger) -> SummaryOk:
     return summary
 
 
+RESULTS_ROOT = Path("results")
+FINISHED = ("ok", "diverged")
+
+
+class RunRefused(Exception):
+    """Lượt không được ghi vào results/ (SPEC §5.3): cây bẩn, môi trường lệch, dữ liệu smoke, hay run_id
+    đã xong."""
+
+
+class RunLocked(RunRefused):
+    """Một tiến trình khác đang giữ khóa của run_id; lượt này thoát mà không tạo attempt."""
+
+
+def run_id_of(config: RunConfig, provenance: Provenance) -> str:
+    return run_id(config, provenance.code_version, provenance.machine)
+
+
 def next_attempt(run_dir: Path) -> int:
     """Số attempt kế tiếp trong `run_dir`: 1 + số lớn nhất trong các thư mục attempt-<k> đã có."""
-    numbers = [p.name.removeprefix("attempt-") for p in run_dir.glob("attempt-*")]
-    return max((int(k) for k in numbers if k.isdigit()), default=0) + 1
+    return max(attempt_statuses(run_dir), default=0) + 1
 
 
-def run(config: RunConfig, *, out: Path, data_root: Path = Path("data")) -> Path:
-    """Chạy một lượt và ghi vào `out`/runs/<run_id>/attempt-<k>/; trả về thư mục attempt."""
-    threads = set_threads(config.threads)
-    setup = build(config, data.load(config.dataset, root=data_root))
-    provenance = current_provenance()
-    run_dir = Path(out) / "runs" / run_id(config, provenance.code_version, provenance.machine)
+def attempt_statuses(run_dir: Path) -> dict[int, str | None]:
+    """k → status trong summary.json của attempt-<k>; None với attempt chưa có summary (bị ngắt)."""
+    statuses: dict[int, str | None] = {}
+    for path in run_dir.glob("attempt-*"):
+        number = path.name.removeprefix("attempt-")
+        if number.isdigit():
+            summary = path / "summary.json"
+            status = json.loads(summary.read_text(encoding="utf-8"))["status"] if summary.exists() else None
+            statuses[int(number)] = status
+    return statuses
+
+
+@contextmanager
+def results_lock(run_dir: Path) -> Iterator[None]:
+    """Giữ flock(LOCK_EX | LOCK_NB) trên `run_dir`/.lock; đang bị giữ thì raise RunLocked (ADR-008).
+
+    Khóa tự nhả khi file descriptor đóng, kể cả khi tiến trình chết. fcntl chỉ có trên Unix, nên chỉ được
+    import khi ghi vào results/; ghi ra --out thì không khóa (laptop demo chạy được cả trên Windows).
+    """
+    import fcntl
+
+    run_dir.mkdir(parents=True, exist_ok=True)
+    fd = os.open(run_dir / ".lock", os.O_RDWR | os.O_CREAT, 0o644)
+    try:
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError as err:
+            if err.errno not in (errno.EAGAIN, errno.EACCES, errno.EWOULDBLOCK):
+                raise
+            raise RunLocked(f"run_id {run_dir.name} đang được một tiến trình khác chạy") from err
+        yield
+    finally:
+        os.close(fd)
+
+
+def _check_results_allowed(config: RunConfig, provenance: Provenance) -> None:
+    if config.dataset == "synthetic":
+        raise RunRefused("dữ liệu tổng hợp (profile smoke) không bao giờ được ghi vào results/; dùng --out")
+    if provenance.dirty:
+        raise RunRefused(
+            "cây làm việc bẩn (src/, configs/ hay requirements.lock có thay đổi chưa commit, hoặc có file "
+            "*.py, *.yaml bị ignore); commit trước, hoặc ghi ra --out"
+        )
+    if not provenance.env_match:
+        raise RunRefused(
+            "môi trường lệch requirements.lock: " + "; ".join(provenance.mismatches) + "; hoặc ghi ra --out"
+        )
+
+
+def _attempt(config: RunConfig, run_dir: Path, provenance: Provenance, data_root: Path, threads: int) -> Path:
+    """Một attempt mới trong `run_dir`: manifest, các round, rồi đúng một summary (ok, diverged, failed)."""
     attempt = next_attempt(run_dir)
     logger = JsonRunLogger(run_dir)
+    child_seeds = seeding.child_seeds(config.seed)
+    try:
+        setup = build(config, data.load(config.dataset, root=data_root))
+    except Exception as err:
+        logger.start(
+            unassembled_manifest(
+                config, provenance=provenance, attempt=attempt, child_seeds=child_seeds, cpu_threads=threads
+            )
+        )
+        logger.finish(SummaryFailed(status="failed", error=_describe(err), messages_total=0, bytes_total=0))
+        raise
     logger.start(
         build_manifest(
             config,
             provenance=provenance,
             attempt=attempt,
-            child_seeds=seeding.child_seeds(config.seed),
+            child_seeds=child_seeds,
             partition_retries=setup.partition.retries,
             cpu_threads=threads,
             spectral_gap=setup.spectral_gap,
@@ -355,5 +433,63 @@ def run(config: RunConfig, *, out: Path, data_root: Path = Path("data")) -> Path
             node_class_counts=setup.heterogeneity.node_class_counts,
         )
     )
-    execute(setup, logger)
+    try:
+        execute(setup, logger)
+    except RunDiverged as err:
+        counters = setup.engine.counters()
+        logger.finish(
+            SummaryDiverged(
+                status="diverged",
+                diverged_at_round=err.diverged_at_round,
+                reason=err.reason,
+                messages_total=counters.messages_cum,
+                bytes_total=counters.bytes_cum,
+            )
+        )
+    except Exception as err:
+        counters = setup.engine.counters()
+        logger.finish(
+            SummaryFailed(
+                status="failed",
+                error=_describe(err),
+                messages_total=counters.messages_cum,
+                bytes_total=counters.bytes_cum,
+            )
+        )
+        raise
     return run_dir / f"attempt-{attempt}"
+
+
+def _describe(err: BaseException) -> str:
+    return f"{type(err).__name__}: {err}"
+
+
+def run(
+    config: RunConfig,
+    *,
+    out: Path | None = None,
+    results_root: Path = RESULTS_ROOT,
+    data_root: Path = Path("data"),
+    provenance: Provenance | None = None,
+) -> Path:
+    """Chạy một lượt; trả về thư mục attempt.
+
+    Có `out` thì ghi vào `out`/runs/<run_id>/attempt-<k>/ ở mọi trạng thái cây và môi trường (manifest ghi
+    `dirty`, `env_match`). Không có `out` thì ghi vào `results_root` (mặc định results/) chỉ khi cây sạch,
+    môi trường khớp file khóa, dữ liệu không phải smoke, và run_id chưa có attempt xong; trong lúc chạy giữ
+    khóa của run_id. Lượt phân kỳ ghi SummaryDiverged và trả về bình thường; lỗi ghi SummaryFailed rồi raise
+    lại. `provenance` chỉ để test truyền vào; mặc định đọc từ cây và môi trường hiện tại.
+    """
+    threads = set_threads(config.threads)
+    provenance = provenance or current_provenance()
+    if out is not None:
+        return _attempt(
+            config, Path(out) / "runs" / run_id_of(config, provenance), provenance, data_root, threads
+        )
+    _check_results_allowed(config, provenance)
+    run_dir = Path(results_root) / "runs" / run_id_of(config, provenance)
+    with results_lock(run_dir):
+        finished = sorted(k for k, status in attempt_statuses(run_dir).items() if status in FINISHED)
+        if finished:
+            raise RunRefused(f"run_id {run_dir.name} đã xong ở attempt-{finished[0]}; không tạo attempt mới")
+        return _attempt(config, run_dir, provenance, data_root, threads)

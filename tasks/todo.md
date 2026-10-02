@@ -325,7 +325,7 @@
   - Phụ thuộc: T10c, T11a, T09a, T03, T04c
   - File: `src/dfl/sim/run.py`, `src/dfl/cli.py`, `tests/e2e/test_smoke_run.py`, `tests/integration/test_seeds.py`, `Makefile`
 
-- [ ] **T11d · Quy tắc ghi `results/`, phân kỳ, lỗi** — TV3 · S
+- [x] **T11d · Quy tắc ghi `results/`, phân kỳ, lỗi** — TV3 · S
   - Mô tả: trong `sim/run.py`: ghi vào `results/` chỉ khi cây sạch (theo định nghĩa ở T11a) và môi trường khớp `requirements.lock`; khóa `flock` theo run_id (`fcntl` chỉ import khi ghi vào `results/`); từ chối run_id đã xong. Phân kỳ thì ghi `SummaryDiverged`, lỗi thì ghi `SummaryFailed`, với `allow_nan=False`.
   - Chấp nhận:
     - ENG-10: vào `results/` thì từ chối khi cây bẩn, môi trường lệch, hay run_id đã xong; ra `--out` thì chạy được và manifest ghi đúng `dirty`, `env_match`.

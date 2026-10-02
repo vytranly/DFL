@@ -347,3 +347,21 @@ def test_reading_provenance_does_not_import_torch() -> None:
     result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=False)
 
     assert result.returncode == 0, result.stderr
+
+
+def test_a_run_that_failed_before_assembly_gets_a_manifest_with_empty_assembly_fields() -> None:
+    # Ví dụ vượt 1,000 lần lấy mẫu lại (REQ-02): attempt vẫn có manifest đủ khóa, lý do nằm ở summary.json.
+    config = cfg.RunConfig()
+
+    record = mf.unassembled_manifest(
+        config, provenance=PROVENANCE, attempt=2, child_seeds={"init": 7}, cpu_threads=1
+    )
+
+    assert set(record) == set(ManifestRecord.__required_keys__)
+    assert record["run_id"] == mf.run_id(config, PROVENANCE.code_version, PROVENANCE.machine)
+    assert (record["objective_weights"], record["node_class_counts"], record["spectral_gap"]) == (
+        [],
+        [],
+        None,
+    )
+    assert (record["partition_retries"], record["objective_shift_tv"], record["attempt"]) == (0, 0.0, 2)

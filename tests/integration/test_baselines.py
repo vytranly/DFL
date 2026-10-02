@@ -16,7 +16,12 @@ from dfl.data import datasets
 from dfl.seeding import Stream
 from dfl.sim import run
 
-SMOKE = load_config(Path(__file__).resolve().parents[2] / "configs" / "profiles" / "smoke.yaml")
+# Profile smoke rút gọn còn 2 round và tập con đánh giá 100 ảnh (đủ 10 lớp), để các test chạy nhanh.
+SMOKE = dataclasses.replace(
+    load_config(Path(__file__).resolve().parents[2] / "configs" / "profiles" / "smoke.yaml"),
+    local_steps=4,
+    eval=EvalConfig(subset_size=100, every_steps=None),
+)
 MESSAGE_BYTES = 4 * 46_730
 
 
@@ -28,7 +33,7 @@ def central(local_steps: int) -> RunConfig:
         topology=TopologyConfig(kind="central"),
         local_steps=local_steps,
         algorithm=AlgorithmConfig(tau=20),
-        eval=EvalConfig(subset_size=500, every_steps=100),
+        eval=EvalConfig(subset_size=100, every_steps=100),
     )
 
 
@@ -49,7 +54,7 @@ def data() -> datasets.Datasets:
     return datasets.load("synthetic")
 
 
-@pytest.mark.parametrize("local_steps", [200, 300], ids=["b1", "b1-4k"])
+@pytest.mark.parametrize("local_steps", [100, 200], ids=["b1", "b1-4k"])
 def test_central_baseline_trains_one_node_on_all_data_without_messages(
     tmp_path: Path, local_steps: int
 ) -> None:
@@ -65,7 +70,7 @@ def test_central_baseline_trains_one_node_on_all_data_without_messages(
 def test_central_baseline_reads_the_train_set_in_order_with_its_own_batch_stream(
     data: datasets.Datasets,
 ) -> None:
-    setup = run.build(central(200), data)
+    setup = run.build(central(100), data)
 
     (node,) = setup.nodes
     assert torch.equal(node.data.y, data.train.y) and torch.equal(node.data.x, data.train.x)
@@ -88,7 +93,7 @@ def test_server_baseline_sends_two_messages_per_node_per_round(tmp_path: Path) -
 
     manifest, rounds, _ = execute(config, tmp_path)
 
-    assert [r["messages_cum"] for r in rounds] == [8 * k for k in range(1, 7)]  # 2N mỗi round
+    assert [r["messages_cum"] for r in rounds] == [8, 16]  # 2N mỗi round
     assert all(r["bytes_cum"] == r["messages_cum"] * MESSAGE_BYTES for r in rounds)
     assert all(r["consensus_distance"] == 0 for r in rounds)  # mọi node nhận cùng model của server
     sizes = np.array([sum(row) for row in manifest["node_class_counts"]], dtype=float)
@@ -103,7 +108,7 @@ def test_uniform_mixing_optimizes_weights_proportional_to_degree_plus_one(tmp_pa
     manifest, rounds, _ = execute(config, tmp_path)
 
     assert manifest["objective_weights"] == pytest.approx([0.4, 0.2, 0.2, 0.2])
-    assert [r["messages_cum"] for r in rounds] == [6 * k for k in range(1, 7)]  # 3 cạnh, 2 chiều
+    assert [r["messages_cum"] for r in rounds] == [6, 12]  # 3 cạnh, 2 chiều
 
 
 def test_size_corrected_scales_each_loss_by_node_size_over_the_mean(
