@@ -106,5 +106,4 @@ def build_dataloaders(dataset_name='mnist', method='dirichlet',
         client_loaders[cid] = DataLoader(subset, batch_size=batch_size, shuffle=True)
 
     global_test_loader = DataLoader(global_test_dataset, batch_size=batch_size, shuffle=False)
-    
     return client_loaders, global_test_loader, client_indices, train_dataset
