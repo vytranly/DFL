@@ -113,6 +113,7 @@ def test_a_number_that_pyyaml_reads_as_a_string_is_rejected_with_a_hint(tmp_path
         ("dataset: cifar10\n", "cnn_niidbench"),
         ("augmentation: crop_flip\n", "3×32×32"),
         ("dataset: cifar10\nmodel: cnn_niidbench\naugmentation: flip\n", "augmentation"),
+        ("dataset: cifar10\nmodel: cnn_niidbench\naugmentation: none\n", "crop_flip"),
         ("[1, 2]\n", "mapping"),
         ("algorithm: 3\n", "mapping"),
         ("num_nodes: 0\n", "num_nodes"),
@@ -155,6 +156,7 @@ def test_a_number_that_pyyaml_reads_as_a_string_is_rejected_with_a_hint(tmp_path
         "cifar10-needs-its-model",
         "crop-flip-needs-cifar10-images",
         "bad-augmentation",
+        "cifar10-needs-crop-flip",
         "not-a-mapping",
         "section-not-a-mapping",
         "zero-nodes",
@@ -272,9 +274,9 @@ def test_cifar10_profiles_change_only_the_dataset_and_model_of_their_mnist_twin(
         ("", "none"),
         ("dataset: cifar10\nmodel: cnn_niidbench\n", "crop_flip"),
         ("dataset: synthetic_cifar10\nmodel: cnn_niidbench\naugmentation: null\n", "crop_flip"),
-        ("dataset: cifar10\nmodel: cnn_niidbench\naugmentation: none\n", "none"),
+        ("dataset: cifar10\nmodel: cnn_niidbench\naugmentation: crop_flip\n", "crop_flip"),
     ],
-    ids=["mnist-default", "cifar10-default", "synthetic-cifar10-null", "cifar10-none"],
+    ids=["mnist-default", "cifar10-default", "synthetic-cifar10-null", "cifar10-explicit"],
 )
 def test_augmentation_null_follows_the_dataset_and_survives_the_child_yaml(
     tmp_path: Path, text: str, expected: str
@@ -284,3 +286,15 @@ def test_augmentation_null_follows_the_dataset_and_survives_the_child_yaml(
 
     assert config.augmentation == expected
     assert cfg.load_config(write(tmp_path, "child.yaml", cfg.to_yaml(config))) == config
+
+
+def test_replacing_the_dataset_without_resetting_augmentation_fails_loudly() -> None:
+    # Review T28, R1: replace giữ giá trị đã điền của cấu hình cũ, nên MNIST → CIFAR-10 mà quên đặt lại
+    # augmentation phải lỗi, thay vì lặng lẽ chạy CIFAR-10 không có augmentation.
+    fast = cfg.load_config(CONFIGS / "profiles" / "fast.yaml")
+
+    with pytest.raises(ValueError, match="null"):
+        dataclasses.replace(fast, dataset="cifar10", model="cnn_niidbench")
+
+    reset = dataclasses.replace(fast, dataset="cifar10", model="cnn_niidbench", augmentation=None)
+    assert reset == cfg.load_config(CONFIGS / "profiles" / "cifar10_fast.yaml")

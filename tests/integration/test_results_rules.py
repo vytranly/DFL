@@ -26,7 +26,9 @@ SMOKE = dataclasses.replace(
     local_steps=4,
     eval=EvalConfig(subset_size=100, every_steps=None),
 )
-SMOKE_CIFAR10 = dataclasses.replace(SMOKE, dataset="synthetic_cifar10", model="cnn_niidbench")
+SMOKE_CIFAR10 = dataclasses.replace(
+    SMOKE, dataset="synthetic_cifar10", model="cnn_niidbench", augmentation=None
+)
 CLEAN = Provenance(
     code_version="c" * 64,
     git_commit="a" * 40,

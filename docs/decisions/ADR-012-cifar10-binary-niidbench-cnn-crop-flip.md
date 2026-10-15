@@ -58,12 +58,12 @@ Proposed — soạn ngày 2026-10-15 theo yêu cầu làm code CIFAR-10 trước
   - Không cần luồng mới và không đổi contract `LocalTrainer`, vì trainer vẫn chỉ dùng `model`, `data`, `generator`.
   - RNG toàn cục không bị động tới (T-INV-5). Hai runtime vẫn trùng từng bit (T-INV-13), vì cả hai dựng trainer bằng `Assembly.trainer()`.
 - **Phạm vi áp dụng:** chỉ khi huấn luyện; đánh giá dùng ảnh gốc. Chỉ nhận ảnh 3×32×32, vì lật ngang làm sai nghĩa chữ số MNIST.
-- **Giá trị cấu hình:**
-  - `none`: không augmentation, đường code của MNIST giữ nguyên.
-  - `crop_flip`: như trên.
-  - `null` (mặc định của `configs/base.yaml`): `crop_flip` với `cifar10` và `synthetic_cifar10`, `none` với dataset khác.
+- **Giá trị cấu hình:** augmentation do dataset quyết định.
+  - `crop_flip`: ảnh 3×32×32 (`cifar10`, `synthetic_cifar10`).
+  - `none`: ảnh 1×28×28 (`mnist`, `synthetic`); đường code của MNIST giữ nguyên.
+  - `null` (mặc định của `configs/base.yaml`): điền giá trị của dataset. Cấu hình chuẩn hóa ghi giá trị đã điền, như `topology.p` của ER.
 
-  Cấu hình chuẩn hóa ghi giá trị đã điền, như `topology.p` của ER.
+  Ghi giá trị khác của dataset thì cấu hình báo lỗi. Nhờ vậy một lượt CIFAR-10 không thể lặng lẽ chạy thiếu augmentation, kể cả khi `dataclasses.replace` đổi dataset mà quên đặt lại trường này thành `None` (review T28, R1). Muốn chạy CIFAR-10 không augmentation (ablation) thì cần ADR mới (xem Alternatives).
 
 ### Profile
 - `configs/profiles/smoke_cifar10.yaml`: như `smoke`, với `synthetic_cifar10` và `cnn_niidbench`.
@@ -143,7 +143,7 @@ Proposed — soạn ngày 2026-10-15 theo yêu cầu làm code CIFAR-10 trước
   - Mỗi tiến trình giữ ba tập float32: 45k × 3,072 × 4 B = 553 MB (train), 61 MB (validation), 123 MB (test), tổng khoảng 737 MB. MNIST chỉ khoảng 220 MB.
   - Runtime inprocess còn giữ bản sao dữ liệu của các node (tổng 553 MB). Đo được RAM đỉnh 1.69 GB cho một lượt `cifar10_fast`.
   - Một tiến trình node của process runtime đạt RAM đỉnh 1,291 MiB (MNIST 764 MiB). Với N = 20 cần khoảng 21 × 1.29 GB ≈ 27 GB, quá RAM còn trống của máy chủ dùng chung (31 GB tổng, khoảng 20 GB trống ngày 2026-10-15). N = 8 cần khoảng 11.6 GB.
-- **Augmentation:** minibatch của lượt có `crop_flip` khác lượt `none` cùng seed, vì hai lượt rút số xen kẽ khác nhau. Mọi so sánh trong một nhóm CIFAR-10 vẫn ghép cặp (G9), vì cùng seed thì cùng chuỗi số ở mọi topology và thuật toán.
+- **Augmentation:** mọi lượt CIFAR-10 dùng `crop_flip`, nên mọi so sánh trong một nhóm CIFAR-10 vẫn ghép cặp (G9): cùng seed thì cùng chuỗi số ở mọi topology và thuật toán. Một ablation không augmentation sẽ không ghép cặp được minibatch với lượt có augmentation, vì hai lượt rút số xen kẽ khác nhau.
 - **SPEC** (sửa cùng ADR này, theo lựa chọn phạm vi ngày 2026-10-15): §1.4, §4, §5.1, §5.2, §6, REQ-14, §10 dòng 41.
 - **Task:** T28a–T28f trong `tasks/todo.md`.
 
