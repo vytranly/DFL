@@ -70,8 +70,9 @@ def size_weighted(graph: nx.Graph, node_sizes: np.ndarray) -> np.ndarray:
     if graph.number_of_edges() != n * (n - 1) // 2:
         raise ValueError("size-weighted chỉ dùng trên đồ thị đầy đủ (FC); xem ADR-005")
     sizes = np.asarray(node_sizes, dtype=float)
-    if sizes.shape != (n,) or (sizes <= 0).any():
-        raise ValueError("node_sizes phải có đúng N phần tử dương")
+    # NaN không bị `<= 0` bắt, nên đòi trực tiếp hữu hạn và dương (review C3 P3.7, P2-2).
+    if sizes.shape != (n,) or not (np.isfinite(sizes).all() and (sizes > 0).all()):
+        raise ValueError(f"node_sizes phải có đúng N = {n} phần tử dương, hữu hạn; nhận {sizes}")
     return np.tile(sizes / sizes.sum(), (n, 1))
 
 

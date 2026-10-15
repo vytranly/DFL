@@ -139,3 +139,14 @@ def test_uniform_ignores_edge_attributes_named_weight() -> None:
     weighted.edges[0, 1]["weight"] = 5
 
     assert np.array_equal(mixing.uniform(weighted), mixing.uniform(nx.path_graph(3)))
+
+
+@pytest.mark.parametrize(
+    "sizes",
+    [[0.0, 1.0, 1.0], [-1.0, 1.0, 1.0], [1.0, 1.0], [np.nan, 1.0, 1.0], [np.inf, 1.0, 1.0]],
+    ids=["zero", "negative", "wrong-shape", "nan", "inf"],
+)
+def test_size_weighted_rejects_sizes_that_are_not_positive_finite_numbers(sizes: list[float]) -> None:
+    # Review C3 P3.7, P2-2: kích thước NaN từng lọt qua phép kiểm `<= 0` và cho W toàn NaN.
+    with pytest.raises(ValueError, match="node_sizes"):
+        mixing.size_weighted(nx.complete_graph(3), np.array(sizes))
