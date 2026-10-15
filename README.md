@@ -25,6 +25,8 @@ python -m dfl download mnist
 python -m dfl download cifar10
 ```
 
+Hoặc chạy `make venv`, tức đúng các lệnh cài đặt ở trên. Mọi lệnh `make` đều tự dùng `.venv/bin/python`, nên không cần activate venv. `make shell` mở một shell con đã activate venv; gõ `exit` để quay lại. `make help` liệt kê các lệnh.
+
 ## Lệnh
 
 | Lệnh | Mô tả |
@@ -33,6 +35,7 @@ python -m dfl download cifar10
 | `make check-task` | Như `check-fast`, cộng test integration và coverage; trước mỗi commit (ngân sách 90 s, chỉ cảnh báo) |
 | `make check-full` | Toàn bộ test (cả e2e), `check-inv` và `pip check`; ở mỗi checkpoint |
 | `make check-inv` | Có đủ test bất biến T-INV-1…13 và tất cả đều xanh |
+| `make help` | Lối tắt không cần activate venv: `make venv`, `make shell`, `make download-mnist`, `make download-cifar10`, `make smoke`, `make smoke-cifar10`, `make fast`, `make cifar10-fast`; thêm cờ cho `dfl run` qua `ARGS="..."` |
 | `python -m dfl run --config configs/profiles/smoke.yaml --out build/smoke` | Một lượt smoke trên dữ liệu tổng hợp, không cần MNIST |
 | `python -m dfl run --config configs/profiles/fast.yaml --out build/fast` | Một lượt fast trên MNIST (N = 20). Thêm `--runtime processes` để mỗi node chạy trong một tiến trình riêng (ADR-010) |
 | `python -m dfl run --config configs/profiles/smoke_cifar10.yaml --out build/smoke-cifar10` | Một lượt smoke của đường CIFAR-10 trên dữ liệu tổng hợp 3×32×32, không cần tải CIFAR-10 (ADR-012) |

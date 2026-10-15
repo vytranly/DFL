@@ -792,3 +792,17 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
   - Process runtime với CIFAR-10 ở N = 20 cần khoảng 27 GB RAM, không vừa máy chủ dùng chung: giảm N, hoặc điền tensor theo khối để hạ RAM đỉnh.
   - Đẩy nhánh `binh` (`git push -u origin binh`, cần token GitHub).
 
+## 2026-10-15 — Phiên #19 (tiếp) — Lối tắt make không cần activate venv
+- Trạng thái: ✅ (yêu cầu của thành viên nhóm: gõ `make` mà không phải activate venv)
+- File đã đổi: Makefile, README.md, tasks/SESSION_LOG.md
+- Nội dung:
+  - Thêm `make help`, `make venv` (đúng lệnh cài đặt của SPEC §4, gọi pip của `.venv`), `make shell` (shell con bash đọc ~/.bashrc rồi activate `.venv`; gõ exit để quay lại), `make download-mnist`, `make download-cifar10`, `make smoke`, `make smoke-cifar10`, `make fast`, `make cifar10-fast`.
+  - Các lệnh chạy nhận thêm cờ qua `ARGS`, và ghi ra `build/<tên>`.
+  - Lý do có `make shell`: make không đổi được môi trường của terminal đang gõ, vì mỗi dòng lệnh chạy trong một tiến trình con.
+  - Target kiểm tra giữ nguyên; `make` không kèm tên vẫn chạy `check-fast`.
+- Kiểm chứng:
+  - Với PATH không có python nào, `make download-cifar10` và `make smoke-cifar10` chạy bằng `.venv/bin/python`.
+  - `make shell` cho `VIRTUAL_ENV=.../.venv`, `python` của `.venv`, dấu nhắc `(.venv)`.
+  - Thiếu venv thì `make shell` báo "chạy: make venv".
+  - `make -n venv` in đúng bốn lệnh cài đặt; không chạy `make venv` thật vì `.venv` đã có.
+
