@@ -835,3 +835,15 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
   - Các lỗi P2 có test FAIL: P2-1, P2-2 ca NaN, P2-3, P2-12.
   - Tăng `MIN_TESTS` ở checkpoint sau.
 
+## 2026-10-15 — Phiên #19 (tiếp) — Sửa P2-1, P2-2, P2-3, P2-12 (P3.7) và phần còn lại của I6 (P4.1)
+- Trạng thái: P2-1, P2-2, P2-3, P2-12 ✅, mỗi lỗi một commit theo P3.4 (test tái hiện đỏ trước khi sửa); I6 ✅. Không còn mục mở nào của C3 trong hai bản review, trừ T11e và smoke trên laptop demo (QS-8)
+- P2-1 (7817734): `mixing.uniform` đọc thuộc tính cạnh `weight`; sửa bằng `to_numpy_array(..., weight=None)`
+- P2-2 (200d208): `size_weighted` nhận kích thước NaN và vô cực (NaN lọt qua `<= 0`); giờ đòi hữu hạn và dương
+- P2-3 (c912e4b): khi Dirichlet hết lượt lấy mẫu lại, thông báo nêu số lần thử bị bỏ vì xác suất còn lại bằng 0 (ví dụ 737/1,001 với α = 1e-4); thứ tự rút số không đổi, test golden vẫn khớp
+- P2-12 (3abd45b): `confusion_matrix` từ chối độ dài lệch (từng broadcast im lặng) và nhãn ngoài 0..9 (từng rơi sang ô của lớp khác)
+- I6 (commit này):
+  - `engine.round_plan`: G_t, W^(t), INV-4 và phép kiểm `graph_at` thuần (G18). Engine và tiến trình node dùng chung; trước đây tiến trình node không kiểm tính thuần, dù mỗi tiến trình tự tính đồ thị
+  - `engine.loss_reason`, `engine.params_reason`: câu lý do phân kỳ dùng chung. Mỗi lần gom của process runtime mang thêm cột chi tiết (bit float64 của mất mát, hoặc vị trí tensor không hữu hạn), nên observer ghi đúng câu của engine
+  - Canh gác: test phân kỳ của process runtime giờ so toàn bộ summary.json. Trước khi sửa: FAIL ("…không hữu hạn" so với "…không hữu hạn (nan)"). Sau khi sửa: PASS
+  - Thêm test dựng lại lý do cho cả ba mã dừng; hai mutant (lệch chỉ số tensor, đảo pha) bị bắt
+- Việc tiếp theo: T11e

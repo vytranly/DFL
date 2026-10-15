@@ -164,11 +164,26 @@ def _first_non_finite(state: StateDict) -> str | None:
     return None
 
 
+# Lý do phân kỳ, dùng chung cho engine và process runtime để summary.json của hai runtime trùng nhau (review
+# C3 P4.1, I6). Thứ tự ưu tiên: mất mát của mọi node, rồi tham số sau Adapt, rồi tham số sau tổng hợp; trong
+# mỗi loại, node có id nhỏ nhất và tensor đầu tiên theo thứ tự của state.
+AFTER_ADAPT = "sau huấn luyện cục bộ"
+AFTER_COMBINE = "sau tổng hợp"
+
+
+def loss_reason(node_id: int, loss: float) -> str:
+    return f"mất mát huấn luyện của node {node_id} không hữu hạn ({loss})"
+
+
+def params_reason(node_id: int, name: str, phase: str) -> str:
+    return f"tham số {name} của node {node_id} không hữu hạn {phase}"
+
+
 def _check_finite(states: dict[int, StateDict], round_idx: int, phase: str) -> None:
     for node_id in sorted(states):
         name = _first_non_finite(states[node_id])
         if name is not None:
-            raise RunDiverged(round_idx, f"tham số {name} của node {node_id} không hữu hạn {phase}")
+            raise RunDiverged(round_idx, params_reason(node_id, name, phase))
 
 
 def _check_nodes(nodes: Sequence[Node]) -> None:
@@ -270,6 +285,27 @@ def _check_inbox(inbox: Mapping[int, Snapshot], dst: int, round_idx: int) -> Non
                 f"inbox của node {dst} ở round {round_idx} có snapshot sai: khóa {sender}, người gửi "
                 f"{message.sender}, round {message.round_idx}"
             )
+
+
+def round_plan(
+    schedule: TopologySchedule, mixing: MixingPolicy, sizes: np.ndarray, round_idx: int, num_nodes: int
+) -> tuple[nx.Graph, np.ndarray]:
+    """G_t và W^(t) của một round, đã qua INV-4; engine và tiến trình node của process runtime dùng chung
+    (review C3 P4.1, I6), để mọi phép kiểm của round áp cho cả hai runtime.
+
+    Với lịch thay đổi theo round, gọi `graph_at` lần hai và đòi cùng đồ thị (G18, T-INV-12): ở process runtime
+    mỗi tiến trình tự tính đồ thị, nên một lịch không thuần sẽ làm các tiến trình lệch nhau mà không ai báo.
+    """
+    graph = schedule.graph_at(round_idx)
+    if schedule.is_static:
+        graph = nx.freeze(graph.copy())  # bản riêng: người khác sửa đồ thị gốc cũng không lệch khỏi W đã kiểm
+    weights = np.array(mixing(graph, sizes), dtype=float)
+    _check_round(graph, weights, num_nodes, static=schedule.is_static)
+    if not schedule.is_static and _edge_set(schedule.graph_at(round_idx)) != _edge_set(graph):
+        raise RuntimeError(
+            f"graph_at({round_idx}) không thuần: hai lần gọi cho hai đồ thị khác nhau (G18, T-INV-12)"
+        )
+    return graph, weights
 
 
 def check_union_connected(schedule: TopologySchedule, num_nodes: int, total_rounds: int) -> None:
@@ -379,13 +415,7 @@ class Engine:
             return None, self._server_plan
         if self._static_plan is not None:
             return self._static_plan
-        graph = schedule.graph_at(round_idx)
-        if schedule.is_static:
-            graph = nx.freeze(
-                graph.copy()
-            )  # bản riêng: người khác sửa đồ thị gốc cũng không lệch khỏi W đã kiểm
-        weights = np.array(mixing(graph, self._sizes), dtype=float)
-        _check_round(graph, weights, len(self._nodes), static=schedule.is_static)
+        graph, weights = round_plan(schedule, mixing, self._sizes, round_idx, len(self._nodes))
         plan = (graph, _immutable(weights))
         if schedule.is_static:
             self._static_plan = plan
@@ -399,18 +429,12 @@ class Engine:
             raise RuntimeError(
                 f"round phải chạy theo thứ tự 0, 1, 2, …: đang chờ {self._next_round}, nhận {round_idx}"
             )
-        schedule = self._schedule
         if self._dynamic and round_idx >= self._checked_rounds:
             raise RuntimeError(
                 f"round {round_idx} nằm ngoài phạm vi đã kiểm INV-4 ({self._checked_rounds} round); gọi "
                 "check_schedule(total_rounds) trước (run_rounds làm việc này)"
             )
-        graph, weights = self._plan(round_idx)  # lỗi ở đây chưa chạm model nào
-        if self._dynamic and schedule is not None and graph is not None:
-            if _edge_set(schedule.graph_at(round_idx)) != _edge_set(graph):
-                raise RuntimeError(
-                    f"graph_at({round_idx}) không thuần: hai lần gọi cho hai đồ thị khác nhau (G18, T-INV-12)"
-                )
+        graph, weights = self._plan(round_idx)  # lỗi ở đây (kể cả lịch không thuần) chưa chạm model nào
         try:
             return self._run(round_idx, graph, weights)
         except RunDiverged:
@@ -435,13 +459,11 @@ class Engine:
             )
         for node_id in sorted(losses):  # theo id, để lý do không phụ thuộc thứ tự duyệt
             if not math.isfinite(losses[node_id]):
-                raise RunDiverged(
-                    round_idx, f"mất mát huấn luyện của node {node_id} không hữu hạn ({losses[node_id]})"
-                )
+                raise RunDiverged(round_idx, loss_reason(node_id, losses[node_id]))
         snapshots: dict[int, Snapshot] = {}
         for node in self._nodes:
             snapshots[node.node_id] = make_snapshot(node.node_id, round_idx, node.model.state_dict())
-        _check_finite({i: s.state for i, s in snapshots.items()}, round_idx, "sau huấn luyện cục bộ")
+        _check_finite({i: s.state for i, s in snapshots.items()}, round_idx, AFTER_ADAPT)
         if graph is None:
             self._exchange_via_server(round_idx, snapshots)
         else:
@@ -454,7 +476,7 @@ class Engine:
             _check_inbox(inbox, node.node_id, round_idx)
             row = self._from_server if graph is None else weights[node.node_id]
             combined[node.node_id] = combine(snapshots[node.node_id], inbox, row)
-        _check_finite(combined, round_idx, "sau tổng hợp")
+        _check_finite(combined, round_idx, AFTER_COMBINE)
         for node in self._nodes:
             node.model.load_state_dict(combined[node.node_id])
         self._transport.end_round(round_idx)

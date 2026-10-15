@@ -8,15 +8,18 @@ chạy lượt kiêm observer (module sim; ADR-010; SPEC §9.2 T-INV-13).
 - Mọi tiến trình tự lắp lại cùng một lượt từ cấu hình (cách chia, lịch, W, π, c_i, w⁰), nên ngoài snapshot
   không phải trao đổi gì. Tiến trình node i chỉ giữ model, dữ liệu, Generator và Transport của chính nó
   (INV-1).
-- Một round của node i: Adapt; snapshot; gom trạng thái lần 1; G_t = graph_at(t) và W^(t) tự tính (G18), kiểm
-  INV-4 như engine; trao đổi snapshot với láng giềng qua TorchDistTransport (isend/irecv, tag = round); kiểm
-  inbox; combine theo id người gửi tăng dần; gom trạng thái lần 2. Hai lần gom (all_gather) ứng đúng hai chỗ
-  engine kiểm hữu hạn (sau Adapt và sau tổng hợp), nên khi một node phân kỳ, mọi tiến trình dừng gọn ở cùng
-  round với bản inprocess.
-- Mỗi lần gom mang [mã, message, byte, tải] của từng node; observer cộng thành CommCounters cùng định nghĩa
-  với InMemoryTransport (INV-2). Ở mốc đánh giá, node gửi cho observer state sau tổng hợp, snapshot trước tổng
-  hợp, mất mát và thời gian các pha bằng send/recv. Kênh đo này không đi qua Transport nên không bị đếm
-  (INV-2, INV-5).
+- Một round của node i: Adapt; snapshot; gom trạng thái lần 1; G_t và W^(t) tự tính bằng `engine.round_plan`,
+  cùng hàm và cùng phép kiểm với engine (INV-4, graph_at thuần, G18); trao đổi snapshot với láng giềng qua
+  TorchDistTransport (isend/irecv, tag = round); kiểm inbox; combine theo id người gửi tăng dần; gom trạng
+  thái lần 2. Hai lần gom (all_gather) ứng đúng hai chỗ engine kiểm hữu hạn (sau Adapt và sau tổng hợp), nên
+  khi một node phân kỳ, mọi tiến trình dừng gọn ở cùng round với bản inprocess.
+- Mỗi lần gom mang [mã, message, byte, tải, chi tiết] của từng node; observer cộng thành CommCounters cùng
+  định nghĩa với InMemoryTransport (INV-2). Chi tiết là bit float64 của mất mát (mã LOSS) hay vị trí trong
+  state của tensor không hữu hạn (PARAMS, COMBINED). Nhờ đó observer dựng đúng câu lý do của engine
+  (`loss_reason`, `params_reason`), và summary.json của hai runtime trùng nhau cả khi phân kỳ (review C3
+  P4.1, I6).
+- Ở mốc đánh giá, node gửi cho observer state sau tổng hợp, snapshot trước tổng hợp, mất mát và thời gian các
+  pha bằng send/recv. Kênh đo này không đi qua Transport nên không bị đếm (INV-2, INV-5).
 - rounds.jsonl trùng từng byte với bản inprocess (T-INV-13): gloo chép đúng byte của tensor (mã hóa uint8 của
   torchdist), mỗi tiến trình một luồng, mọi phép cộng cùng thứ tự, và observer đánh giá bằng cùng Observer và
   Evaluator trên cùng state.
@@ -52,32 +55,36 @@ from dfl.contracts import (
     MixingPolicy,
     RunLogger,
     Snapshot,
+    StateDict,
     SummaryOk,
     TimingRecord,
     TopologySchedule,
 )
 from dfl.data import datasets as data
 from dfl.sim.engine import (
+    AFTER_ADAPT,
+    AFTER_COMBINE,
     RoundResult,
     RunDiverged,
     _check_inbox,
-    _check_round,
     _first_non_finite,
     check_schedule_union,
+    loss_reason,
+    params_reason,
     preflight,
+    round_plan,
 )
 from dfl.sim.node import Node, combine, make_snapshot
 from dfl.sim.observer import Observer, is_due
 from dfl.sim.run import Assembly, PhaseTimer, TimedEvaluator, assemble, initial_model, set_threads
 from dfl.sim.torchdist import StateLayout, TorchDistTransport, decode_state, encode_state
 
-# Mã trạng thái trong mỗi lần gom; khác 0 là dừng (thứ tự ưu tiên của lý do như engine).
+# Mã trạng thái trong mỗi lần gom; khác 0 là dừng. Thứ tự trong STOP_CODES là thứ tự ưu tiên của lý do, như
+# engine.
 OK, LOSS, PARAMS, COMBINED = 0, 1, 2, 3
-REASONS = {
-    LOSS: "mất mát huấn luyện của node {} không hữu hạn",
-    PARAMS: "tham số của node {} không hữu hạn sau huấn luyện cục bộ",
-    COMBINED: "tham số của node {} không hữu hạn sau tổng hợp",
-}
+STOP_CODES = (LOSS, PARAMS, COMBINED)
+# Hàng của mỗi lần gom: [mã, message, byte, tải, chi tiết].
+IDLE_ROW = [OK, 0, 0, 0, 0]
 THREAD_VARIABLES = ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS")
 # Mất mát, thời gian huấn luyện, giao tiếp, tổng hợp từ lần gửi trước.
 META_SIZE = 4
@@ -97,9 +104,32 @@ def _gather(row: list[int], world_size: int) -> list[list[int]]:
     return [r.tolist() for r in rows]
 
 
-def _node_row(code: int, transport: TorchDistTransport) -> list[int]:
+def _node_row(code: int, transport: TorchDistTransport, detail: int = 0) -> list[int]:
     counters = transport.counters()
-    return [code, counters.messages_cum, counters.bytes_cum, counters.max_node_bytes_cum]
+    return [code, counters.messages_cum, counters.bytes_cum, counters.max_node_bytes_cum, detail]
+
+
+def _loss_bits(loss: float) -> int:
+    """Bit float64 của mất mát dưới dạng int64, để đi qua phép gom số nguyên mà không mất giá trị."""
+    return int(np.float64(loss).view(np.int64))
+
+
+def _loss_of(bits: int) -> float:
+    return float(np.int64(bits).view(np.float64))
+
+
+def _non_finite_index(state: StateDict) -> int | None:
+    """Vị trí trong state của tensor đầu tiên không hữu hạn (cùng tensor mà engine nêu tên), hay None."""
+    name = _first_non_finite(state)
+    return None if name is None else list(state).index(name)
+
+
+def _after_adapt(loss: float, state: StateDict) -> tuple[int, int]:
+    """(mã, chi tiết) sau Adapt: mất mát không hữu hạn trước, rồi tensor không hữu hạn, như engine."""
+    if not math.isfinite(loss):
+        return LOSS, _loss_bits(loss)
+    index = _non_finite_index(state)
+    return (OK, 0) if index is None else (PARAMS, index)
 
 
 def _stopped(rows: list[list[int]], num_nodes: int) -> bool:
@@ -165,13 +195,11 @@ def _node_rounds(
             raise ValueError(f"Adapt của node {rank} đã dùng RNG toàn cục của torch (INV-5)")
         snapshot = make_snapshot(rank, t, node.model.state_dict())
         train_s += time.perf_counter() - start
-        code = LOSS if not math.isfinite(loss) else PARAMS if _first_non_finite(snapshot.state) else OK
-        if _stopped(_gather(_node_row(code, transport), world), n):
+        code, detail = _after_adapt(loss, snapshot.state)
+        if _stopped(_gather(_node_row(code, transport, detail), world), n):
             return
         start = time.perf_counter()
-        graph = schedule.graph_at(t)
-        weights = policy(graph, sizes)
-        _check_round(graph, weights, n, static=schedule.is_static)
+        graph, weights = round_plan(schedule, policy, sizes, t, n)
         neighbours = sorted(graph.neighbors(rank))
         exchange = time.perf_counter()
         transport.expect(t, neighbours)
@@ -186,8 +214,9 @@ def _node_rounds(
         comm_s += time.perf_counter() - exchange
         node.model.load_state_dict(combined)
         combine_s += time.perf_counter() - start
-        code = COMBINED if _first_non_finite(combined) else OK
-        if _stopped(_gather(_node_row(code, transport), world), n):
+        index = _non_finite_index(combined)
+        row = _node_row(OK, transport) if index is None else _node_row(COMBINED, transport, index)
+        if _stopped(_gather(row, world), n):
             return
         if is_due(
             t + 1,
@@ -344,9 +373,16 @@ class ProcessRun:
     def _check(self, rows: list[list[int]], round_idx: int) -> None:
         self._counters = self._counters_of(rows)
         codes = [row[0] for row in rows[: self.assembly.config.num_nodes]]
-        for code, reason in REASONS.items():
+        for code in STOP_CODES:
             if code in codes:
-                raise RunDiverged(round_idx, reason.format(codes.index(code)))
+                node = codes.index(code)  # id nhỏ nhất có mã này, như engine
+                raise RunDiverged(round_idx, self._reason(code, node, rows[node][4]))
+
+    def _reason(self, code: int, node: int, detail: int) -> str:
+        """Đúng câu lý do mà engine ghi cho cùng sự kiện (review C3 P4.1, I6)."""
+        if code == LOSS:
+            return loss_reason(node, _loss_of(detail))
+        return params_reason(node, self._names[detail], AFTER_ADAPT if code == PARAMS else AFTER_COMBINE)
 
     def _observe(self, logger: RunLogger) -> SummaryOk:
         """Quan sát mọi round và đánh giá cuối; trả SummaryOk để `execute` ghi sau khi node đã thoát."""
@@ -354,6 +390,7 @@ class ProcessRun:
         config = assembly.config
         n, world = config.num_nodes, config.num_nodes + 1
         layout = StateLayout.of(initial_model(config).state_dict())
+        self._names = [entry.name for entry in layout.entries]
         timer = PhaseTimer()
         observer = Observer(
             TimedEvaluator(assembly.evaluator(assembly.curve_set()), timer),
@@ -363,7 +400,7 @@ class ProcessRun:
         )
         final_set = assembly.final_set()
         final_evaluator = assembly.evaluator(final_set)
-        idle = [OK, 0, 0, 0]
+        idle = IDLE_ROW
         states: list[dict[str, torch.Tensor]] = []
         timer.restart()
         for t in range(config.rounds):

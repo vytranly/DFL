@@ -10,10 +10,11 @@ import json
 from pathlib import Path
 
 import pytest
+import torch
 
 from dfl.config import AlgorithmConfig, EvalConfig, RunConfig, TopologyConfig, load_config
 from dfl.io import manifest
-from dfl.sim import process_runtime, run
+from dfl.sim import engine, process_runtime, run
 
 ROOT = Path(__file__).resolve().parents[2]
 SHORT = dataclasses.replace(
@@ -110,6 +111,8 @@ def test_a_diverging_node_stops_every_process_at_the_simulator_round(
         expected["messages_total"],
         expected["bytes_total"],
     )
+    # Review C3 P4.1, I6: lý do phân kỳ cũng phải trùng (đại lượng, node, giá trị), tức cả summary.json.
+    assert actual == expected
     assert (processes / "rounds.jsonl").read_bytes() == (inprocess / "rounds.jsonl").read_bytes()
 
 
@@ -179,3 +182,20 @@ def test_a_node_lingering_after_divergence_keeps_the_run_diverged(
     attempt = run.run(exploding, out=tmp_path, provenance=here)
 
     assert read(attempt, "summary.json")["status"] == "diverged"
+
+
+def test_node_rows_carry_enough_to_rebuild_the_engine_reason_for_every_stop_code() -> None:
+    # Review C3 P4.1, I6: observer chỉ thấy [mã, …, chi tiết] của mỗi node, mà phải ghi đúng câu của engine.
+    state = {"w": torch.ones(2), "b": torch.tensor([1.0, float("inf")]), "c": torch.tensor([float("nan")])}
+    observer = object.__new__(process_runtime.ProcessRun)
+    observer._names = list(state)
+
+    code, detail = process_runtime._after_adapt(float("-inf"), state)
+    assert observer._reason(code, 3, detail) == engine.loss_reason(3, float("-inf"))
+    code, detail = process_runtime._after_adapt(0.5, state)
+    assert observer._reason(code, 3, detail) == engine.params_reason(3, "b", engine.AFTER_ADAPT)
+    index = process_runtime._non_finite_index(state)
+    assert observer._reason(process_runtime.COMBINED, 3, index) == engine.params_reason(
+        3, "b", engine.AFTER_COMBINE
+    )
+    assert process_runtime._after_adapt(0.5, {"w": torch.ones(2)}) == (process_runtime.OK, 0)
