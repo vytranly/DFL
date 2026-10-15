@@ -806,3 +806,32 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
   - Thiếu venv thì `make shell` báo "chạy: make venv".
   - `make -n venv` in đúng bốn lệnh cài đặt; không chạy `make venv` thật vì `.venv` đã có.
 
+## 2026-10-15 — Phiên #19 (tiếp) — Test P1 của REVIEW-C3-P3.7 (P1-1 … P1-7)
+- Trạng thái: test P1-1…P1-7 ✅. Đây là test Prove-It cho code đúng, kỳ vọng PASS. P1-8 đã làm ở C3. Mục còn mở của C3: phần còn lại của I6
+- File đã đổi: tests/integration/{conftest,test_engine_core,test_observer,test_process_runtime}.py, tests/unit/test_partition.py, tasks/todo.md, tasks/SESSION_LOG.md
+- Test mới (12 ca):
+  - P1-1 `test_t_inv_4_server_path_is_bitwise_independent_of_node_order[server, gossip, fully_connected]`: kích thước (64, 96, 128, 200), ba thứ tự duyệt, 3 round; snapshot đã gửi, kể cả snapshot server phát xuống, không đổi. `RecordingTransport` có thêm `with_server`
+  - P1-2: tham số hóa `test_t_inv_11_…` với n ∈ {4, 5, 20}, và siết điều kiện consensus từ ≤ 1e-6·drift thành == 0.0 (SAN-5)
+  - P1-3 `test_t_inv_8_dirichlet_resamples_when_every_remaining_probability_is_zero`: 2 lần thử bị bỏ vì xác suất còn lại bằng 0, trùng hàm tham chiếu; nhánh này trước đây chưa từng chạy
+  - P1-4 `test_t_inv_8_a_node_with_exactly_min_size_samples_is_accepted`: IID 4 × 64 mẫu được nhận, 255 mẫu bị từ chối. Dirichlet α = 0.1, seed 2: min_size 72 cho retries 0, 73 cho retries 1
+  - P1-5 `test_t_inv_8_quantity_retries_count_the_resamples_of_the_reference`: số lần thử đếm trên hàm tham chiếu bằng một Generator bọc (19 lần lấy mẫu lại)
+  - P1-6 `test_exhausting_retries_makes_one_try_plus_exactly_1000_resamples[dirichlet, quantity]`: sau ValueError, trạng thái Generator bằng một Generator sinh đôi đã rút đúng 1,001 lần thử
+  - P1-7 `test_t_inv_13_processes_match_the_simulator_on_a_sparse_evaluation_grid[ring, gossip]`: mốc ở round 2, 4, 5; `process_timeout` 120 s để lệch lịch thì fail nhanh
+- Kiểm bằng mutant: 9/9 bị giết
+  - Chạy trong một tiến trình, trên bản sao `src/` qua PYTHONPATH:
+    - server cộng theo thứ tự duyệt;
+    - consensus tính bằng float32;
+    - nhánh xác suất 0 đổi `break` thành `continue`;
+    - `>=` thành `>` khi nhận phần Dirichlet;
+    - `<` thành `<=` ở `_result`;
+    - retries của quantity cộng thêm một;
+    - `range(MAX_RETRIES)` và `range(MAX_RETRIES + 2)`.
+  - Chạy với tiến trình con: phía node xét `is_due(t + 2)`. Sửa tạm trong `src/` rồi khôi phục bằng `git checkout`; `git diff -- src` rỗng sau đó.
+  - Đối chứng: mutant consensus float32 vẫn qua test T-INV-11 cũ (N = 4), và mutant `is_due` phía node vẫn qua T-INV-13 cũ (lịch mỗi round). Đó đúng là hai khoảng trống review nêu.
+- Kiểm chứng: `make check-task` mã 0, 709 passed, coverage 95.47% (partition.py đủ 100%); mất 333 s, vượt ngân sách 90 s (chỉ cảnh báo; máy chủ đang tải nặng)
+- Việc tiếp theo:
+  - Phần còn lại của I6: round dùng chung, lý do phân kỳ trùng giữa hai runtime.
+  - T11e.
+  - Các lỗi P2 có test FAIL: P2-1, P2-2 ca NaN, P2-3, P2-12.
+  - Tăng `MIN_TESTS` ở checkpoint sau.
+

@@ -120,6 +120,64 @@ def test_t_inv_4_node_visiting_order_does_not_change_result(
     assert not torch.equal(ascending, descending)
 
 
+# Review C3 P3.7, P1-1: kích thước lệch, nên trọng số n_k/n của đường server không tròn ở hệ nhị phân.
+UNEQUAL_SIZES = (64, 96, 128, 200)
+ORDERS = [(0, 1, 2, 3), (3, 2, 1, 0), (2, 0, 3, 1)]
+
+
+def path_engine(path: str, nodes: list[Node], trainer, transport) -> Engine:
+    if path == "server":
+        return Engine(nodes=nodes, trainer=trainer, transport=transport, server_path=True)
+    schedule = (
+        topo.gossip(N, lambda r: seeding.numpy_rng(0, Stream.GOSSIP, r))
+        if path == "gossip"
+        else topo.fully_connected(N)
+    )
+    return Engine(nodes=nodes, trainer=trainer, schedule=schedule, mixing=mh, transport=transport)
+
+
+@pytest.mark.parametrize("path", ["server", "gossip", "fully_connected"])
+def test_t_inv_4_server_path_is_bitwise_independent_of_node_order(
+    path, make_nodes, sgd_trainer, recording_transport
+) -> None:
+    # Arrange: đường server (_exchange_via_server) là code riêng, chưa được T-INV-4 chạy qua; thêm gossip và
+    # FC cùng kích thước lệch.
+    trajectories = []
+    for order in ORDERS:
+        nodes = make_nodes(UNEQUAL_SIZES)
+        transport = recording_transport(N, with_server=path == "server")
+        engine = path_engine(path, [nodes[i] for i in order], sgd_trainer(tau=2, lr=0.1), transport)
+        engine.check_schedule(3)  # INV-4 theo hợp các round của gossip, như run_rounds
+
+        # Act
+        trajectory = []
+        for r in range(3):
+            result = engine.run_round(r)
+            trajectory.append((result, engine.states()))
+        trajectories.append(trajectory)
+
+        # Assert: engine gửi theo đúng thứ tự duyệt được giao (nếu tự sắp xếp thì test này suông) ...
+        if path == "server":
+            assert [sent.message.sender for sent in transport.sent[:N]] == list(order)
+            assert any(sent.message.sender == N for sent in transport.sent)  # có snapshot server phát xuống
+        # ... và không snapshot nào bị sửa sau khi gửi, kể cả snapshot của server.
+        for sent in transport.sent:
+            assert_states_equal(sent.message.state, sent.state_at_send)
+
+    # Assert: mọi thứ tự trùng từng bit với thứ tự 0, 1, 2, 3 ở mọi round.
+    for trajectory in trajectories[1:]:
+        for (result, states), (ref_result, ref_states) in zip(trajectory, trajectories[0], strict=True):
+            assert result.train_losses == ref_result.train_losses
+            for state, ref_state in zip(states, ref_states, strict=True):
+                assert_states_equal(state, ref_state)
+    # Không suông: với các trọng số n_k/n này, cộng theo thứ tự khác cho ra float khác.
+    snapshots = trajectories[0][-1][0].snapshots
+    fractions = [size / sum(UNEQUAL_SIZES) for size in UNEQUAL_SIZES]
+    ascending = sum(fractions[k] * snapshots[k].state["fc1.weight"] for k in range(N))
+    descending = sum(fractions[k] * snapshots[k].state["fc1.weight"] for k in reversed(range(N)))
+    assert not torch.equal(ascending, descending)
+
+
 def test_combine_reads_only_own_snapshot_and_own_inbox(make_nodes, sgd_trainer, recording_transport) -> None:
     # Arrange: inbox giao hằng số sender + 1 thay cho model thật của láng giềng.
     transport = recording_transport(N, tamper=True)

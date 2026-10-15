@@ -55,6 +55,32 @@ def test_t_inv_13_processes_reproduce_the_simulator_byte_for_byte(
         assert manifest_proc[key] == manifest_in[key]
 
 
+@pytest.mark.parametrize("kind", ["ring", "gossip"])
+def test_t_inv_13_processes_match_the_simulator_on_a_sparse_evaluation_grid(
+    tmp_path: Path, here: manifest.Provenance, kind: str
+) -> None:
+    # Review C3 P3.7, P1-7: τ = 2, 10 bước, đánh giá mỗi 4 bước, nên các mốc là round 2, 4 và round cuối 5,
+    # thưa như E8. Node và observer phải chọn cùng các round; lệch thì observer chờ mãi, nên đặt timeout ngắn.
+    config = dataclasses.replace(
+        SHORT,
+        local_steps=10,
+        topology=TopologyConfig(kind=kind),
+        eval=EvalConfig(subset_size=100, every_steps=4),
+    )
+
+    inprocess = run.run(config, out=tmp_path / "inprocess", provenance=here)
+    processes = run.run(
+        dataclasses.replace(config, runtime="processes"),
+        out=tmp_path / "processes",
+        provenance=here,
+        process_timeout=120.0,
+    )
+
+    rounds = (inprocess / "rounds.jsonl").read_text(encoding="utf-8").splitlines()
+    assert [json.loads(line)["round"] for line in rounds] == [2, 4, 5]
+    assert (processes / "rounds.jsonl").read_bytes() == (inprocess / "rounds.jsonl").read_bytes()
+
+
 def test_t_inv_6_messages_and_bytes_count_only_node_traffic(
     tmp_path: Path, here: manifest.Provenance
 ) -> None:

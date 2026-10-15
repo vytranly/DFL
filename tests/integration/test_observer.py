@@ -59,18 +59,21 @@ def assert_states_equal(a: StateDict, b: StateDict) -> None:
         assert torch.equal(a[name], b[name]), name
 
 
+# Review C3 P3.7, P1-2: với n = 5 và 20, 1/n không biểu diễn đúng ở hệ nhị phân, nên phép tính consensus phải
+# chính xác thì mới ra đúng 0.0 như SAN-5 đòi; N = 4 không thấy được lỗi này.
+@pytest.mark.parametrize("n", [4, 5, 20])
 def test_t_inv_11_fc_mh_nodes_share_one_model_so_acc_std_is_zero_and_acc_local_uses_one_recall_vector(
-    make_nodes, sgd_trainer, make_evaluator, eval_set
+    n, make_nodes, sgd_trainer, make_evaluator, eval_set
 ) -> None:
     # Arrange: mỗi node có 3 lớp, nên P_i khác hẳn nhau; đánh giá mỗi round.
-    nodes = make_nodes()
+    nodes = make_nodes((64,) * n)
     evaluator = make_evaluator(nodes)
     engine = Engine(
         nodes=nodes,
         trainer=sgd_trainer(tau=2, lr=0.1),
-        schedule=topo.fully_connected(N),
+        schedule=topo.fully_connected(n),
         mixing=mh,
-        transport=InMemoryTransport(N),
+        transport=InMemoryTransport(n),
     )
     observer = Observer(evaluator, tau=2, total_rounds=2, eval_every_steps=None)
 
@@ -96,7 +99,7 @@ def test_t_inv_11_fc_mh_nodes_share_one_model_so_acc_std_is_zero_and_acc_local_u
     # Không suông: acc^loc vẫn khác nhau giữa các node dù model trùng nhau (G15); drift > 0, consensus = 0.
     assert max(last["acc_local_per_node"]) - min(last["acc_local_per_node"]) > 0.05
     assert last["drift_pre_combine"] > 0
-    assert last["consensus_distance"] <= 1e-6 * last["drift_pre_combine"]
+    assert last["consensus_distance"] == 0.0
 
 
 class ExtraCallsSchedule:

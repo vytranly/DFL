@@ -130,10 +130,13 @@ class RecordingTransport:
     `tamper=True`: inbox giao bản sao trong đó mọi tensor float được thay bằng hằng số sender + 1, nên kết quả
     tổng hợp lộ ra engine có dùng đúng nội dung inbox hay đọc thẳng model của node khác (INV-1).
     `reverse_inbox=True`: inbox trả về theo thứ tự chèn ngược lại.
+    `with_server=True`: thêm server ảo id N cho đường server, như InMemoryTransport.
     """
 
-    def __init__(self, num_nodes: int, *, tamper: bool = False, reverse_inbox: bool = False) -> None:
-        self.inner = InMemoryTransport(num_nodes)
+    def __init__(
+        self, num_nodes: int, *, tamper: bool = False, reverse_inbox: bool = False, with_server: bool = False
+    ) -> None:
+        self.inner = InMemoryTransport(num_nodes, with_server=with_server)
         self.tamper = tamper
         self.reverse_inbox = reverse_inbox
         self.sent: list[Sent] = []
