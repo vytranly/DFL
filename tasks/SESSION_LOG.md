@@ -765,3 +765,30 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - Nội dung: hook kiểm dòng đầu `<type>(<scope>)!: <subject>`, ASCII (tiếng Anh), ≤ 100 ký tự; cho qua thông điệp git tự sinh (Merge, Revert, fixup!/squash!/amend!). Cài bằng chép vào `.git/hooks` (không đặt `core.hooksPath`, để giữ hook post-commit/post-rewrite có sẵn)
 - Test mới: 17 ca trong tests/unit/test_commit_msg_hook.py (8 nhận, 9 từ chối)
 - Việc tiếp theo: thành viên khác chạy `make install-hooks` sau khi clone
+
+## 2026-10-15 — Phiên #19 (tiếp) — CIFAR-10 (ADR-012, T28a–f)
+- Trạng thái: T28a–f ✅; review T28 xong (APPROVE, R1–R5 đã sửa). ADR-012 còn Proposed, chờ nhóm duyệt. Nhánh `binh` chưa đẩy lên GitHub vì máy chủ không có credential GitHub
+- Quyết định (hỏi theo Ask first, 2026-10-15): làm code CIFAR-10 trước M4; model là CNN của NIID-Bench; có augmentation crop + flip; phạm vi gồm code, ADR và đo trên dữ liệu thật, không chạy lưới. Sau review (R1): augmentation do dataset quyết định, ghi giá trị khác thì cấu hình báo lỗi
+- Commit: 296d0aa (T28a), d20a314 (T28b), 5aa6d55 (T28c), 1916eb4 (T28d), 8aa7f3b (T28e), d18fd39 (R2), f11172d (T28f, R5), d3d8f7c (R1), e90393f (R3, R4), cộng commit này
+- File chính: `src/dfl/data/datasets.py`, `src/dfl/learning/{models,augment,local_train}.py`, `src/dfl/config.py`, `src/dfl/cli.py`, `src/dfl/sim/{run,sweep}.py`, `configs/base.yaml`, `configs/profiles/{smoke_cifar10,cifar10_fast}.yaml`, ADR-012, SPEC, README
+- Nội dung:
+  - Dữ liệu: bản binary của CIFAR-10 đọc bằng numpy, không pickle (F6); tải bằng `torchvision.datasets.utils.download_and_extract_archive` có kiểm md5; chia 45k/5k/10k; chuẩn hóa theo kênh; dữ liệu tổng hợp `synthetic_cifar10`
+  - Model `cnn_niidbench` (62,006 tham số); cấu hình từ chối model không khớp shape ảnh của dataset
+  - Augmentation `crop_flip`, lấy ngẫu nhiên từ Generator batch của node; không đổi contract `LocalTrainer`
+  - CLI `download cifar10`; `run` và `sweep` chặn mọi dữ liệu tổng hợp khỏi `results/`
+- Test mới: 703 test thu thập được (611 ở C3, 646 đầu phiên).
+  - Oracle `torchvision.transforms.v2.functional` cho crop + flip.
+  - Định dạng bản ghi binary dựng tay theo trang chính thức.
+  - T-INV-13 trên đường CIFAR-10 có augmentation.
+  - Golden sha256 cho dữ liệu smoke và tensor MNIST đã chuẩn hóa.
+  - Mutation: đảo thứ tự file train và tính bảng chuẩn hóa bằng float32 đều bị bắt.
+- Kiểm chứng:
+  - `make check-task` mã 0 trước mọi commit; lần cuối 697 passed, coverage 95.4%, 143 s (vượt ngân sách 90 s, chỉ cảnh báo; load 14–18). `pytest tests/e2e` 6 passed.
+  - MNIST trước/sau (1c10f2b → 8aa7f3b): `rounds.jsonl` và `summary.json` của smoke và fast trùng từng byte.
+  - Số đo trên CIFAR-10 thật ở ADR-012, mục "Số đo".
+- Việc tiếp theo:
+  - Nhóm duyệt ADR-012, gồm cả việc có đổi cách đệm sang reflect như NIID-Bench không (R5).
+  - Chọn η của CIFAR-10 trên validation; quyết lưới thu gọn, ngân sách và ngưỡng sanity sau T13/M4.
+  - Process runtime với CIFAR-10 ở N = 20 cần khoảng 27 GB RAM, không vừa máy chủ dùng chung: giảm N, hoặc điền tensor theo khối để hạ RAM đỉnh.
+  - Đẩy nhánh `binh` (`git push -u origin binh`, cần token GitHub).
+

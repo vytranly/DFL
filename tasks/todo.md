@@ -725,12 +725,14 @@ T22a, T22b và T09c là code của lưới: phải xong trước T14b (E0a), đ�
   - Phụ thuộc: T28d
   - File: `src/dfl/learning/augment.py`, `src/dfl/learning/local_train.py`, `src/dfl/config.py`, `src/dfl/sim/run.py`, `configs/base.yaml`, test tương ứng
 
-- [ ] **T28f · Đo trên CIFAR-10 thật; MNIST trước/sau** — nhánh `binh` · S
+- [x] **T28f · Đo trên CIFAR-10 thật; MNIST trước/sau** — nhánh `binh` · S
   - Mô tả: tải CIFAR-10 thật; `describe` các cách chia; đo thời gian một bước, một lượt `cifar10_fast` ngắn và RAM (inprocess, processes); `cmp` `rounds.jsonl` của MNIST (smoke, fast) giữa trước và sau T28b–e. Ghi số đo vào ADR-012 và README.
   - Chấp nhận: hai cặp `rounds.jsonl` của MNIST trùng từng byte; số đo có ngày, tải máy và lệnh chạy.
   - Kiểm chứng: lệnh ghi trong ADR-012, mục "Số đo"
   - Phụ thuộc: T28e
   - File: `docs/decisions/ADR-012-cifar10-binary-niidbench-cnn-crop-flip.md`, `README.md`, `tasks/todo.md`, `tasks/SESSION_LOG.md`
+
+- [x] **Review T28** (persona `code-reviewer`, 2026-10-15): APPROVE, không có lỗi critical hay important; 5 phát hiện nhỏ đã sửa: R1 `augmentation` phải khớp dataset (d3d8f7c), R2 giải nén lại file CIFAR-10 sai cỡ (d18fd39), R3 và R4 ghim thứ tự file train và tensor MNIST đã chuẩn hóa (e90393f), R5 ghi điểm lệch về cách đệm so với NIID-Bench (f11172d)
 
 ## Mở rộng — chỉ làm sau M4, và phải hỏi trước (SPEC §1.4, QĐ-4)
 
