@@ -847,3 +847,18 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
   - Canh gác: test phân kỳ của process runtime giờ so toàn bộ summary.json. Trước khi sửa: FAIL ("…không hữu hạn" so với "…không hữu hạn (nan)"). Sau khi sửa: PASS
   - Thêm test dựng lại lý do cho cả ba mã dừng; hai mutant (lệch chỉ số tensor, đảo pha) bị bắt
 - Việc tiếp theo: T11e
+
+## 2026-10-15 — Phiên #19 (tiếp) — T11e: lượt đánh giá trên validation không nạp ảnh test
+- Trạng thái: T11e ✅
+- File đã đổi: src/dfl/data/datasets.py, src/dfl/sim/{run,process_runtime}.py, src/dfl/cli.py, tests/integration/test_final_eval.py, tests/unit/test_datasets.py, tasks/todo.md, tasks/SESSION_LOG.md
+- Nội dung:
+  - `datasets.load_train_raw` và `load_test_raw` là hai bộ nạp riêng; `load(..., with_test=False)` không gọi bộ nạp test, `Datasets.test` là None và `split("test")` báo lỗi
+  - `run` chỉ nạp test khi `eval.split = test`; tiến trình node của process runtime và `describe` không bao giờ nạp test (node không đánh giá; với CIFAR-10 bớt khoảng 123 MB mỗi tiến trình node)
+  - Thống kê chuẩn hóa chỉ đến từ phần của node, nên bỏ test không đổi bit nào của train hay validation (kiểm trên dữ liệu tổng hợp và trên CIFAR-10 thật)
+- Test mới: `tests/integration/test_final_eval.py`
+  - Lượt validation gọi bộ nạp test 0 lần, lượt test gọi đúng 1 lần
+  - Các trường `final_*` dài N, trên đủ split (200 ảnh validation, 500 ảnh test của smoke); learning curve dùng tập con 100 ảnh
+  - Tập con giống nhau ở seed 0 và 3, khác nhau giữa test và validation
+  - Cộng 2 unit test cho `load(with_test=False)`
+- Việc tiếp theo: smoke trên laptop demo (QS-8); T13 (đo hiệu năng, chốt giao thức) trước E0a
+

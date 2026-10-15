@@ -606,3 +606,25 @@ def test_black_is_the_normalized_value_of_a_zero_pixel_in_each_channel() -> None
 def test_prepare_rejects_train_and_test_with_different_image_shapes() -> None:
     with pytest.raises(ValueError, match="cùng shape"):
         ds.prepare(cifar_split((5,) * 10, seed=13), raw_split((2,) * 10, seed=14), validation_size=10)
+
+
+# ------------------------------------------------------------------------------- không nạp test (T11e, E0a)
+
+
+@pytest.mark.parametrize("dataset", ["synthetic", "synthetic_cifar10"])
+def test_load_without_test_never_calls_the_test_loader_and_keeps_train_and_validation(
+    monkeypatch: pytest.MonkeyPatch, dataset: str
+) -> None:
+    full = ds.load(dataset)
+    calls: list[str] = []
+    monkeypatch.setattr(ds, "load_test_raw", lambda name, root: calls.append(name))
+
+    prepared = ds.load(dataset, with_test=False)
+
+    assert calls == [] and prepared.test is None
+    # Thống kê chuẩn hóa chỉ đến từ phần của node, nên bỏ test không đổi bit nào của train hay validation.
+    assert torch.equal(prepared.train.x, full.train.x) and torch.equal(
+        prepared.validation.x, full.validation.x
+    )
+    with pytest.raises(ValueError, match="test"):
+        prepared.split("test")

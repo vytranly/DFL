@@ -128,7 +128,8 @@ class Datasets:
 
     train: ImageSet
     validation: ImageSet
-    test: ImageSet
+    # None khi lượt đánh giá trên validation (E0a): ảnh test không được nạp (T11e, ADR-007).
+    test: ImageSet | None
     # Chỉ số của ảnh validation trong tập train gốc, tăng dần.
     validation_index: np.ndarray
     # mean và std (ddof = 0) điểm ảnh của `train` theo từng kênh, thang 0..1; dùng chuẩn hóa cả ba tập.
@@ -146,7 +147,11 @@ class Datasets:
         """Đủ tập đánh giá theo `eval.split` (ADR-007): test, hoặc validation với E0a."""
         if name not in EVAL_SUBSET_KEYS:
             raise ValueError(f"split đánh giá phải là một trong {sorted(EVAL_SUBSET_KEYS)}, nhận {name!r}")
-        return self.test if name == "test" else self.validation
+        if name == "validation":
+            return self.validation
+        if self.test is None:
+            raise ValueError("tập test không được nạp cho lượt này (eval.split = validation, ADR-007)")
+        return self.test
 
 
 def stratified_sample(labels: np.ndarray, size: int, rng: np.random.Generator) -> np.ndarray:
@@ -184,10 +189,10 @@ def _pixel_stats(images: np.ndarray) -> tuple[float, float]:
     return mean, std
 
 
-def prepare(train: RawSplit, test: RawSplit, *, validation_size: int) -> Datasets:
+def prepare(train: RawSplit, test: RawSplit | None, *, validation_size: int) -> Datasets:
     """Tách validation, chuẩn hóa từng kênh của ba tập bằng thống kê của phần chia cho node, rồi chuyển sang
-    tensor."""
-    if train.images.shape[1:] != test.images.shape[1:]:
+    tensor. `test` là None khi lượt không được nạp ảnh test (T11e); thống kê không phụ thuộc test."""
+    if test is not None and train.images.shape[1:] != test.images.shape[1:]:
         raise ValueError(
             f"train và test phải cùng shape ảnh, nhận {train.images.shape} và {test.images.shape}"
         )
@@ -215,7 +220,7 @@ def prepare(train: RawSplit, test: RawSplit, *, validation_size: int) -> Dataset
     return Datasets(
         train=to_set(node_images, train.labels[keep]),
         validation=to_set(train.images[validation_index], train.labels[validation_index]),
-        test=to_set(test.images, test.labels),
+        test=None if test is None else to_set(test.images, test.labels),
         validation_index=validation_index,
         mean=tuple(mean for mean, _ in stats),
         std=tuple(std for _, std in stats),
@@ -267,18 +272,19 @@ def synthetic_cifar10_raw() -> tuple[RawSplit, RawSplit]:
 
 def load_mnist_raw(root: Path | str) -> tuple[RawSplit, RawSplit]:
     """Train (60k) và test (10k) của MNIST đã tải vào `root`; không tải gì (ENG-8)."""
+    return _mnist_split(root, train=True), _mnist_split(root, train=False)
+
+
+def _mnist_split(root: Path | str, *, train: bool) -> RawSplit:
     import torchvision
 
-    splits = []
-    for is_train in (True, False):
-        try:
-            mnist = torchvision.datasets.MNIST(root, train=is_train, download=False)
-        except RuntimeError as err:
-            raise FileNotFoundError(
-                f"không thấy MNIST trong {root}; tải bằng `python -m dfl download mnist --root {root}`"
-            ) from err
-        splits.append(RawSplit(images=mnist.data.numpy(), labels=mnist.targets.numpy()))
-    return splits[0], splits[1]
+    try:
+        mnist = torchvision.datasets.MNIST(root, train=train, download=False)
+    except RuntimeError as err:
+        raise FileNotFoundError(
+            f"không thấy MNIST trong {root}; tải bằng `python -m dfl download mnist --root {root}`"
+        ) from err
+    return RawSplit(images=mnist.data.numpy(), labels=mnist.targets.numpy())
 
 
 def download_mnist(root: Path | str) -> None:
@@ -305,18 +311,31 @@ def _read_cifar10_file(path: Path) -> RawSplit:
 def load_cifar10_raw(root: Path | str) -> tuple[RawSplit, RawSplit]:
     """Train (50k, nối năm file data_batch theo thứ tự) và test (10k) của CIFAR-10 bản binary đã giải nén vào
     `root`; không tải gì (ENG-8)."""
+    _require_cifar10_files(root, CIFAR10_FILES)
+    return _cifar10_train(root), _cifar10_test(root)
+
+
+def _require_cifar10_files(root: Path | str, names: tuple[str, ...]) -> None:
     folder = Path(root) / CIFAR10_DIR
-    missing = [name for name in CIFAR10_FILES if not (folder / name).is_file()]
+    missing = [name for name in names if not (folder / name).is_file()]
     if missing:
         raise FileNotFoundError(
             f"không thấy {missing} trong {folder}; tải bằng `python -m dfl download cifar10 --root {root}`"
         )
-    parts = [_read_cifar10_file(folder / name) for name in CIFAR10_TRAIN_FILES]
-    train = RawSplit(
+
+
+def _cifar10_train(root: Path | str) -> RawSplit:
+    _require_cifar10_files(root, CIFAR10_TRAIN_FILES)
+    parts = [_read_cifar10_file(Path(root) / CIFAR10_DIR / name) for name in CIFAR10_TRAIN_FILES]
+    return RawSplit(
         images=np.concatenate([part.images for part in parts]),
         labels=np.concatenate([part.labels for part in parts]),
     )
-    return train, _read_cifar10_file(folder / CIFAR10_TEST_FILE)
+
+
+def _cifar10_test(root: Path | str) -> RawSplit:
+    _require_cifar10_files(root, (CIFAR10_TEST_FILE,))
+    return _read_cifar10_file(Path(root) / CIFAR10_DIR / CIFAR10_TEST_FILE)
 
 
 def download_cifar10(root: Path | str) -> None:
@@ -334,19 +353,43 @@ def download_cifar10(root: Path | str) -> None:
     download_and_extract_archive(CIFAR10_URL, str(root), md5=CIFAR10_MD5)
 
 
-def load(dataset: str, *, root: Path | str = Path("data")) -> Datasets:
-    """Ba tập của `dataset` (config.DATASETS). MNIST và CIFAR-10 đọc từ `root`, mặc định data/ như lệnh
-    download."""
+VALIDATION_SIZES = {
+    "mnist": MNIST_VALIDATION_SIZE,
+    "cifar10": CIFAR10_VALIDATION_SIZE,
+    "synthetic": SYNTHETIC_VALIDATION_SIZE,
+    "synthetic_cifar10": SYNTHETIC_VALIDATION_SIZE,
+}
+
+
+def _check_dataset(dataset: str) -> None:
+    if dataset not in VALIDATION_SIZES:
+        raise ValueError(f"dataset phải là một trong {sorted(VALIDATION_SIZES)}, nhận {dataset!r}")
+
+
+def load_train_raw(dataset: str, root: Path | str) -> RawSplit:
+    """Ảnh train gốc của `dataset`, chưa tách validation."""
+    _check_dataset(dataset)
     if dataset == "mnist":
-        train, test = load_mnist_raw(root)
-        return prepare(train, test, validation_size=MNIST_VALIDATION_SIZE)
+        return _mnist_split(root, train=True)
     if dataset == "cifar10":
-        train, test = load_cifar10_raw(root)
-        return prepare(train, test, validation_size=CIFAR10_VALIDATION_SIZE)
-    if dataset == "synthetic":
-        train, test = synthetic_raw()
-        return prepare(train, test, validation_size=SYNTHETIC_VALIDATION_SIZE)
-    if dataset == "synthetic_cifar10":
-        train, test = synthetic_cifar10_raw()
-        return prepare(train, test, validation_size=SYNTHETIC_VALIDATION_SIZE)
-    raise ValueError(f"dataset phải là mnist, cifar10, synthetic hoặc synthetic_cifar10, nhận {dataset!r}")
+        return _cifar10_train(root)
+    return (synthetic_raw() if dataset == "synthetic" else synthetic_cifar10_raw())[0]
+
+
+def load_test_raw(dataset: str, root: Path | str) -> RawSplit:
+    """Ảnh test của `dataset`: đường duy nhất nạp ảnh test, nên test của T11e đếm được số lần gọi."""
+    _check_dataset(dataset)
+    if dataset == "mnist":
+        return _mnist_split(root, train=False)
+    if dataset == "cifar10":
+        return _cifar10_test(root)
+    return (synthetic_raw() if dataset == "synthetic" else synthetic_cifar10_raw())[1]
+
+
+def load(dataset: str, *, root: Path | str = Path("data"), with_test: bool = True) -> Datasets:
+    """Ba tập của `dataset` (config.DATASETS). MNIST và CIFAR-10 đọc từ `root`, mặc định data/ như lệnh
+    download. `with_test=False` (lượt đánh giá trên validation, tiến trình node, describe) không nạp ảnh test
+    nào, nên E0a không chạm tập test (T11e, ADR-007)."""
+    train = load_train_raw(dataset, root)
+    test = load_test_raw(dataset, root) if with_test else None
+    return prepare(train, test, validation_size=VALIDATION_SIZES[dataset])

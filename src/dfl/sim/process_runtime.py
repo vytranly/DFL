@@ -153,7 +153,8 @@ def run_node(
     if not 0 <= rank < n:
         raise ValueError(f"rank của node phải nằm trong 0..{n - 1}; rank {n} là observer")
     set_threads(config.threads)
-    assembly = assemble(config, data.load(config.dataset, root=data_root))
+    # Node không đánh giá, nên không nạp ảnh test (T11e; với CIFAR-10 bớt khoảng 123 MB mỗi tiến trình).
+    assembly = assemble(config, data.load(config.dataset, root=data_root, with_test=False))
     node = assembly.node(rank)
     trainer = assembly.trainer()
     schedule, policy, sizes = assembly.schedule, assembly.policy, assembly.sizes

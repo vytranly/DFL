@@ -91,7 +91,7 @@ def _describe(args: argparse.Namespace) -> int:
     from dfl.data import datasets  # nạp torch sau khi đã đặt số luồng
     from dfl.sim import describe
 
-    labels = datasets.load(config.dataset, root=args.data_root).train.y.numpy()
+    labels = datasets.load(config.dataset, root=args.data_root, with_test=False).train.y.numpy()
     report = describe.describe(config, labels, seeds=args.seeds)
     describe.write(report, args.out)
     print(f"đã ghi {args.out / 'describe.json'} và {args.out / 'describe.csv'}")

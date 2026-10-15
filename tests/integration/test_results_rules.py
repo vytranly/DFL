@@ -50,7 +50,7 @@ def synthetic_as_mnist(monkeypatch: pytest.MonkeyPatch) -> None:
     from dfl.data import datasets
 
     synthetic = datasets.load("synthetic")
-    monkeypatch.setattr(datasets, "load", lambda name, *, root=None: synthetic)
+    monkeypatch.setattr(datasets, "load", lambda name, *, root=None, with_test=True: synthetic)
 
 
 def attempts(root: Path) -> list[Path]:

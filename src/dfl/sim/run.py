@@ -512,9 +512,9 @@ def _attempt(
     logger = JsonRunLogger(run_dir)
     child_seeds = seeding.child_seeds(config.seed)
     try:
-        setup = _driver(
-            config, data.load(config.dataset, root=data_root), provenance, Path(data_root), timeout
-        )
+        # Lượt đánh giá trên validation (E0a) không nạp ảnh test nào (T11e, ADR-007).
+        datasets = data.load(config.dataset, root=data_root, with_test=config.eval.split == "test")
+        setup = _driver(config, datasets, provenance, Path(data_root), timeout)
     except Exception as err:
         logger.start(
             unassembled_manifest(

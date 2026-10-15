@@ -335,7 +335,7 @@
   - Phụ thuộc: T11b, T11c (cùng sửa `sim/run.py`, nên làm sau)
   - File: `src/dfl/sim/run.py`, `tests/integration/test_results_rules.py`
 
-- [ ] **T11e · Tập đánh giá + đánh giá cuối** — TV1 · M · ∥ T11d
+- [x] **T11e · Tập đánh giá + đánh giá cuối** — TV1 · M · ∥ T11d
   - Mô tả: cấu hình chọn tập đánh giá (`test`, hoặc `validation` cho E0a), kích thước tập con của learning curve và seed của tập con (luồng dữ liệu cố định). Sau round cuối, Observer đánh giá mọi node và acc($\bar w$) trên đủ tập đánh giá (10,000 ảnh test hoặc 5,000 ảnh validation), rồi ghi vào các trường `final_*` của `SummaryOk`, kèm `final_eval_split` và `final_eval_size` (REQ-03).
   - Chấp nhận:
     - Cấu hình `validation` thì không ảnh test nào được nạp hay đánh giá: test đếm số lần gọi bộ nạp test bằng 0.
