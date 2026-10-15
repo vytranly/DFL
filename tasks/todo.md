@@ -681,6 +681,57 @@ T22a, T22b và T09c là code của lưới: phải xong trước T14b (E0a), đ�
   - Phụ thuộc: T27b, T16a
   - File: `analysis/comm_cost.py`, `analysis/plots.py`, `tests/unit/test_comm_cost.py`, `docs/experiments/E8.md`
 
+## Mở rộng làm trước M4: code CIFAR-10 (ADR-012; đã hỏi theo Ask first ngày 2026-10-15)
+
+> Chỉ thêm code, test và số đo; không chạy lưới, không ghi vào `results/`. Thí nghiệm CIFAR-10 vẫn sau M4 và cần η (chọn trên validation), lưới, ngân sách, ngưỡng sanity riêng (ADR-012, mục "Chưa quyết"). Lượt MNIST phải giữ nguyên `rounds.jsonl` từng byte.
+
+- [x] **T28a · ADR-012 và SPEC cho CIFAR-10** — nhánh `binh` · S
+  - Mô tả: ADR-012 (Proposed) ghi dữ liệu (bản binary, đọc bằng numpy, 45k/5k/10k, chuẩn hóa theo kênh), model `cnn_niidbench`, augmentation `crop_flip` từ luồng batch của node, và các phần chưa quyết. Sửa SPEC: ASSUMPTIONS 6, §1.4, §3.1, §4, §5.1, §5.2, §6, REQ-14, §10 dòng 41.
+  - Chấp nhận: mọi nguồn trong ADR có URL hay số trang đã đọc; MD5 và định dạng file lấy từ trang chính thức.
+  - Kiểm chứng: review diff `docs/`, `SPEC.md`
+  - File: `docs/decisions/ADR-012-cifar10-binary-niidbench-cnn-crop-flip.md`, `docs/decisions/README.md`, `docs/decisions/ADR-003-mnist-primary-dataset.md`, `SPEC.md`, `tasks/todo.md`
+
+- [ ] **T28b · Đọc và tải CIFAR-10, chuẩn hóa theo kênh, `synthetic_cifar10`** — nhánh `binh` · M
+  - Mô tả: `data/datasets.py` nhận ảnh (n, 3, 32, 32) bên cạnh (n, 28, 28); đọc 6 file binary bằng `np.fromfile`; `download_cifar10` gọi `torchvision.datasets.utils.download_and_extract_archive` với URL và md5 của trang chính thức; mean/std theo kênh; dữ liệu tổng hợp 3×32×32.
+  - Chấp nhận:
+    - Trên file binary giả: nhãn là byte đầu, các kênh R, G, B theo thứ tự hàng; file sai cỡ thì ValueError; thiếu file thì FileNotFoundError kèm lệnh tải.
+    - Chia 45k/5k/10k, validation 500 ảnh mỗi lớp; chuẩn hóa theo kênh bằng thống kê của phần node.
+    - Ảnh MNIST cho đúng tensor như trước.
+  - Kiểm chứng: `make check-task`; `pytest -q tests/unit/test_datasets.py`
+  - Phụ thuộc: T28a
+  - File: `src/dfl/data/datasets.py`, `src/dfl/contracts.py`, `tests/unit/test_datasets.py`
+
+- [ ] **T28c · Model `cnn_niidbench` và kiểm model khớp shape ảnh** — nhánh `binh` · S
+  - Mô tả: `learning/models.py` thêm CNN của NIID-Bench (62,006 tham số); `config.py` có bảng shape đầu vào của từng model và từng dataset, từ chối cặp không khớp.
+  - Chấp nhận: đúng 62,006 tham số, không BatchNorm/Dropout, w⁰ chỉ từ luồng init, đầu ra (B, 10); mọi model chạy được trên đúng shape mà config khai báo.
+  - Kiểm chứng: `make check-task`; `pytest -q tests/unit/test_models.py tests/unit/test_config.py`
+  - Phụ thuộc: T28a
+  - File: `src/dfl/learning/models.py`, `src/dfl/config.py`, `tests/unit/test_models.py`, `tests/unit/test_config.py`
+
+- [ ] **T28d · Chạy CIFAR-10 từ cấu hình: dataset, CLI, profile, chặn dữ liệu tổng hợp** — nhánh `binh` · M
+  - Mô tả: `config.DATASETS` thêm `cifar10`, `synthetic_cifar10`; `download cifar10`; profile `smoke_cifar10`, `cifar10_fast`; `run` và `sweep` từ chối mọi dữ liệu tổng hợp khi ghi vào `results/`.
+  - Chấp nhận: lượt `smoke_cifar10` xong với `bytes_total` = message × 4 × 62,006 và RNG toàn cục không đổi; `synthetic_cifar10` bị từ chối khi ghi vào `results/`.
+  - Kiểm chứng: `make check-task`; `python -m dfl run --config configs/profiles/smoke_cifar10.yaml --out build/smoke-cifar10`
+  - Phụ thuộc: T28b, T28c
+  - File: `src/dfl/config.py`, `src/dfl/cli.py`, `src/dfl/sim/run.py`, `src/dfl/sim/sweep.py`, `configs/profiles/{smoke_cifar10,cifar10_fast}.yaml`, test tương ứng
+
+- [ ] **T28e · Augmentation `crop_flip`** — nhánh `binh` · M
+  - Mô tả: `learning/augment.py`; `SgdTrainer` nhận augmentation (mặc định không có, đường MNIST giữ nguyên); trường cấu hình `augmentation` (null thì điền theo dataset); `Assembly.trainer()` truyền giá trị đệm là điểm ảnh đen đã chuẩn hóa.
+  - Chấp nhận:
+    - Với độ dời và cờ lật đã rút, kết quả trùng `torchvision.transforms.v2.functional` (pad 4, crop, horizontal_flip) áp trên ảnh uint8 rồi chuẩn hóa.
+    - Số ngẫu nhiên chỉ lấy từ Generator được truyền vào; `crop_flip` từ chối ảnh không phải 3×32×32.
+    - Hai runtime vẫn trùng từng byte trên `smoke_cifar10` (T-INV-13).
+  - Kiểm chứng: `make check-task`; `pytest -q tests/unit/test_augment.py`
+  - Phụ thuộc: T28d
+  - File: `src/dfl/learning/augment.py`, `src/dfl/learning/local_train.py`, `src/dfl/config.py`, `src/dfl/sim/run.py`, `configs/base.yaml`, test tương ứng
+
+- [ ] **T28f · Đo trên CIFAR-10 thật; MNIST trước/sau** — nhánh `binh` · S
+  - Mô tả: tải CIFAR-10 thật; `describe` các cách chia; đo thời gian một bước, một lượt `cifar10_fast` ngắn và RAM (inprocess, processes); `cmp` `rounds.jsonl` của MNIST (smoke, fast) giữa trước và sau T28b–e. Ghi số đo vào ADR-012 và README.
+  - Chấp nhận: hai cặp `rounds.jsonl` của MNIST trùng từng byte; số đo có ngày, tải máy và lệnh chạy.
+  - Kiểm chứng: lệnh ghi trong ADR-012, mục "Số đo"
+  - Phụ thuộc: T28e
+  - File: `docs/decisions/ADR-012-cifar10-binary-niidbench-cnn-crop-flip.md`, `README.md`, `tasks/todo.md`, `tasks/SESSION_LOG.md`
+
 ## Mở rộng — chỉ làm sau M4, và phải hỏi trước (SPEC §1.4, QĐ-4)
 
 - [ ] T21 E6 Fashion-MNIST và E5 quy mô N ∈ {10, 50} (E5 chỉ đổi cấu hình)

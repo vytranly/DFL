@@ -40,4 +40,4 @@ Proposed — chờ Gate G1.
 - Mọi thí nghiệm lõi vừa ngân sách CPU; tập train MNIST dạng uint8 chỉ khoảng 47 MB, nằm gọn trong RAM.
 - Phải báo cáo các độ đo nhạy, không chỉ accuracy cuối, để tránh kết luận "không khác biệt" chỉ vì chạm trần.
 - Cách chia 55k/5k được kiểm ở T03; quy tắc không đụng tập test khi chọn siêu tham số nằm ở ADR-007.
-- Muốn làm CIFAR-10 phải có ADR mới (model, lưới thu gọn, ngân sách); không tự thêm vào lưới hiện tại.
+- Muốn làm CIFAR-10 phải có ADR mới (model, lưới thu gọn, ngân sách); không tự thêm vào lưới hiện tại. ADR-012 (2026-10-15) ghi phần dữ liệu, model và augmentation; lưới thu gọn và ngân sách vẫn chờ số đo (T28f, T13).

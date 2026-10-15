@@ -25,7 +25,7 @@ ASSUMPTIONS (giả định khi viết SPEC — sửa ngay nếu sai; nếu khôn
    Macro-F1 tính cho từng node trên test chung; báo cáo mean, std và node kém nhất (Q3).
 5. Phương pháp (cách chia dữ liệu, topology, ma trận trộn, thuật toán, độ đo, lưới, thống kê) lấy nguyên
    KH §3 v0.2. SPEC dẫn chiếu, không chép lại công thức; các điểm SPEC chuẩn hóa lại nằm ở §10.
-6. Phạm vi đúng bảng KH §2.4 (xem §1.4). Phần mở rộng chỉ làm sau mốc M4, theo thứ tự QĐ-4.
+6. Phạm vi đúng bảng KH §2.4 (xem §1.4). Phần mở rộng chỉ làm sau mốc M4, theo thứ tự QĐ-4. Ngoại lệ đã hỏi theo Ask first (2026-10-15): code CIFAR-10 có trước M4 (ADR-012); thí nghiệm CIFAR-10 vẫn chỉ sau M4.
 7. η chưa chốt: chọn ở E0a (seed 100, chỉ trên validation) theo quy tắc ở ADR-007, dựa trên KH §3.5 (dự kiến 0.05),
    và ghi vào ADR-007 trước khi chạy E0b.
 8. Báo cáo viết tiếng Việt; mọi hình sinh tự động từ log (A6). Hạn nộp và định dạng báo cáo chờ GVHD (Q2).
@@ -65,7 +65,7 @@ Một bộ mô phỏng **Decentralized Federated Learning (DFL) không server**,
 
 | Trong phạm vi (bắt buộc) | Mở rộng (chỉ sau M4, thứ tự QĐ-4) | Ngoài phạm vi (QĐ-5) |
 |---|---|---|
-| DFL đồng bộ, message-passing có đếm byte, chạy bằng hai runtime cho kết quả trùng từng bit: bộ mô phỏng đơn tiến trình (lưới) và process runtime, mỗi node một tiến trình qua gloo (ADR-010); Docker Compose tùy chọn (Q12) | CIFAR-10 nếu T13 cho thấy chạy nổi trên CPU; Fashion-MNIST (E6); quy mô N ∈ {10, 50} (E5) | Differential privacy, mã hóa, tấn công/phòng thủ Byzantine |
+| DFL đồng bộ, message-passing có đếm byte, chạy bằng hai runtime cho kết quả trùng từng bit: bộ mô phỏng đơn tiến trình (lưới) và process runtime, mỗi node một tiến trình qua gloo (ADR-010); Docker Compose tùy chọn (Q12) | CIFAR-10 nếu T13 cho thấy chạy nổi trên CPU (code dữ liệu, model và augmentation có trước M4 theo ADR-012; thí nghiệm vẫn sau M4); Fashion-MNIST (E6); quy mô N ∈ {10, 50} (E5) | Differential privacy, mã hóa, tấn công/phòng thủ Byzantine |
 | MNIST; IID, Dirichlet, #C = k, quantity skew | Chạy cả lưới bằng process runtime, nếu nhóm quyết theo Q10 | Nén / lượng tử hóa model |
 | Ring, Erdős–Rényi liên thông, random pairwise gossip, fully-connected; star chỉ làm tham chiếu | Random k-regular, đồ thị mũ (T5); vị trí dữ liệu theo độ trung tâm (E7); gossip bất đồng bộ | Nhiều máy thật, đo trên mạng thật (thời gian giao tiếp chỉ đo trên một máy, ADR-010); GPU / Colab |
 | Thang model M0–M3 (7,850 → 1,663,370 tham số) chỉ cho E8: chi phí giao tiếp, cả byte lẫn thời gian đo được, theo độ phức tạp model (ADR-011) | Tăng số node hay giới hạn băng thông trong E8 (Q11) | |
@@ -104,9 +104,9 @@ Code cho phần mở rộng nếu viết sau E0a sẽ làm đổi `code_version`
 
 | Module id | Mã nguồn | Trách nhiệm | Không được | Phụ trách (QĐ-1) | Task (KH §8) |
 |---|---|---|---|---|---|
-| `data` | `src/dfl/data/{datasets,partition,heterogeneity}.py` | Nạp MNIST bằng torchvision thành tensor trong RAM, chuẩn hóa, tách validation 5k phân tầng; P0–P3 đúng thuật toán NIID-Bench (min_size = 64); hoán vị vị trí node theo seed; JS, TV, số lớp ≥ 5%, CV(n), lệch mục tiêu, ma trận node × lớp | `partition`/`heterogeneity` import torch; biết topology hay model | TV1 | T03, T04a, T04b, T05a |
+| `data` | `src/dfl/data/{datasets,partition,heterogeneity}.py` | Nạp MNIST bằng torchvision và CIFAR-10 từ bản binary (ADR-012) thành tensor trong RAM, chuẩn hóa theo kênh, tách validation 5k phân tầng; P0–P3 đúng thuật toán NIID-Bench (min_size = 64); hoán vị vị trí node theo seed; JS, TV, số lớp ≥ 5%, CV(n), lệch mục tiêu, ma trận node × lớp | `partition`/`heterogeneity` import torch; biết topology hay model | TV1 | T03, T04a, T04b, T05a |
 | `network` | `src/dfl/network/{topology,mixing,transport}.py` | T0–T4, T3b (T5 tùy chọn); `graph_at(round)` là hàm thuần của (seed, round); ER lấy mẫu lại tới khi liên thông; MH / uniform / size-weighted; kiểm tra ngẫu nhiên hàng/kép; spectral gap; trọng số mục tiêu π (`objective_weights`, ADR-005); Transport in-memory + CommLedger, nơi duy nhất đếm message và byte (tổng và theo từng node, kể cả server ảo có chỉ số N của B3/E1c), đọc số byte từ `Snapshot.nbytes` | Import torch; tổng hợp model; copy payload theo số láng giềng; message node tự gửi cho mình | TV2 | T06, T07, T08 |
-| `learning` | `src/dfl/learning/{models,local_train}.py` | SmallCNN 46,730 tham số (không BatchNorm, không dropout); thang M0–M3 chỉ cho E8 (ADR-011); τ bước SGD (momentum 0, weight decay 0), minibatch B = 32 lấy có hoàn lại, số hạng prox μ với anchor = $w_i^t$ (clone + detach), hệ số mất mát $c_i$; ngẫu nhiên qua `torch.Generator` riêng từng node | Truy cập node khác, Transport hay topology | TV1 (QS-9) | T09a |
+| `learning` | `src/dfl/learning/{models,local_train,augment}.py` | SmallCNN 46,730 tham số (không BatchNorm, không dropout); thang M0–M3 chỉ cho E8 (ADR-011); CNN NIID-Bench 62,006 tham số và augmentation crop + flip cho CIFAR-10 (ADR-012); τ bước SGD (momentum 0, weight decay 0), minibatch B = 32 lấy có hoàn lại, số hạng prox μ với anchor = $w_i^t$ (clone + detach), hệ số mất mát $c_i$; ngẫu nhiên qua `torch.Generator` riêng từng node | Truy cập node khác, Transport hay topology | TV1 (QS-9) | T09a |
 | `metrics-io` | `src/dfl/metrics/{classification,consensus}.py`, `src/dfl/io/{run_logger,manifest}.py` | Độ đo trong lúc chạy: $\mathrm{Acc}_i$, $\mathrm{Acc}^{loc}_i$, $\mathrm{Acc}^{eff}$, macro-F1 (từ ma trận nhầm lẫn), drift trước tổng hợp, consensus distance sau tổng hợp; ghi manifest/rounds/timing/summary theo attempt; tính `code_version`, `run_id` | Tự đếm byte (INV-2); tiêu thụ RNG của huấn luyện (INV-5); ghi đè attempt cũ; ghi thời gian vào `rounds.jsonl` (INV-6) | TV1: độ đo (T09b); TV3: io (T11a) (QS-9) | T09b, T11a |
 | `sim` | `src/dfl/sim/{node,engine,observer,sweep,torchdist,process_runtime}.py`, `src/dfl/cli.py`, `src/dfl/__main__.py` | Trạng thái node; vòng ATC trong một tiến trình (Engine) và mỗi node một tiến trình (process runtime qua gloo, cộng một tiến trình observer; ADR-010); Observer theo lịch đánh giá (trước và sau tổng hợp); baseline B1–B3, trong đó B3 và E1c đi qua đường server (ADR-005); lắp ráp một lượt từ cấu hình; sweep idempotent, mỗi lượt một tiến trình con mới (§5.2); CLI `run`, `sweep`, `describe`, `download`; `TorchDistTransport` nếu làm T22 (phải import torch nên đặt ở đây, không ở `network`) | Đưa đại lượng toàn cục vào huấn luyện (INV-1); đọc model của node khác ngoài inbox | TV2: engine, `run`, baseline, hiệu năng, T22 (T10a–c, T11b, T11c, T13); TV1: `describe` dữ liệu (T05a); TV3: `describe` topology, sweep (T08b, T12) | T05a, T08b, T10a–T13 |
 | `analysis` | `analysis/{aggregate,convergence,stats,plots}.py` (ngoài `src/`, nên sửa không làm đổi `code_version`) | Tự đọc JSON/JSONL của `results/` bằng code riêng; gom các lượt thành DataFrame/CSV; độ đo suy ra từ `rounds.jsonl` (R@x, AUC, độ dao động và mức sụt theo từng node); CI (phân phối t), kiểm định H2; P1–P9, bảng T1; từ chối trộn `code_version`, lượt `dirty` hay lệch môi trường, so sánh lệch biến cố định hoặc lệch tập seed (INT-2); chế độ `--draft` cho kết quả smoke và demo | Import bất cứ gì của `dfl` ngoài `dfl.contracts`; sửa hay lọc số liệu | TV3; TV1 phân tích E1, E1c, E4a, E4 | T05b, T14a, T15a–c, T16a–b |
@@ -174,12 +174,14 @@ make check-docker # T22c, tùy chọn (Q12): smoke trong Docker Compose, so từ
 
 # Dữ liệu — T03: tải MNIST vào data/ một lần (cần mạng; laptop demo phải tải trước)
 python -m dfl download mnist
+python -m dfl download cifar10   # T28b (ADR-012): bản binary, kiểm md5, vào data/cifar-10-batches-bin/
 
 # Một lượt — T11
 python -m dfl run --config configs/profiles/smoke.yaml --out build/smoke   # dữ liệu tổng hợp, dưới 60 s
 python -m dfl run --config <config.yaml>          # ghi results/runs/<run_id>/attempt-<k>/; cây phải sạch;
                                                   # profile smoke không bao giờ được ghi vào results/
 python -m dfl run --config configs/profiles/smoke.yaml --runtime processes --out build/smoke-proc   # T22b: mỗi node một tiến trình
+python -m dfl run --config configs/profiles/smoke_cifar10.yaml --out build/smoke-cifar10   # T28d (ADR-012): tổng hợp 3×32×32
 
 # Mô tả dữ liệu và topology, không huấn luyện — T05 (mốc M2)
 python -m dfl describe --config configs/base.yaml --seeds 20 --out build/describe
@@ -219,7 +221,7 @@ non_iid-dfl/
 ├── .gitattributes                                    # T02: `* text=auto eol=lf`, để checkout trên Windows không đổi byte
 ├── configs/
 │   ├── base.yaml                                     # mặc định KH §3.5
-│   ├── profiles/{smoke,fast,full,demo}.yaml
+│   ├── profiles/{smoke,fast,full,demo,smoke_cifar10,cifar10_fast}.yaml   # hai profile CIFAR-10: ADR-012
 │   └── experiments/{e0a_lr,e0b_sanity,e1_noniid,e1c_objective,e2_topology,e2b_gossip,
 │                    e3a_algorithms,e3b_tau_mu,e4a_quantity,e4_quantity,e8_model_complexity,demo}.yaml
 ├── src/dfl/                                          # mọi code ảnh hưởng tới kết quả; hash nội dung → code_version
@@ -227,7 +229,7 @@ non_iid-dfl/
 │   ├── contracts.py  config.py  seeding.py           # nền tảng dùng chung
 │   ├── data/{datasets,partition,heterogeneity}.py    # data
 │   ├── network/{topology,mixing,transport}.py        # network
-│   ├── learning/{models,local_train}.py              # learning
+│   ├── learning/{models,local_train,augment}.py      # learning (augment: ADR-012)
 │   ├── metrics/{classification,consensus}.py         # metrics-io
 │   ├── io/{run_logger,manifest}.py                   # metrics-io
 │   └── sim/{node,engine,observer,sweep,run,describe,torchdist,process_runtime}.py   # sim (torchdist, process_runtime: ADR-010)
@@ -237,7 +239,7 @@ non_iid-dfl/
 │   ├── conftest.py                                   # fixture autouse kiểm RNG toàn cục (§7)
 │   ├── unit/  integration/  e2e/                     # file test_<chủ đề>.py, tên không trùng giữa các thư mục
 │   └── reference/                                    # hàm chia dữ liệu tham chiếu (sao từ docs/spikes/) cho test golden
-├── data/        # .gitignore với mẫu có neo `/data/` (không trùng src/dfl/data/) — MNIST tải bằng torchvision
+├── data/        # .gitignore với mẫu có neo `/data/` (không trùng src/dfl/data/) — MNIST, CIFAR-10 tải bằng torchvision
 ├── results/     # .gitignore — runs/<run_id>/attempt-<k>/ và experiments/<exp>.json; sao lưu sau mỗi nhóm thí nghiệm
 ├── build/       # .gitignore — smoke, demo, describe, coverage
 ├── figures/     # chỉ sinh bằng script; có commit
@@ -258,6 +260,7 @@ non_iid-dfl/
 - **B1 (tập trung):** một model trên 55k mẫu, 10 epoch, B = 32 (khoảng 17,190 bước), minibatch lấy có hoàn lại; η riêng chọn trên validation trong {0.01, 0.05, 0.1} (3 lượt, thuộc E0a). **B1-4k:** như B1 nhưng dùng η chung của lưới và 4,000 bước, bằng số bước cục bộ của một node DFL (3 lượt, thuộc E0b). B1-4k là đối chứng của SAN-2 (§9.3; nhóm chốt ở P1.9, QS-3): nó tách được lỗi khỏi hiệu ứng ngân sách và η.
 - Mỗi nhóm E0a, E0b, E1, E1c, E2, E2b, E3a, E3b, E4a, E4, E8 có một file YAML riêng (E0a phải xong trước E0b vì η; E3a và E4a thuộc Tier 1, E3b và E4 thuộc Tier 2), cộng `demo.yaml`.
 - **Runtime và model** (ADR-010, ADR-011): `runtime: inprocess | processes` (mặc định `inprocess`); `deploy: local | docker`, chỉ dùng với `processes`, Docker là tùy chọn (Q12); `model: smallcnn | logreg | mlp2nn | cnn_mcmahan` (mặc định `smallcnn`; các model khác chỉ cho E8). Cả ba nằm trong cấu hình chuẩn hóa, tức trong `run_id`, vì thời gian đo được phụ thuộc runtime.
+- **Dataset và augmentation** (ADR-012): `dataset: mnist | cifar10 | synthetic | synthetic_cifar10`; model phải khớp shape ảnh (`cnn_niidbench` cho 3×32×32, các model còn lại cho 1×28×28); `augmentation: none | crop_flip`, để null thì điền theo dataset (`crop_flip` với `cifar10` và `synthetic_cifar10`, `none` với dataset khác). Giá trị đã điền nằm trong cấu hình chuẩn hóa, tức trong `run_id`.
 
 | Profile | N | τ·R | Dữ liệu | Dùng cho |
 |---|---|---|---|---|
@@ -265,6 +268,8 @@ non_iid-dfl/
 | `fast` | 20 | 1,000 (τ = 10) | MNIST; đánh giá mỗi 100 bước | Phát triển |
 | `full` | 20 | 4,000 (mặc định τ = 20, R = 200) | MNIST | Kết quả cho báo cáo |
 | `demo` | 20 | Nhỏ, dự kiến khoảng 400 | MNIST đã tải sẵn | Demo trên laptop: 2 lượt ring vs FC ở α = 0.1, tổng ≤ 5 phút (QS-8) |
+| `smoke_cifar10` | 4 | 12 (τ = 2, R = 6) | Tổng hợp 3×32×32, cùng cỡ với `smoke`; `cnn_niidbench`, `crop_flip` | Test đường CIFAR-10 (ADR-012) |
+| `cifar10_fast` | 20 | 1,000 (τ = 10) | CIFAR-10; `cnn_niidbench`, `crop_flip`; η giữ chỗ | Phát triển và đo ở T28f (ADR-012); không phải kết quả cho báo cáo |
 
 ### 5.3 Kết quả
 
@@ -295,14 +300,14 @@ non_iid-dfl/
 - **Ngôn ngữ:** tên định danh tiếng Anh; docstring và comment tiếng Việt, ngắn, nói *vì sao* và quy tắc đến từ đâu (KH §, ADR, G); không comment lặp lại code; không để code bị comment-out.
 - **Hình dạng code:** ưu tiên hàm thuần và `@dataclass(frozen=True)` cho cấu hình/bản ghi (cấu hình không đổi được sau khi đã tính `run_id`); type hint đầy đủ cho tham số và giá trị trả về; không có trạng thái toàn cục thay đổi được.
 - **Ngẫu nhiên tường minh:** nhận `numpy.random.Generator` / `torch.Generator` làm tham số; trong `src/` không dùng `np.random.<hàm>` toàn cục, `random.*` hay `torch.manual_seed`, và không gọi hàm ngẫu nhiên của torch mà thiếu `generator=`. Chỉ `seeding.py` được tạo `SeedSequence`/`Generator`. Mỗi luồng là `SeedSequence(entropy=…, spawn_key=(ID_LUỒNG, …))`, trong đó ID_LUỒNG là hằng số nguyên cố định khai báo trong `seeding.py` (không dùng `hash()` của Python, vốn đổi theo tiến trình). Không luồng nào trùng entropy với luồng khác.
-  - *Luồng theo seed của lượt* (entropy = seed): partition, hoán vị vị trí, đồ thị ER, init, batch của node i (spawn_key (ID_BATCH, i)), batch của B1 và B1-4k, matching của T3 (spawn_key (ID_GOSSIP, round)), matching của T3b (spawn_key (ID_GOSSIP_ER, round)). Luồng không phụ thuộc topology, thuật toán hay τ, để cùng seed thì cùng partition, cùng hoán vị vị trí và cùng w⁰ (G9).
+  - *Luồng theo seed của lượt* (entropy = seed): partition, hoán vị vị trí, đồ thị ER, init, batch của node i (spawn_key (ID_BATCH, i); luồng này cũng cấp độ dời và cờ lật của augmentation `crop_flip`, ADR-012), batch của B1 và B1-4k, matching của T3 (spawn_key (ID_GOSSIP, round)), matching của T3b (spawn_key (ID_GOSSIP_ER, round)). Luồng không phụ thuộc topology, thuật toán hay τ, để cùng seed thì cùng partition, cùng hoán vị vị trí và cùng w⁰ (G9).
   - *Luồng dữ liệu cố định* (entropy = hằng số `DATA_SEED` trong `seeding.py`, giống nhau cho mọi lượt): cách tách validation 5k, tập con đánh giá 2,000 ảnh, dữ liệu tổng hợp của profile smoke. Nhờ vậy mọi lượt, ở mọi seed, dùng cùng validation và cùng ảnh đánh giá.
   - Trạng thái RNG toàn cục của torch (`torch.get_rng_state()`, generator CPU mặc định: https://docs.pytorch.org/docs/2.14/generated/torch.get_rng_state.html) phải giống hệt trước và sau một lượt (T-INV-5). `manual_seed` bị cấm nên RNG toàn cục ở mọi tiến trình bắt đầu từ cùng một trạng thái. Một lời gọi quên `generator=` vì thế sẽ cho cùng số ở mọi seed, làm các seed tương quan mà không test nào khác bắt được.
 - **Khởi tạo w⁰:** lấy mẫu tường minh từ `torch.Generator` của luồng init rồi chép vào mọi tham số; không dựa vào RNG toàn cục mà các lớp `nn` dùng khi khởi tạo. Để việc tạo module không tiêu thụ RNG toàn cục, T09 chọn một trong hai cách đã đối chiếu tài liệu 2.14: `torch.nn.utils.skip_init` tạo module mà không khởi tạo tham số (https://docs.pytorch.org/docs/2.14/generated/torch.nn.utils.skip_init.html), hoặc tạo module trong `torch.random.fork_rng()`, vốn trả RNG về trạng thái cũ khi thoát (https://docs.pytorch.org/docs/2.14/random.html).
 - **Module thuần** không import torch (§3.2); mọi `__init__.py` để trống.
 - **Mô hình và tổng hợp:** không BatchNorm (G3); mỗi node tạo đúng một snapshot sở hữu riêng mỗi round (clone + detach, không dùng view của `state_dict()`, G22); tổng hợp cộng theo id người gửi tăng dần, chỉ đọc snapshot và ghi ra bộ đệm mới (không có phép tại chỗ như `mul_`/`add_` trên tensor của snapshot); chỉ ghi vào model sau khi mọi node đã tổng hợp xong (INV-3).
 - **Lỗi cấu hình:** raise `ValueError` nói rõ ràng buộc bị vi phạm (ví dụ #C = k cần N ≥ 10, G23); không nuốt lỗi; không dùng `assert` để kiểm tra đầu vào (`python -O` bỏ qua `assert`).
-- **An toàn:** chỉ `yaml.safe_load`; `torch.load` chỉ với `weights_only=True` (mặc định ở 2.14, G14); không unpickle dữ liệu từ ngoài; dữ liệu chỉ tải qua torchvision.
+- **An toàn:** chỉ `yaml.safe_load`; `torch.load` chỉ với `weights_only=True` (mặc định ở 2.14, G14); không unpickle dữ liệu từ ngoài; dữ liệu chỉ tải qua torchvision (CIFAR-10: bản binary tải bằng `torchvision.datasets.utils.download_and_extract_archive` rồi đọc bằng numpy, vì `torchvision.datasets.CIFAR10` unpickle; ADR-012).
 - **Định dạng:** `ruff format` + `ruff check`; không thêm `# noqa` hay `type: ignore` mà không ghi lý do.
 - **Kích thước thay đổi:** mỗi task tối đa khoảng 300 dòng diff, một commit (KH §8).
 - **API framework:** docstring ghi URL tài liệu chính thức đúng phiên bản; không kiểm được thì ghi "UNVERIFIED" (P1.7).
@@ -459,7 +464,7 @@ Mỗi task còn phải đạt Definition of Done ở H§4.2.
 | REQ-11 Kiến trúc tổng quan | Sơ đồ KH §4.1 và luồng một round §4.3 có trong báo cáo và khớp capability map §3 | Duyệt ở Gate G1 và khi review báo cáo | P1.5, T24 |
 | REQ-12 Baseline IID, biến cố định | B1 tập trung (10 epoch, B = 32, η riêng chọn trên validation, §5.2) và B1-4k; B2 chỉ cục bộ (W = I); B3 FedAvg có server (trọng số $n_k/n$, đường server, REQ-05), chạy trên IID ngay ở Tier 1 (E0b). Đạt SAN-1…4. Biến cố định (N, model, η, B, τ·R, lịch đánh giá, tập đánh giá, số luồng) và tập seed trùng nhau trong mọi so sánh giữa các lượt DFL; baseline chỉ xuất hiện như đường tham chiếu có nhãn, ghi rõ ngân sách và η của nó (INT-2) | §9.3; INT-2 | T11, T14 |
 | REQ-13 Nhận xét và khuyến nghị | Mỗi khuyến nghị (topology, τ, chiến lược tổng hợp, trọng số trộn) dẫn chiếu ít nhất một hình/bảng và run ID, và ghi mức bằng chứng: khuyến nghị chính khi kết luận là "ủng hộ" (5 seed), khuyến nghị tạm khi chỉ là "gợi ý" (3 seed), không khuyến nghị khi "chưa kết luận" (ADR-007). Khuyến nghị về trọng số trộn chỉ dựa trên MH so với uniform; size-corrected là thay đổi bước học theo node, báo cáo riêng (ADR-005). Có mục hạn chế | INT-4, INT-5; P4.3 | T24 |
-| REQ-14 Dataset | MNIST qua torchvision: 60k train chia thành 55k cho node và 5k validation phân tầng; 10k test. Fashion-MNIST và CIFAR-10 chỉ là mở rộng sau M4 (H§2.1 ghi kiểm chứng bằng E6; khác biệt ghi ở §10) | Unit test T03 trên dataset giả (shape, đếm lớp, phân tầng) | T03 (T21) |
+| REQ-14 Dataset | MNIST qua torchvision: 60k train chia thành 55k cho node và 5k validation phân tầng; 10k test. CIFAR-10 có code theo ADR-012: bản binary, 50k train chia thành 45k cho node và 5k validation phân tầng, 10k test, CNN NIID-Bench, augmentation crop + flip. Thí nghiệm Fashion-MNIST và CIFAR-10 chỉ là mở rộng sau M4 (H§2.1 ghi kiểm chứng bằng E6; khác biệt ghi ở §10) | Unit test T03 trên dataset giả (shape, đếm lớp, phân tầng); T28b trên file CIFAR-10 giả | T03 (T21, T28) |
 | REQ-15 Mỗi node một tiến trình (GVHD) | Process runtime: mỗi node một tiến trình hệ điều hành, giao tiếp qua gloo, không server, không điều phối viên (G18); observer là tiến trình riêng, kênh đo không tính phí (INV-2, INV-5); `rounds.jsonl` trùng từng byte với bộ mô phỏng (T-INV-13); Docker Compose là cách triển khai tùy chọn (Q12) | T-INV-13; `make check-docker` (tùy chọn) | T22a, T22b, T22c |
 | REQ-16 Chi phí giao tiếp theo độ phức tạp model (GVHD) | E8: M0–M3 × {T1, T3, T4} × {IID, α = 0.1}, N = 8, process runtime; byte/round tất định và thời gian giao tiếp đo được (Q13); hình P10, P11; H8 có kết luận theo thẻ E8 | Test số tham số (T09c); thẻ E8 | T09c, T27a–c |
 
@@ -626,6 +631,7 @@ SPEC được ưu tiên hơn KH và H ở các điểm dưới đây (yêu cầu
 | 38 | H P3.3: viết cả sáu T-INV của engine trước rồi mới viết engine | Engine chia ba task T10a–c; mỗi task viết T-INV của mình trước (§7) | Gộp lại thì vượt khoảng 300 dòng một task; test đỏ không commit được (CONSTRAINTS F1, F2) |
 | 39 | §4.6: cây thư mục dự kiến | Thêm `sim/run.py`, `sim/describe.py`, `analysis/{checks,sanity,provenance}.py`, `tests/conftest.py`, `configs/experiments/e4a_quantity.yaml`, `docs/{PERF,DEMO,VALIDATION}.md`, `docs/report/` (§5.1) | Logic không được nằm trong `cli.py`; mỗi task tối đa 5 file (`tasks/plan.md` K8) |
 | 40 | §1.1 (điều chỉnh 5), §2.4, §4.9: `torch.distributed` chỉ là tùy chọn; nhiều tiến trình ngoài phạm vi chính | Process runtime (mỗi node một tiến trình qua gloo) là bắt buộc, trùng từng bit với bộ mô phỏng (T-INV-13); Docker tùy chọn; thêm thang model M0–M3 và E8 | GVHD trả lời Q1 ngày 2026-10-01; ADR-010, ADR-011; nhóm duyệt K14 ngày 2026-10-01 |
+| 41 | §2.4, §10 (ADR-003): CIFAR-10 là mở rộng sau M4, chưa có code | Code CIFAR-10 có trước M4: tải bản binary, đọc bằng numpy, chuẩn hóa theo kênh, CNN NIID-Bench 62,006 tham số, augmentation crop + flip lấy từ luồng batch của node. Thí nghiệm vẫn sau M4 và cần η, lưới, ngân sách, ngưỡng sanity riêng | Yêu cầu ngày 2026-10-15, đã hỏi theo Ask first; ADR-012 |
 
 ---
 
