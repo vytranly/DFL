@@ -131,3 +131,11 @@ def test_invalid_graphs_are_rejected(graph: nx.Graph) -> None:
 def test_unknown_objective_scheme_raises_value_error() -> None:
     with pytest.raises(ValueError, match="scheme"):
         mixing.objective_weights("fedavg", nx.path_graph(3), np.ones(3))
+
+
+def test_uniform_ignores_edge_attributes_named_weight() -> None:
+    # Review C3 P3.7, P2-1: W chỉ phụ thuộc cấu trúc đồ thị; thuộc tính cạnh `weight` không được lọt vào.
+    weighted = nx.path_graph(3)
+    weighted.edges[0, 1]["weight"] = 5
+
+    assert np.array_equal(mixing.uniform(weighted), mixing.uniform(nx.path_graph(3)))

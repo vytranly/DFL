@@ -10,6 +10,8 @@ networkx.Graph.degree:
 https://networkx.org/documentation/networkx-3.7/reference/classes/generated/networkx.Graph.degree.html
 networkx.number_of_selfloops:
 https://networkx.org/documentation/networkx-3.7/reference/generated/networkx.classes.function.number_of_selfloops.html
+networkx.to_numpy_array (weight=None: mọi cạnh có giá trị 1, bỏ qua thuộc tính cạnh):
+https://networkx.org/documentation/networkx-3.7/reference/generated/networkx.convert_matrix.to_numpy_array.html
 """
 
 from __future__ import annotations
@@ -54,7 +56,8 @@ def uniform(graph: nx.Graph) -> np.ndarray:
     này chỉ chạy trên ER; trên đồ thị đều nó trùng MH.
     """
     n = _check_graph(graph)
-    weights = nx.to_numpy_array(graph, nodelist=range(n), dtype=float) + np.eye(n)
+    # weight=None: W chỉ phụ thuộc cấu trúc đồ thị, không đọc thuộc tính cạnh `weight` (review C3 P3.7, P2-1).
+    weights = nx.to_numpy_array(graph, nodelist=range(n), dtype=float, weight=None) + np.eye(n)
     return weights / weights.sum(axis=1, keepdims=True)
 
 
