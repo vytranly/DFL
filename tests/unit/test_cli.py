@@ -25,6 +25,18 @@ def test_download_mnist_fetches_into_the_given_root(monkeypatch: pytest.MonkeyPa
     assert (code, calls) == (0, [tmp_path])
 
 
+def test_download_cifar10_fetches_into_the_given_root(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    calls: list[Path] = []
+    monkeypatch.setattr(datasets, "download_cifar10", calls.append)
+    monkeypatch.setattr(datasets, "download_mnist", lambda root: pytest.fail("không được tải MNIST"))
+
+    code = cli.main(["download", "cifar10", "--root", str(tmp_path)])
+
+    assert (code, calls) == (0, [tmp_path])
+
+
 def test_download_defaults_to_the_data_directory(monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[Path] = []
     monkeypatch.setattr(datasets, "download_mnist", calls.append)
@@ -35,7 +47,7 @@ def test_download_defaults_to_the_data_directory(monkeypatch: pytest.MonkeyPatch
 
 
 @pytest.mark.parametrize(
-    "argv", [["download", "cifar10"], [], ["frobnicate"]], ids=["dataset", "none", "cmd"]
+    "argv", [["download", "cifar100"], [], ["frobnicate"]], ids=["dataset", "none", "cmd"]
 )
 def test_bad_command_lines_exit_with_usage_error(argv: list[str]) -> None:
     with pytest.raises(SystemExit) as exit_info:

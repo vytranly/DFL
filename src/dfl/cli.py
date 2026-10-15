@@ -34,6 +34,10 @@ EXIT_CODE_MISMATCH = 5
 def _download(args: argparse.Namespace) -> int:
     from dfl.data import datasets  # nạp torch và torchvision chỉ khi chạy lệnh này
 
+    if args.dataset == "cifar10":
+        datasets.download_cifar10(args.root)  # bản binary, ADR-012
+        print(f"CIFAR-10 đã có trong {args.root / datasets.CIFAR10_DIR}")
+        return 0
     datasets.download_mnist(args.root)
     print(f"MNIST đã có trong {args.root}")
     return 0
@@ -168,7 +172,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     commands = parser.add_subparsers(dest="command", required=True, metavar="<lệnh>")
     download = commands.add_parser("download", help="tải dữ liệu một lần (cần mạng)")
-    download.add_argument("dataset", choices=["mnist"], help="bộ dữ liệu cần tải")
+    download.add_argument("dataset", choices=["mnist", "cifar10"], help="bộ dữ liệu cần tải")
     download.add_argument("--root", type=Path, default=DATA_ROOT, help="thư mục dữ liệu (mặc định: data)")
     download.set_defaults(handler=_download)
     run = commands.add_parser("run", help="chạy một lượt từ một file cấu hình")

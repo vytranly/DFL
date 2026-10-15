@@ -43,7 +43,7 @@ import numpy as np
 import torch
 
 from dfl import seeding
-from dfl.config import PartitionConfig, RunConfig
+from dfl.config import SYNTHETIC_DATASETS, PartitionConfig, RunConfig
 from dfl.contracts import (
     CommCounters,
     EvalResult,
@@ -437,7 +437,7 @@ def results_lock(run_dir: Path) -> Iterator[None]:
 
 
 def _check_results_allowed(config: RunConfig, provenance: Provenance, results_root: Path) -> None:
-    if config.dataset == "synthetic":
+    if config.dataset in SYNTHETIC_DATASETS:
         raise RunRefused("dữ liệu tổng hợp (profile smoke) không bao giờ được ghi vào results/; dùng --out")
     if provenance.dirty:
         raise RunRefused(

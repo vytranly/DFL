@@ -110,6 +110,7 @@ def test_a_number_that_pyyaml_reads_as_a_string_is_rejected_with_a_hint(tmp_path
         ("eval:\n  split: train\n", "split"),
         ("model: resnet\n", "model"),
         ("model: cnn_niidbench\n", "1×28×28"),
+        ("dataset: cifar10\n", "cnn_niidbench"),
         ("[1, 2]\n", "mapping"),
         ("algorithm: 3\n", "mapping"),
         ("num_nodes: 0\n", "num_nodes"),
@@ -149,6 +150,7 @@ def test_a_number_that_pyyaml_reads_as_a_string_is_rejected_with_a_hint(tmp_path
         "bad-split",
         "bad-model",
         "model-dataset-shape-mismatch",
+        "cifar10-needs-its-model",
         "not-a-mapping",
         "section-not-a-mapping",
         "zero-nodes",
@@ -242,3 +244,17 @@ def test_every_dataset_and_model_declares_an_input_shape() -> None:
     assert set(cfg.DATASET_INPUTS) == set(cfg.DATASETS)
     assert set(cfg.MODEL_INPUTS) == set(cfg.MODELS)
     assert all(shape in set(cfg.MODEL_INPUTS.values()) for shape in cfg.DATASET_INPUTS.values())
+
+
+@pytest.mark.parametrize(
+    ("profile", "base", "dataset"),
+    [("smoke_cifar10", "smoke", "synthetic_cifar10"), ("cifar10_fast", "fast", "cifar10")],
+)
+def test_cifar10_profiles_change_only_the_dataset_and_model_of_their_mnist_twin(
+    profile: str, base: str, dataset: str
+) -> None:
+    # ADR-012: cùng quy mô, ngân sách và lịch đánh giá với profile MNIST tương ứng.
+    loaded = cfg.load_config(CONFIGS / "profiles" / f"{profile}.yaml")
+    twin = cfg.load_config(CONFIGS / "profiles" / f"{base}.yaml")
+
+    assert loaded == dataclasses.replace(twin, dataset=dataset, model="cnn_niidbench")

@@ -1,0 +1,7 @@
+# Profile fast của CIFAR-10 (ADR-012): như fast.yaml (N = 20, τ·R = 1,000, τ = 10), với CIFAR-10 bản binary
+# (tải bằng `python -m dfl download cifar10`) và CNN của NIID-Bench. η = 0.05 của base.yaml chỉ là giá trị giữ
+# chỗ: η của CIFAR-10 phải chọn trên validation (ADR-012). Dùng khi phát triển và để đo (T28f); không phải kết
+# quả cho báo cáo.
+extends: fast.yaml
+dataset: cifar10
+model: cnn_niidbench

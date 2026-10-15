@@ -58,7 +58,15 @@ from typing import Any
 
 import yaml
 
-from dfl.config import RunConfig, canonical_json, from_mapping, load_mapping, merge, to_yaml
+from dfl.config import (
+    SYNTHETIC_DATASETS,
+    RunConfig,
+    canonical_json,
+    from_mapping,
+    load_mapping,
+    merge,
+    to_yaml,
+)
 from dfl.contracts import ExperimentIndex, ExperimentVersion
 from dfl.io.manifest import (
     Provenance,
@@ -279,7 +287,7 @@ def _check(
         )
     if out is not None:
         return
-    if any(cell.config.dataset == "synthetic" for cell in cells):
+    if any(cell.config.dataset in SYNTHETIC_DATASETS for cell in cells):
         raise SweepRefused("dữ liệu tổng hợp (profile smoke) không bao giờ được ghi vào results/; dùng --out")
     if not is_linked_worktree(root):
         raise SweepRefused(

@@ -26,6 +26,7 @@ SMOKE = dataclasses.replace(
     local_steps=4,
     eval=EvalConfig(subset_size=100, every_steps=None),
 )
+SMOKE_CIFAR10 = dataclasses.replace(SMOKE, dataset="synthetic_cifar10", model="cnn_niidbench")
 CLEAN = Provenance(
     code_version="c" * 64,
     git_commit="a" * 40,
@@ -92,9 +93,10 @@ def test_results_refuses_a_dirty_tree_or_a_mismatched_environment(
     assert attempts(tmp_path) == []
 
 
-def test_results_never_takes_the_synthetic_smoke_data(tmp_path: Path) -> None:
+@pytest.mark.parametrize("config", [SMOKE, SMOKE_CIFAR10], ids=["synthetic", "synthetic_cifar10"])
+def test_results_never_takes_the_synthetic_smoke_data(tmp_path: Path, config: RunConfig) -> None:
     with pytest.raises(run.RunRefused, match="smoke"):
-        run.run(SMOKE, results_root=tmp_path, provenance=CLEAN)
+        run.run(config, results_root=tmp_path, provenance=CLEAN)
 
     assert attempts(tmp_path) == []
 

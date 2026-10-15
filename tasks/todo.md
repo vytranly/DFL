@@ -708,7 +708,7 @@ T22a, T22b và T09c là code của lưới: phải xong trước T14b (E0a), đ�
   - Phụ thuộc: T28a
   - File: `src/dfl/learning/models.py`, `src/dfl/config.py`, `tests/unit/test_models.py`, `tests/unit/test_config.py`
 
-- [ ] **T28d · Chạy CIFAR-10 từ cấu hình: dataset, CLI, profile, chặn dữ liệu tổng hợp** — nhánh `binh` · M
+- [x] **T28d · Chạy CIFAR-10 từ cấu hình: dataset, CLI, profile, chặn dữ liệu tổng hợp** — nhánh `binh` · M
   - Mô tả: `config.DATASETS` thêm `cifar10`, `synthetic_cifar10`; `download cifar10`; profile `smoke_cifar10`, `cifar10_fast`; `run` và `sweep` từ chối mọi dữ liệu tổng hợp khi ghi vào `results/`.
   - Chấp nhận: lượt `smoke_cifar10` xong với `bytes_total` = message × 4 × 62,006 và RNG toàn cục không đổi; `synthetic_cifar10` bị từ chối khi ghi vào `results/`.
   - Kiểm chứng: `make check-task`; `python -m dfl run --config configs/profiles/smoke_cifar10.yaml --out build/smoke-cifar10`

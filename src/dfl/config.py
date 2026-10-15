@@ -49,7 +49,12 @@ MIXINGS = ("metropolis_hastings", "uniform", "size_weighted", "size_corrected")
 # ở đây vì module này không import torch; tests/unit/test_models.py giữ nó đúng với model thật.
 MNIST_INPUT = (1, 28, 28)
 CIFAR10_INPUT = (3, 32, 32)
-DATASET_INPUTS = {"mnist": MNIST_INPUT, "synthetic": MNIST_INPUT}
+DATASET_INPUTS = {
+    "mnist": MNIST_INPUT,
+    "cifar10": CIFAR10_INPUT,
+    "synthetic": MNIST_INPUT,
+    "synthetic_cifar10": CIFAR10_INPUT,
+}
 MODEL_INPUTS = {
     "smallcnn": MNIST_INPUT,
     "logreg": MNIST_INPUT,
@@ -59,6 +64,8 @@ MODEL_INPUTS = {
 }
 MODELS = tuple(MODEL_INPUTS)
 DATASETS = tuple(DATASET_INPUTS)
+# Dữ liệu tổng hợp của các profile smoke: không bao giờ được ghi vào results/ (SPEC §5.3).
+SYNTHETIC_DATASETS = ("synthetic", "synthetic_cifar10")
 SPLITS = ("test", "validation")
 RUNTIMES = ("inprocess", "processes")
 DEPLOYS = ("local", "docker")

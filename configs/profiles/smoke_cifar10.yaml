@@ -1,0 +1,6 @@
+# Profile smoke của đường CIFAR-10 (ADR-012): như smoke.yaml, với dữ liệu tổng hợp cùng shape CIFAR-10 (3×32×32;
+# 2,000 ảnh train, 200 trong đó làm validation; 500 ảnh test) và CNN của NIID-Bench. Dùng cho test; không bao
+# giờ được ghi vào results/.
+extends: smoke.yaml
+dataset: synthetic_cifar10
+model: cnn_niidbench

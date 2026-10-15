@@ -1,11 +1,12 @@
 # Mặc định của một lượt chạy (KH §3.5; SPEC §5.2). Profile và cấu hình thí nghiệm chỉ ghi đè khóa cần đổi.
 # Số thực phải có dấu chấm thập phân: PyYAML đọc 5e-2 thành chuỗi, nên viết 0.05 hay 5.0e-2.
 # File này phải ghi đúng mặc định của dfl.config.RunConfig (tests/unit/test_config.py kiểm).
-dataset: mnist
+dataset: mnist             # cifar10 (ADR-012); synthetic, synthetic_cifar10 chỉ cho profile smoke
 num_nodes: 20
 seed: 0
 local_steps: 4000          # τ·R, giống nhau cho mọi điều kiện (ADR-006)
-model: smallcnn            # ADR-004; logreg, mlp2nn, cnn_mcmahan chỉ cho E8 (ADR-011)
+model: smallcnn            # ADR-004; logreg, mlp2nn, cnn_mcmahan chỉ cho E8 (ADR-011);
+                           # cnn_niidbench cho ảnh 3×32×32 của CIFAR-10 (ADR-012)
 mixing: metropolis_hastings
 threads: 1                 # số luồng mỗi lượt, hằng số của cả lưới (chốt ở T13)
 runtime: inprocess         # processes: mỗi node một tiến trình (ADR-010)

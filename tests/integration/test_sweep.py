@@ -244,6 +244,11 @@ def test_results_need_a_linked_worktree_a_matching_environment_and_real_data(
 ) -> None:
     path = write_experiment(tmp_path, "res", [{"seeds": [0], "set": {**TINY, "dataset": "mnist"}}])
     synthetic = write_experiment(tmp_path, "syn", [{"seeds": [0], "set": TINY}])
+    synthetic_cifar10 = write_experiment(
+        tmp_path,
+        "syn10",
+        [{"seeds": [0], "set": {**TINY, "dataset": "synthetic_cifar10", "model": "cnn_niidbench"}}],
+    )
     mismatched = dataclasses.replace(
         here, env_match=False, mismatches=("numpy: file khóa ghi 2.5.3, đã cài 2.5.4",)
     )
@@ -252,8 +257,9 @@ def test_results_need_a_linked_worktree_a_matching_environment_and_real_data(
         sweep.run_sweep(path, results_root=tmp_path / "results", provenance=here, root=ROOT)
     with pytest.raises(sweep.SweepRefused, match="numpy"):
         sweep.run_sweep(path, results_root=tmp_path / "results", provenance=mismatched, root=ROOT)
-    with pytest.raises(sweep.SweepRefused, match="smoke"):
-        sweep.run_sweep(synthetic, results_root=tmp_path / "results", provenance=here, root=ROOT)
+    for smoke_data in (synthetic, synthetic_cifar10):
+        with pytest.raises(sweep.SweepRefused, match="smoke"):
+            sweep.run_sweep(smoke_data, results_root=tmp_path / "results", provenance=here, root=ROOT)
     assert not (tmp_path / "results").exists()
 
 
