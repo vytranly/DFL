@@ -5,6 +5,7 @@ Mô phỏng Decentralized Federated Learning (không server) trên MNIST để �
 > **Trạng thái (2026-10-02):** xong lát chạy trọn một lượt (checkpoint C3, nhóm duyệt ngày 2026-10-02).
 > - Chạy được: `python -m dfl run` (một lượt, ghi đủ 4 file kết quả, mọi node trong một tiến trình hay mỗi node một tiến trình), `describe` (thống kê Non-IID của các cách chia, kiểm REQ-02) và `sweep` (một nhóm thí nghiệm).
 > - Chưa có: `analysis/` (R@x, AUC, hình, bảng; T15, T16), thẻ và kết quả thí nghiệm (từ E0a).
+> - CIFAR-10 (2026-10-15, [ADR-012](docs/decisions/ADR-012-cifar10-binary-niidbench-cnn-crop-flip.md), Proposed): có code tải và đọc dữ liệu, CNN của NIID-Bench, augmentation crop + flip, profile `smoke_cifar10` và `cifar10_fast`. Chưa có thí nghiệm: η, lưới, ngân sách và ngưỡng sanity của CIFAR-10 chưa quyết, và thí nghiệm vẫn chỉ làm sau M4.
 > - Tiến độ từng task: [tasks/todo.md](tasks/todo.md).
 
 ## Cài đặt (CPU)
@@ -20,6 +21,8 @@ pip install -r requirements.lock
 pip install -e ".[dev]" -c requirements.lock
 # MNIST, một lần (cần mạng), vào data/.
 python -m dfl download mnist
+# CIFAR-10 bản binary (170 MB, kiểm md5), một lần, vào data/cifar-10-batches-bin/ (ADR-012).
+python -m dfl download cifar10
 ```
 
 ## Lệnh
@@ -32,6 +35,8 @@ python -m dfl download mnist
 | `make check-inv` | Có đủ test bất biến T-INV-1…13 và tất cả đều xanh |
 | `python -m dfl run --config configs/profiles/smoke.yaml --out build/smoke` | Một lượt smoke trên dữ liệu tổng hợp, không cần MNIST |
 | `python -m dfl run --config configs/profiles/fast.yaml --out build/fast` | Một lượt fast trên MNIST (N = 20). Thêm `--runtime processes` để mỗi node chạy trong một tiến trình riêng (ADR-010) |
+| `python -m dfl run --config configs/profiles/smoke_cifar10.yaml --out build/smoke-cifar10` | Một lượt smoke của đường CIFAR-10 trên dữ liệu tổng hợp 3×32×32, không cần tải CIFAR-10 (ADR-012) |
+| `python -m dfl run --config configs/profiles/cifar10_fast.yaml --out build/cifar10-fast` | Một lượt fast trên CIFAR-10 (N = 20, 1,000 bước, CNN của NIID-Bench, crop + flip). η = 0.05 chỉ là giá trị giữ chỗ, nên đây là lượt để phát triển và đo, không phải kết quả |
 | `python -m dfl describe --config configs/base.yaml --seeds 20 --out build/describe --check-req02` | Thống kê Non-IID của mọi cách chia qua 20 seed, so JS với bảng KH §3.2 (REQ-02) |
 | `python -m dfl sweep --experiment configs/experiments/<nhóm>.yaml --dry-run` | Lập kế hoạch một nhóm thí nghiệm; bỏ `--dry-run` (thêm `--workers <n>` nếu cần) để chạy |
 
@@ -46,7 +51,7 @@ Dòng đầu commit theo [Conventional Commits](https://www.conventionalcommits.
 - Không có `--out` thì ghi vào `results/`, và chỉ khi:
   - cây sạch;
   - môi trường khớp `requirements.lock`;
-  - dữ liệu là MNIST thật, không phải dữ liệu smoke;
+  - dữ liệu là MNIST hay CIFAR-10 thật, không phải dữ liệu smoke (`synthetic`, `synthetic_cifar10`);
   - run_id chưa có attempt nào xong.
 - Lưới cho báo cáo chạy bằng `sweep` từ một worktree riêng (`git worktree add`). Trong worktree đó, `data/` và `results/` là symlink tới thư mục của repo chính (quy trình ở [tasks/todo.md](tasks/todo.md), E0a).
 - Không sửa tay `results/` hay `figures/` (CLAUDE.md).

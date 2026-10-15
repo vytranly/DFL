@@ -22,7 +22,8 @@ Proposed — soạn ngày 2026-10-15 theo yêu cầu làm code CIFAR-10 trước
 - NIID-Bench (Li et al., ICDE 2022, arXiv 2102.02079v4), bài cung cấp các cách chia P0–P3 của dự án:
   - Model cho mọi dataset ảnh: "two 5x5 convolution layers followed by 2x2 max pooling (the first with 6 channels and the second with 16 channels) and two fully connected layers with ReLU activation (the first with 120 units and the second with 84 units)" [p.7].
   - Bảng III, FedAvg trên CIFAR-10 [p.8]: homogeneous 70.4% ± 0.2%; p_k ∼ Dir(0.5) 68.2% ± 0.7%; #C = 1 10.0% ± 0.0%; #C = 2 49.8% ± 3.3%; #C = 3 58.3% ± 1.2%; quantity q ∼ Dir(0.5) 72.0% ± 0.3%.
-  - Thiết lập của bài khác dự án: 10 party có server, SGD momentum 0.9, batch 64, 10 epoch cục bộ, 50 round (DIGEST §2.4). Vì vậy bảng chỉ là mốc tham chiếu thô.
+  - Augmentation cho CIFAR-10 trong mã nguồn (`utils.py`, nhánh main, dòng 711–721, đọc ngày 2026-10-15; bài báo không nêu): ToTensor → đệm phản chiếu 4 điểm ảnh (`F.pad(..., (4, 4, 4, 4), mode='reflect')`) → RandomCrop(32) → RandomHorizontalFlip, không có Normalize.
+  - Thiết lập của bài khác dự án: 10 party có server, SGD momentum 0.9, batch 64, 10 epoch cục bộ, 50 round (DIGEST §2.4); đệm phản chiếu thay vì đệm đen; không chuẩn hóa ảnh. Vì vậy bảng chỉ là mốc tham chiếu thô.
 - Tutorial CIFAR-10 chính thức của PyTorch dùng đúng mạng này, với ReLU sau mỗi conv và sau hai lớp FC đầu: https://docs.pytorch.org/tutorials/beginner/blitz/cifar10_tutorial.html
 - Nhóm chọn có augmentation (2026-10-15). Không có augmentation, mỗi node ở N = 20, IID chỉ có khoảng 2,250 ảnh và chạy khoảng 57 epoch cục bộ (4,000 × 32 / 2,250), nên quá khớp nặng.
 
@@ -107,6 +108,11 @@ Proposed — soạn ngày 2026-10-15 theo yêu cầu làm code CIFAR-10 trước
 - Nhược: phải đổi contract `LocalTrainer`, `Node`, engine và process runtime. Ablation augmentation không nằm trong phạm vi.
 - Kết luận: không chọn. Cần ablation thì ghi ADR mới.
 
+### Đệm phản chiếu (reflect) như mã nguồn NIID-Bench
+- Ưu: giống cách làm của bài dùng làm mốc tham chiếu; không cần giá trị đệm theo kênh, vì chuẩn hóa là phép biến đổi theo từng điểm ảnh nên đệm phản chiếu trước hay sau chuẩn hóa cho cùng kết quả.
+- Nhược: khác `RandomCrop(32, padding=4)` mặc định của torchvision, phép biến đổi dùng làm chuẩn để kiểm.
+- Kết luận: không chọn, và ghi đây là một điểm lệch so với NIID-Bench (review T28, R5). Nhóm có thể đổi trước lượt CIFAR-10 đầu tiên vào `results/`, vì ADR còn Proposed.
+
 ### Đệm bằng 0 sau chuẩn hóa (tức màu trung bình)
 - Ưu: không cần giá trị đệm theo kênh.
 - Nhược: khác `RandomCrop(padding=4)` của torchvision, phép biến đổi dùng làm chuẩn để kiểm.
@@ -132,11 +138,38 @@ Proposed — soạn ngày 2026-10-15 theo yêu cầu làm code CIFAR-10 trước
 - **Byte:**
   - 248,024 B mỗi message.
   - Với N = 20 mỗi round: ring 40 message = 9.92 MB; FC 380 message = 94.25 MB; gossip trên $K_N$ 20 message = 4.96 MB.
-- **Tính toán:** khoảng 0.65 triệu phép nhân-cộng mỗi ảnh khi chạy xuôi (conv1 352,800; conv2 240,000; FC 58,920). SmallCNN trên MNIST là khoảng 1.08 triệu. Thời gian thật đo ở T28f.
+- **Tính toán:** khoảng 0.65 triệu phép nhân-cộng mỗi ảnh khi chạy xuôi (conv1 352,800; conv2 240,000; FC 58,920). SmallCNN trên MNIST là khoảng 1.08 triệu. Đo được 9.40 ms một bước có `crop_flip`, so với 10.36 ms của SmallCNN trên MNIST (mục Số đo).
 - **RAM:**
   - Mỗi tiến trình giữ ba tập float32: 45k × 3,072 × 4 B = 553 MB (train), 61 MB (validation), 123 MB (test), tổng khoảng 737 MB. MNIST chỉ khoảng 220 MB.
-  - Runtime inprocess còn giữ bản sao dữ liệu của các node (tổng 553 MB), tức khoảng 1.3 GB.
-  - Process runtime với N = 20 cần khoảng 21 × 0.8 GB, quá RAM còn trống của máy chủ dùng chung (31 GB tổng, khoảng 20 GB trống ngày 2026-10-15). N = 8 cần khoảng 7 GB. Đo ở T28f.
+  - Runtime inprocess còn giữ bản sao dữ liệu của các node (tổng 553 MB). Đo được RAM đỉnh 1.69 GB cho một lượt `cifar10_fast`.
+  - Một tiến trình node của process runtime đạt RAM đỉnh 1,291 MiB (MNIST 764 MiB). Với N = 20 cần khoảng 21 × 1.29 GB ≈ 27 GB, quá RAM còn trống của máy chủ dùng chung (31 GB tổng, khoảng 20 GB trống ngày 2026-10-15). N = 8 cần khoảng 11.6 GB.
 - **Augmentation:** minibatch của lượt có `crop_flip` khác lượt `none` cùng seed, vì hai lượt rút số xen kẽ khác nhau. Mọi so sánh trong một nhóm CIFAR-10 vẫn ghép cặp (G9), vì cùng seed thì cùng chuỗi số ở mọi topology và thuật toán.
 - **SPEC** (sửa cùng ADR này, theo lựa chọn phạm vi ngày 2026-10-15): §1.4, §4, §5.1, §5.2, §6, REQ-14, §10 dòng 41.
 - **Task:** T28a–T28f trong `tasks/todo.md`.
+
+## Số đo (T28f, 2026-10-15)
+Máy chủ CPU 8 nhân dùng chung, 1 luồng mỗi lượt, load average 14–18 trong lúc đo, nên thời gian chỉ là mức tham khảo. Mọi lượt ghi ra `build/` hay thư mục tạm, không vào `results/`.
+- **MNIST giữ nguyên:**
+  - Chạy profile `smoke` và `fast` (MNIST thật, N = 20, 1,000 bước) ở commit `1c10f2b` (trước T28b) và `8aa7f3b` (sau T28e).
+  - `cmp` cho thấy `rounds.jsonl` và `summary.json` trùng từng byte ở cả hai profile.
+  - `run_id` đổi (smoke: `ac88cc7953197c61` → `3c57d0a30cae3883`), đúng dự kiến vì cấu hình chuẩn hóa có thêm `augmentation`.
+- **Dữ liệu thật:**
+  - Archive có md5 `c32a1d4ab5d03f1284b67883e8d87530`, đúng như trang chính thức. Giải nén ra thư mục `cifar-10-batches-bin`, sáu file đều 30,730,000 byte. `python -m dfl download cifar10` chạy lại thì bỏ qua bước tải.
+  - Sau khi tách: 45,000 / 5,000 / 10,000 ảnh. Nạp mất 1.9 s.
+  - mean theo kênh của phần node là (0.4914, 0.4821, 0.4465), std (0.2471, 0.2437, 0.2616). Các giá trị này khớp mức thường dùng cho CIFAR-10, nên thứ tự kênh R, G, B được đọc đúng.
+- **describe** (20 seed, `configs/profiles/cifar10_fast.yaml`):
+  - `--check-req02` đạt trên nhãn CIFAR-10.
+  - JS: Dir(0.5) 0.287; Dir(0.1) 0.554; #C = 2 0.614; #C = 1 0.758.
+  - Node nhỏ nhất: 145 ảnh ở α = 0.1; 134 ở α = 0.05; 83 ở quantity β = 0.5.
+- **Thời gian một bước** (B = 32, trung vị của 5 × 100 bước):
+  - SmallCNN trên MNIST: 10.36 ms.
+  - `cnn_niidbench` không augmentation: 8.29 ms; có `crop_flip`: 9.40 ms.
+  - Riêng `crop_flip`: 0.63 ms mỗi batch.
+- **Một lượt `cifar10_fast`** (ring, IID, N = 20, 1,000 bước, τ = 10, η = 0.05 giữ chỗ):
+  - 4 phút 56 giây, gồm huấn luyện 190 s và đánh giá 62 s.
+  - 4,000 message, 992,096,000 byte (= 4,000 × 248,024).
+  - Trên 10k ảnh test: acc(w̄) 43.9%, accuracy trung bình của node 42.5%. Mất mát train vẫn đang giảm (2.30 → 1.69).
+  - Đây chỉ là số đo phát triển, không phải kết quả: η chưa được chọn, và ngân sách chỉ bằng 1/4 của lưới.
+- **RAM đỉnh:**
+  - Một tiến trình node (nạp dữ liệu, lắp lượt, dựng node): 1,291 MiB với CIFAR-10, 764 MiB với MNIST.
+  - Runtime inprocess với `cifar10_fast`: 1.69 GB.
