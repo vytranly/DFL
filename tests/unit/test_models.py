@@ -1,5 +1,6 @@
-"""Test cho src/dfl/learning/models.py: SmallCNN 46,730 tham số và thang M0–M3 của E8, không BatchNorm hay
-Dropout, w⁰ từ luồng init (T09a, T09c; ADR-004, ADR-011; SPEC §6; T-INV-5).
+"""Test cho src/dfl/learning/models.py: SmallCNN 46,730 tham số, thang M0–M3 của E8 và CNN của NIID-Bench cho
+CIFAR-10, không BatchNorm hay Dropout, w⁰ từ luồng init (T09a, T09c, T28c; ADR-004, ADR-011, ADR-012; SPEC §6;
+T-INV-5).
 """
 
 import math
@@ -130,12 +131,18 @@ def test_unknown_model_name_raises_value_error() -> None:
 
 
 def reference_forward(name: str, w: dict[str, torch.Tensor], x: torch.Tensor) -> torch.Tensor:
-    """Forward viết lại từ mô tả kiến trúc ở ADR-004 và ADR-011, chỉ dùng state của model."""
+    """Forward viết lại từ mô tả kiến trúc ở ADR-004, ADR-011 và ADR-012, chỉ dùng state của model."""
     f = torch.nn.functional
     if name == "logreg":
         return f.linear(x.flatten(1), w["fc.weight"], w["fc.bias"])
     if name == "mlp2nn":
         h = f.relu(f.linear(x.flatten(1), w["fc1.weight"], w["fc1.bias"]))
+        h = f.relu(f.linear(h, w["fc2.weight"], w["fc2.bias"]))
+        return f.linear(h, w["fc3.weight"], w["fc3.bias"])
+    if name == "cnn_niidbench":
+        h = f.max_pool2d(f.relu(f.conv2d(x, w["conv1.weight"], w["conv1.bias"])), 2)
+        h = f.max_pool2d(f.relu(f.conv2d(h, w["conv2.weight"], w["conv2.bias"])), 2)
+        h = f.relu(f.linear(h.flatten(1), w["fc1.weight"], w["fc1.bias"]))
         h = f.relu(f.linear(h, w["fc2.weight"], w["fc2.bias"]))
         return f.linear(h, w["fc3.weight"], w["fc3.bias"])
     padding = 2 if name == "cnn_mcmahan" else 0
@@ -151,3 +158,53 @@ def test_ladder_models_compute_the_architecture_written_in_the_adrs(name: str) -
     x = torch.randn((4, 1, 28, 28), generator=torch.Generator().manual_seed(2))
 
     torch.testing.assert_close(model(x), reference_forward(name, model.state_dict(), x))
+
+
+# ----------------------------------------------------------------------------------- CIFAR-10 (T28c, ADR-012)
+
+# ADR-012: CNN của NIID-Bench, 62,006 tham số cho ảnh 3×32×32.
+CIFAR10_MODELS = [("cnn_niidbench", 62_006)]
+
+
+@pytest.mark.parametrize(("name", "parameters"), CIFAR10_MODELS, ids=[name for name, _ in CIFAR10_MODELS])
+def test_cifar10_models_have_the_adr_012_size_and_no_batchnorm_or_dropout(name: str, parameters: int) -> None:
+    model = build_model(name, seeding.torch_generator(0, Stream.INIT))
+
+    assert sum(p.numel() for p in model.parameters()) == parameters
+    assert sum(t.numel() * t.element_size() for t in model.state_dict().values()) == 4 * parameters
+    assert not any(isinstance(module, BATCH_NORMS + DROPOUTS) for module in model.modules())
+    assert list(model.buffers()) == []
+    assert model(torch.zeros((3, 3, 32, 32))).shape == (3, 10)
+
+
+@pytest.mark.parametrize("name", [name for name, _ in CIFAR10_MODELS])
+def test_cifar10_models_draw_w0_only_from_the_init_stream(name: str) -> None:
+    before = torch.get_rng_state()
+
+    a = build_model(name, seeding.torch_generator(0, Stream.INIT)).state_dict()
+    again = build_model(name, seeding.torch_generator(0, Stream.INIT)).state_dict()
+    b = build_model(name, seeding.torch_generator(1, Stream.INIT)).state_dict()
+
+    assert torch.equal(torch.get_rng_state(), before)
+    assert all(torch.equal(a[key], again[key]) for key in a)
+    assert all(not torch.equal(a[key], b[key]) for key in a)
+
+
+@pytest.mark.parametrize("name", [name for name, _ in CIFAR10_MODELS])
+def test_cifar10_models_compute_the_architecture_written_in_adr_012(name: str) -> None:
+    model = build_model(name, seeding.torch_generator(0, Stream.INIT))
+    x = torch.randn((4, 3, 32, 32), generator=torch.Generator().manual_seed(2))
+
+    torch.testing.assert_close(model(x), reference_forward(name, model.state_dict(), x))
+
+
+@pytest.mark.parametrize("name", sorted(MODEL_CLASSES))
+def test_every_model_takes_exactly_the_input_shape_that_config_declares(name: str) -> None:
+    # config không import torch nên giữ bảng shape riêng; test này giữ bảng đó đúng với model thật.
+    model = build_model(name, seeding.torch_generator(0, Stream.INIT))
+    declared = config.MODEL_INPUTS[name]
+
+    assert model(torch.zeros((2, *declared))).shape == (2, 10)
+    for shape in set(config.DATASET_INPUTS.values()) - {declared}:
+        with pytest.raises(RuntimeError):
+            model(torch.zeros((2, *shape)))

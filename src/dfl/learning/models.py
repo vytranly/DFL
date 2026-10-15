@@ -1,4 +1,4 @@
-"""Model của node (module learning; ADR-004, ADR-011; SPEC §6; T-INV-5).
+"""Model của node (module learning; ADR-004, ADR-011, ADR-012; SPEC §6; T-INV-5).
 
 SmallCNN là model của mọi thí nghiệm lõi: Conv(1→16, 5×5) → ReLU → MaxPool 2 → Conv(16→32, 5×5) → ReLU →
 MaxPool 2 → FC(512→64) → ReLU → FC(64→10), 46,730 tham số, không BatchNorm, không dropout (ADR-004).
@@ -8,6 +8,11 @@ Thang model của E8 (ADR-011), chọn bằng trường `model` của cấu hìn
 - M2 `mlp2nn`: 784 → 200 → 200 → 10 với ReLU, 199,210 tham số (2NN của McMahan et al. 2017);
 - M3 `cnn_mcmahan`: Conv 5×5 (1→32, padding 2) → ReLU → MaxPool 2 → Conv 5×5 (32→64, padding 2) → ReLU →
   MaxPool 2 → FC 3136 → 512 → ReLU → FC 512 → 10, 1,663,370 tham số (CNN của McMahan et al. 2017).
+Model cho CIFAR-10 (ADR-012), ảnh 3×32×32, không BatchNorm hay dropout:
+- `cnn_niidbench`: Conv 5×5 (3→6) → ReLU → MaxPool 2 → Conv 5×5 (6→16) → ReLU → MaxPool 2 → FC 400 → 120 →
+  ReLU → FC 120 → 84 → ReLU → FC 84 → 10, 62,006 tham số. Đây là CNN của NIID-Bench (Li et al., ICDE 2022,
+  arXiv 2102.02079v4, p.7), trùng mạng của tutorial CIFAR-10 chính thức của PyTorch:
+  https://docs.pytorch.org/tutorials/beginner/blitz/cifar10_tutorial.html
 
 w⁰ lấy mẫu từ luồng init (seeding.Stream.INIT), không từ RNG toàn cục của torch. Model được dựng bằng
 `skip_init`, tức tham số chưa khởi tạo, rồi mỗi tham số được điền bằng `uniform_(…, generator=…)` theo đúng
@@ -93,12 +98,31 @@ class McMahanCNN(torch.nn.Module):
         return self.fc2(torch.nn.functional.relu(self.fc1(x.flatten(1))))
 
 
+class NiidBenchCNN(torch.nn.Module):
+    """CNN của NIID-Bench cho CIFAR-10 (ADR-012); conv không padding: 32 → 28 → 14 → 10 → 5."""
+
+    def __init__(self, *, device: torch.device | str | None = None, dtype: torch.dtype | None = None) -> None:
+        super().__init__()
+        self.conv1 = torch.nn.Conv2d(3, 6, 5, device=device, dtype=dtype)
+        self.conv2 = torch.nn.Conv2d(6, 16, 5, device=device, dtype=dtype)
+        self.fc1 = torch.nn.Linear(16 * 5 * 5, 120, device=device, dtype=dtype)
+        self.fc2 = torch.nn.Linear(120, 84, device=device, dtype=dtype)
+        self.fc3 = torch.nn.Linear(84, 10, device=device, dtype=dtype)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = torch.nn.functional.max_pool2d(torch.nn.functional.relu(self.conv1(x)), 2)
+        x = torch.nn.functional.max_pool2d(torch.nn.functional.relu(self.conv2(x)), 2)
+        x = torch.nn.functional.relu(self.fc1(x.flatten(1)))
+        return self.fc3(torch.nn.functional.relu(self.fc2(x)))
+
+
 # Tên trong cấu hình (config.MODELS) → lớp model.
 MODEL_CLASSES: dict[str, type[torch.nn.Module]] = {
     "logreg": LogisticRegression,
     "smallcnn": SmallCNN,
     "mlp2nn": TwoLayerMLP,
     "cnn_mcmahan": McMahanCNN,
+    "cnn_niidbench": NiidBenchCNN,
 }
 
 

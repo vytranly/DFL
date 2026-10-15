@@ -109,6 +109,7 @@ def test_a_number_that_pyyaml_reads_as_a_string_is_rejected_with_a_hint(tmp_path
         ("topology:\n  kind: erdos_renyi\n  p: 1.5\n", "p"),
         ("eval:\n  split: train\n", "split"),
         ("model: resnet\n", "model"),
+        ("model: cnn_niidbench\n", "1×28×28"),
         ("[1, 2]\n", "mapping"),
         ("algorithm: 3\n", "mapping"),
         ("num_nodes: 0\n", "num_nodes"),
@@ -147,6 +148,7 @@ def test_a_number_that_pyyaml_reads_as_a_string_is_rejected_with_a_hint(tmp_path
         "p-out-of-range",
         "bad-split",
         "bad-model",
+        "model-dataset-shape-mismatch",
         "not-a-mapping",
         "section-not-a-mapping",
         "zero-nodes",
@@ -234,3 +236,9 @@ def test_central_baseline_is_one_node_without_topology(tmp_path: Path) -> None:
     config = cfg.load_config(write(tmp_path, "b1.yaml", "num_nodes: 1\ntopology:\n  kind: central\n"))
 
     assert (config.num_nodes, config.topology.kind, config.partition.scheme) == (1, "central", "iid")
+
+
+def test_every_dataset_and_model_declares_an_input_shape() -> None:
+    assert set(cfg.DATASET_INPUTS) == set(cfg.DATASETS)
+    assert set(cfg.MODEL_INPUTS) == set(cfg.MODELS)
+    assert all(shape in set(cfg.MODEL_INPUTS.values()) for shape in cfg.DATASET_INPUTS.values())

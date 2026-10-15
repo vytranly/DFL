@@ -701,7 +701,7 @@ T22a, T22b và T09c là code của lưới: phải xong trước T14b (E0a), đ�
   - Phụ thuộc: T28a
   - File: `src/dfl/data/datasets.py`, `src/dfl/contracts.py`, `tests/unit/test_datasets.py`
 
-- [ ] **T28c · Model `cnn_niidbench` và kiểm model khớp shape ảnh** — nhánh `binh` · S
+- [x] **T28c · Model `cnn_niidbench` và kiểm model khớp shape ảnh** — nhánh `binh` · S
   - Mô tả: `learning/models.py` thêm CNN của NIID-Bench (62,006 tham số); `config.py` có bảng shape đầu vào của từng model và từng dataset, từ chối cặp không khớp.
   - Chấp nhận: đúng 62,006 tham số, không BatchNorm/Dropout, w⁰ chỉ từ luồng init, đầu ra (B, 10); mọi model chạy được trên đúng shape mà config khai báo.
   - Kiểm chứng: `make check-task`; `pytest -q tests/unit/test_models.py tests/unit/test_config.py`

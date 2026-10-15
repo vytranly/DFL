@@ -1,5 +1,5 @@
 """Cấu hình một lượt chạy: đọc YAML, điền mặc định, kiểm kiểu và giá trị, JSON chuẩn hóa cho run_id
-(nền tảng dùng chung; SPEC §5.2, §5.3, §6; ADR-007, ADR-008, ADR-010, ADR-011).
+(nền tảng dùng chung; SPEC §5.2, §5.3, §6; ADR-007, ADR-008, ADR-010, ADR-011, ADR-012).
 
 - Chỉ dùng `yaml.safe_load` (F6). PyYAML theo YAML 1.1: `5e-2` (thiếu dấu chấm thập phân) là chuỗi, còn
   `yes`/`no` là bool, nên mọi trường đều được kiểm kiểu; số thực phải viết `0.05` hay `5.0e-2`.
@@ -45,8 +45,20 @@ TOPOLOGIES = (
 ER_KINDS = ("erdos_renyi", "er_gossip")
 DEFAULT_ER_P = 0.3
 MIXINGS = ("metropolis_hastings", "uniform", "size_weighted", "size_corrected")
-MODELS = ("smallcnn", "logreg", "mlp2nn", "cnn_mcmahan")
-DATASETS = ("mnist", "synthetic")
+# Shape (C, H, W) của ảnh mỗi dataset, và của ảnh mỗi model nhận; model phải khớp dataset (ADR-012). Bảng nằm
+# ở đây vì module này không import torch; tests/unit/test_models.py giữ nó đúng với model thật.
+MNIST_INPUT = (1, 28, 28)
+CIFAR10_INPUT = (3, 32, 32)
+DATASET_INPUTS = {"mnist": MNIST_INPUT, "synthetic": MNIST_INPUT}
+MODEL_INPUTS = {
+    "smallcnn": MNIST_INPUT,
+    "logreg": MNIST_INPUT,
+    "mlp2nn": MNIST_INPUT,
+    "cnn_mcmahan": MNIST_INPUT,
+    "cnn_niidbench": CIFAR10_INPUT,
+}
+MODELS = tuple(MODEL_INPUTS)
+DATASETS = tuple(DATASET_INPUTS)
 SPLITS = ("test", "validation")
 RUNTIMES = ("inprocess", "processes")
 DEPLOYS = ("local", "docker")
@@ -62,6 +74,10 @@ def _one_of(value: str, allowed: tuple[str, ...], where: str) -> None:
 def _at_least(value: float, low: float, where: str) -> None:
     if not (math.isfinite(value) and value >= low):
         raise ValueError(f"{where} phải hữu hạn và ≥ {low}, nhận {value}")
+
+
+def _shape_text(shape: tuple[int, ...]) -> str:
+    return "×".join(str(size) for size in shape)
 
 
 def _positive(value: float, where: str) -> None:
@@ -171,6 +187,13 @@ class RunConfig:
         _one_of(self.mixing, MIXINGS, "mixing")
         _one_of(self.runtime, RUNTIMES, "runtime")
         _one_of(self.deploy, DEPLOYS, "deploy")
+        if MODEL_INPUTS[self.model] != DATASET_INPUTS[self.dataset]:
+            shape = DATASET_INPUTS[self.dataset]
+            fitting = [name for name, accepted in MODEL_INPUTS.items() if accepted == shape]
+            raise ValueError(
+                f"model {self.model} nhận ảnh {_shape_text(MODEL_INPUTS[self.model])}, còn dataset "
+                f"{self.dataset} có ảnh {_shape_text(shape)}; dùng một trong {fitting} (ADR-012)"
+            )
         _at_least(self.num_nodes, 1, "num_nodes")
         _at_least(self.seed, 0, "seed")
         _at_least(self.local_steps, 1, "local_steps")
