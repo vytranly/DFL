@@ -758,3 +758,10 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - Kiểm: lệnh smoke đúng như README (`--out build/smoke`) ghi đủ 4 file trong 10 s; `download`, `run`, `describe`, `sweep` đều có `--help`; lệnh `describe` là lệnh đã cho "REQ-02: đạt" trên MNIST thật (mục T05a)
 - Kiểm chứng: `make check-task` → mã 0: "Sàn: đạt (634 test)", 629 passed, coverage 95.19%; mất 131 s (vượt ngân sách 90 s, chỉ cảnh báo)
 - Việc tiếp theo: test P1-1…P1-7 của P3.7, phần còn lại của I6 (vòng round dùng chung, lý do phân kỳ trùng giữa hai runtime), T11e, smoke trên laptop demo (QS-8)
+
+## 2026-10-15 — Phiên #19 — Quy ước Conventional Commits và đẩy lên GitHub
+- Trạng thái: hook commit-msg ✅; đẩy nhánh `binh` lên https://github.com/vytranly/DFL (remote `origin`)
+- File đã đổi: scripts/git-hooks/commit-msg, .gitmessage, .gitignore (bỏ qua docs/report/*.pptx và slides/), Makefile (`install-hooks`), README.md, tests/unit/test_commit_msg_hook.py, tasks/SESSION_LOG.md
+- Nội dung: hook kiểm dòng đầu `<type>(<scope>)!: <subject>`, ASCII (tiếng Anh), ≤ 100 ký tự; cho qua thông điệp git tự sinh (Merge, Revert, fixup!/squash!/amend!). Cài bằng chép vào `.git/hooks` (không đặt `core.hooksPath`, để giữ hook post-commit/post-rewrite có sẵn)
+- Test mới: 17 ca trong tests/unit/test_commit_msg_hook.py (8 nhận, 9 từ chối)
+- Việc tiếp theo: thành viên khác chạy `make install-hooks` sau khi clone

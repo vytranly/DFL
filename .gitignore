@@ -9,3 +9,6 @@ __pycache__/
 .coverage
 htmlcov/
 *.egg-info/
+# Slide và bản PDF báo cáo nhị phân: giữ ở máy từng người, không đưa vào repo.
+/docs/report/*.pptx
+/slides/

@@ -5,7 +5,7 @@
 #   make check-full   ở mỗi checkpoint C1–C5
 #   make check-inv    T-INV-1…13 có đủ và xanh; bắt buộc từ C3 và trước mọi lượt Tier 1
 
-.PHONY: check-fast check-task check-full check-static check-floor check-inv
+.PHONY: check-fast check-task check-full check-static check-floor check-inv install-hooks
 
 # Dùng công cụ trong .venv nếu có, để chạy được mà không cần activate.
 VENV_BIN := .venv/bin/
@@ -71,3 +71,10 @@ check-inv:
 	done; \
 	if [ -n "$$missing" ]; then echo "✗ Thiếu test bất biến:$$missing"; exit 1; fi; \
 	$(PY) -m pytest -q -k "test_t_inv_" tests
+
+# Cài hook commit-msg (Conventional Commits, tiếng Anh) và mẫu thông điệp; chạy một lần sau khi clone.
+# Chép vào .git/hooks thay vì đặt core.hooksPath để không che các hook có sẵn ở đó.
+install-hooks:
+	install -m 755 scripts/git-hooks/commit-msg "$$(git rev-parse --git-path hooks)/commit-msg"
+	git config commit.template .gitmessage
+	@echo "Đã cài hook commit-msg và commit.template"

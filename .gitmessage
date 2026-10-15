@@ -1,0 +1,9 @@
+
+# <type>(<scope>)!: <subject>   — tiếng Anh, thể mệnh lệnh, ≤ 100 ký tự, mã task ở cuối nếu có
+#   type: feat fix docs style refactor perf test build ci chore revert
+#   scope (tùy chọn): sim, data, network, learning, metrics, io, config, analysis, spec, plan, log, ...
+#   "!" sau scope (hoặc dòng "BREAKING CHANGE: ..." ở thân) khi phá vỡ tương thích
+# Ví dụ: fix(sim): refuse an --out that leads into results/ in run and sweep (I1)
+#
+# Thân (tùy chọn, sau một dòng trống): vì sao đổi; có thể viết tiếng Việt.
+# Quy ước: https://www.conventionalcommits.org/en/v1.0.0/ — hook: scripts/git-hooks/commit-msg

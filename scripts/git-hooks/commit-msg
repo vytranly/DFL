@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# Giữ quy ước Conventional Commits bằng tiếng Anh cho dòng đầu commit (https://www.conventionalcommits.org/en/v1.0.0/).
+# Vì sao kiểm ở hook: lịch sử đã theo quy ước này từ đầu; hook chặn sớm thay vì sửa lại khi review.
+# Cài: make install-hooks. Thân commit được viết tự do (kể cả tiếng Việt); chỉ dòng đầu bị kiểm.
+set -euo pipefail
+
+msg_file="$1"
+max_len=100
+types='feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert'
+
+# Bỏ dòng chú thích git thêm vào và dòng trống ở đầu; dòng đầu còn lại là header.
+header="$(grep -v '^#' "$msg_file" | sed '/^[[:space:]]*$/d' | head -n 1 || true)"
+
+# Thông điệp git tự sinh (merge, revert, fixup/squash khi rebase) được cho qua.
+if [[ "$header" =~ ^(Merge|Revert\ \"|fixup!|squash!|amend!) ]]; then
+  exit 0
+fi
+
+fail() {
+  {
+    echo "✗ commit-msg: $1"
+    echo "  Header: ${header:-<rỗng>}"
+    echo "  Cần theo Conventional Commits, tiếng Anh, tối đa $max_len ký tự:"
+    echo "    <type>(<scope>)!: <subject>      type ∈ {${types//|/, }}"
+    echo "  Ví dụ: feat(sim): add the gloo transport for one node process (T22a)"
+  } >&2
+  exit 1
+}
+
+[[ -n "$header" ]] || fail "thông điệp rỗng"
+if LC_ALL=C grep -q '[^ -~]' <<<"$header"; then
+  fail "header có ký tự ngoài ASCII (viết tiếng Anh, không dấu)"
+fi
+(( ${#header} <= max_len )) || fail "header dài ${#header} ký tự"
+[[ "$header" =~ ^($types)(\([a-z0-9._/,-]+\))?!?:\ [^[:space:]] ]] || fail "header sai dạng"

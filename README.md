@@ -35,6 +35,10 @@ python -m dfl download mnist
 | `python -m dfl describe --config configs/base.yaml --seeds 20 --out build/describe --check-req02` | Thống kê Non-IID của mọi cách chia qua 20 seed, so JS với bảng KH §3.2 (REQ-02) |
 | `python -m dfl sweep --experiment configs/experiments/<nhóm>.yaml --dry-run` | Lập kế hoạch một nhóm thí nghiệm; bỏ `--dry-run` (thêm `--workers <n>` nếu cần) để chạy |
 
+## Commit
+
+Dòng đầu commit theo [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/), bằng tiếng Anh, tối đa 100 ký tự: `<type>(<scope>)!: <subject>`, ví dụ `fix(sim): refuse an --out that leads into results/ (I1)`. `type` là một trong `feat fix docs style refactor perf test build ci chore revert`; thân commit viết tự do. Sau khi clone, chạy `make install-hooks` một lần để cài hook `commit-msg` (chặn header sai dạng) và mẫu thông điệp `.gitmessage`.
+
 ## Kết quả
 
 - Mỗi lượt ghi `runs/<run_id>/attempt-<k>/` gồm `manifest.json`, `rounds.jsonl`, `timing.jsonl`, `summary.json` (SPEC §5.3).
