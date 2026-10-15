@@ -298,3 +298,17 @@ def test_replacing_the_dataset_without_resetting_augmentation_fails_loudly() -> 
 
     reset = dataclasses.replace(fast, dataset="cifar10", model="cnn_niidbench", augmentation=None)
     assert reset == cfg.load_config(CONFIGS / "profiles" / "cifar10_fast.yaml")
+
+
+def test_full_profile_is_exactly_the_base_defaults() -> None:
+    # T13: profile của lưới cho báo cáo giữ đúng mặc định đã chốt (ADR-007); đổi chúng cần ADR mới.
+    full = cfg.load_config(CONFIGS / "profiles" / "full.yaml")
+
+    assert full == cfg.load_config(CONFIGS / "base.yaml") == cfg.RunConfig()
+    assert (full.num_nodes, full.local_steps, full.algorithm.tau, full.eval.every_steps, full.threads) == (
+        20,
+        4000,
+        20,
+        100,
+        1,
+    )

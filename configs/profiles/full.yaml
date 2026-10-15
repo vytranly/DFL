@@ -1,0 +1,4 @@
+# Profile full (SPEC §5.2): đúng mặc định của base.yaml, tức MNIST, N = 20, τ·R = 4,000 (τ = 20, R = 200), đánh
+# giá mỗi 100 bước trên tập con test 2,000 ảnh, 1 luồng mỗi lượt. Đây là profile của mọi lượt cho báo cáo; T13
+# đo và giữ nguyên các giá trị này (docs/PERF.md). Thí nghiệm chỉ ghi đè khóa của ô lưới.
+extends: ../base.yaml

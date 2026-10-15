@@ -244,14 +244,20 @@ Tiêu chí kỹ thuật và toàn vẹn:
 - INT-1: T16a. INT-2, INT-3, INT-6: T15a. INT-4, INT-5: T24 và C5. REP-1: T25.
 - EXP-1…5: T14b–T20b và T24.
 
-## 10. Ngân sách tính toán (ADR-007; T13 cập nhật)
+## 10. Ngân sách tính toán (ADR-007; T13 cập nhật ngày 2026-10-15, chi tiết ở `docs/PERF.md`)
 
-- Một lượt DFL khoảng 20 phút-lõi.
-- Lưới lõi của Tier 1 có 197 lượt, khoảng 64 giờ-lõi (E8 tính riêng ở dưới). Tier 1 + 2 có 278 lượt, khoảng 92 giờ-lõi. Cộng 24 lượt có điều kiện thì khoảng 100 giờ-lõi; kể cả 30% dự phòng thì khoảng 130.
-- Với khoảng 1 lõi rảnh (tải lúc đo khoảng 7 trên 8 nhân), Tier 1 cần khoảng 2.7 ngày chạy liên tục, Tier 1 + 2 khoảng 4–5.5 ngày. Mức này vẫn vừa tuần 8–10, nhưng không đủ cho một lần chạy lại toàn bộ Tier 1.
-- **E8 (K14):** 72 lượt ngắn ở N = 8, R = 50, chạy bằng tiến trình cục bộ (cộng 4 ô trong Docker nếu có). Ước tính 1–3 phút mỗi lượt, tùy model; M3 tốn nhất. Tổng khoảng 1.5–3.5 giờ wall-clock, và chiếm cả 8 nhân trong lúc chạy, nên xếp vào các đêm không chạy lưới. T13 đo lại.
-- **Process runtime:** chỉ dùng cho E8, demo và T-INV-13, nên không đổi ngân sách của lưới. Nếu Q10 đòi chạy cả lưới đa tiến trình thì cần khoảng 7 GB RAM mỗi lượt N = 20, và phải tính lại toàn bộ mục này.
-- Hết T13 thì cập nhật mục này bằng số đo dưới tải thật.
+- **Một lượt DFL đủ ngân sách** (N = 20, 4,000 bước, τ = 20): 19.2 phút-lõi, đo một lượt `full` thật. Trong đó huấn luyện 724 s, đánh giá 40 mốc 366 s. τ = 1 tốn 22.5 phút-lõi; B1 khoảng 4.4; B1-4k khoảng 1.4.
+- **Lưới lõi Tier 1** (197 lượt): khoảng 62 giờ-lõi.
+- **E8** (72 lượt, R = 50): khoảng 5 giờ-lõi, khoảng 2.3 giờ thực khi chạy lần lượt. Lượt M3 tốn nhất, khoảng 5.7 phút thực, chủ yếu cho đánh giá. Giữ R = 50 như ADR-011.
+- **Tier 2** (81 lượt): khoảng 26.5 giờ-lõi; 24 lượt có điều kiện thêm khoảng 8.3. Tổng khoảng 103 giờ-lõi, khoảng 134 kể cả 30% dự phòng.
+- **Lõi rảnh đo ngày 2026-10-15:** 6.7–7.8 trên 8 (load average cao vì tiến trình chờ đĩa, không vì CPU). 7 worker chạy cùng lúc chậm thêm 15% mỗi lượt.
+- **Thời gian thực:**
+  - Với 6 worker: Tier 1 khoảng 12 giờ cộng E8 2.3 giờ; Tier 1 + 2 + có điều kiện khoảng 20 giờ (26 giờ kể cả dự phòng).
+  - Nếu tải trở lại mức ngày 2026-09-30 (khoảng 1 lõi rảnh): khoảng 4.4 ngày (5.7 kể cả dự phòng).
+  - Cả hai mức đều vừa tuần 8–10. Ở mức 7 lõi rảnh còn đủ chạy lại toàn bộ Tier 1 một lần.
+- **Không cắt gì theo ADR-007:** lịch đánh giá mỗi 100 bước, tập con 2,000 ảnh và `threads: 1` của `configs/base.yaml` giữ nguyên. Profile `configs/profiles/full.yaml` đúng bằng mặc định này.
+- **Process runtime:** 0.49 GB RAM mỗi tiến trình node MNIST, nên N = 20 cần khoảng 10 GB. Chạy cả lưới đa tiến trình (Q10) vừa RAM, nhưng mỗi lượt chiếm N + 1 tiến trình, nên số worker phải chia theo số lõi.
+- **Trước mỗi sweep lớn:** đo lõi rảnh (`scripts/perf_t13.py cores`), rồi đặt `--workers` bằng số lõi rảnh trừ 1.
 
 ## 11. Rủi ro và giảm thiểu
 

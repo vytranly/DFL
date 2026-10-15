@@ -408,7 +408,7 @@
   - Phụ thuộc: T11b, T11d
   - File: `src/dfl/sim/sweep.py`, `src/dfl/cli.py`, `tests/integration/test_sweep.py`, `src/dfl/contracts.py`, `tests/unit/test_contracts_smoke.py`
 
-- [ ] **T13 · Đo hiệu năng, chốt giao thức** — TV2 · M · ∥ T16a
+- [x] **T13 · Đo hiệu năng, chốt giao thức** — TV2 · M · ∥ T16a (Docker và laptop demo còn mở, xem docs/PERF.md §4, §6)
   - Mô tả: đo dưới tải thật (H P3.5): thời gian một bước, một lần đánh giá, một lượt fast và full; số luồng {1, 2, 4, 8} kết hợp số worker. Đo thêm process runtime (N = 8, tiến trình cục bộ và Docker: thời gian một round, RAM) và thời gian một bước của M0–M3 (ADR-011), để chốt R của E8. Xác nhận lịch đánh giá, tập con và số luồng đã ghi ở `configs/base.yaml` (ADR-007) còn chạy vừa ngân sách, và tạo profile full. Muốn đổi bất kỳ thứ nào trong đó thì phải hỏi nhóm và có ADR mới (Ask first) trước E0a. Tối ưu nào cần sửa `src/` thì tách thành task riêng, có test, và phải xong trước T14b. Cập nhật ngân sách ở `tasks/plan.md` §10.
   - Chấp nhận:
     - `docs/PERF.md` có bảng đo (trước và sau mỗi tối ưu) và số lõi rảnh thực tế.

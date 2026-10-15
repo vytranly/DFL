@@ -862,3 +862,17 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
   - Cộng 2 unit test cho `load(with_test=False)`
 - Việc tiếp theo: smoke trên laptop demo (QS-8); T13 (đo hiệu năng, chốt giao thức) trước E0a
 
+## 2026-10-15 — Phiên #19 (tiếp) — T13: đo hiệu năng, chốt giao thức; chuẩn bị QS-8
+- Trạng thái: T13 ✅, trừ phần Docker (T22c chưa có) và laptop demo (QS-8: phải đo trên chính laptop). Số đo và lệnh chạy lại ở `docs/PERF.md`
+- File đã đổi: docs/PERF.md (mới), scripts/perf_t13.py (mới), scripts/perf_t13_campaign.sh (mới), configs/profiles/full.yaml (mới), tests/unit/test_config.py, tasks/plan.md §10, tasks/todo.md, tasks/SESSION_LOG.md
+- Số đo chính:
+  - Một bước SmallCNN 9.16 ms với 1 luồng, 3.79 ms với 8 luồng. Tính theo lõi thì 1 luồng hiệu quả nhất, nên giữ `threads: 1`
+  - Một mốc đánh giá 9.0 s; đánh giá cuối 46 s
+  - Lượt `full` 19.2 phút-lõi; 7 worker chạy cùng lúc chậm thêm 15%
+  - Process runtime N = 8 trùng từng byte với inprocess, 0.49 GB mỗi node
+  - Lõi rảnh 6.7–7.8 trên 8: load average 14–41 là do tiến trình chờ đĩa
+- Ngân sách: Tier 1 + 2 + có điều kiện khoảng 103 giờ-lõi (134 kể cả dự phòng). Với 6 worker cần khoảng 20 giờ thực; ở mức tải cũ (1 lõi rảnh) khoảng 4.4 ngày. Vừa tuần 8–10, không cắt gì; `configs/base.yaml` giữ nguyên, không cần ADR mới. E8 giữ R = 50
+- Phát hiện cho T26 (cần nhóm quyết): 5 phút demo chỉ đủ khoảng 200 bước mỗi lượt, không phải 400 như QS-8 dự kiến, vì đánh giá cuối trên 10,000 ảnh mất khoảng 48 s mỗi lượt
+- QS-8: lệnh `python scripts/perf_t13.py laptop` chạy được trên mọi hệ điều hành; các bước cài thử ở `docs/PERF.md` §6. Vẫn chờ nhóm chạy trên laptop thật và trả lời O6 (hệ điều hành)
+- Việc tiếp theo: chạy QS-8 trên laptop; T14a, T14e (lệnh sanity, quy tắc chọn η); T16a; rồi E0a
+
