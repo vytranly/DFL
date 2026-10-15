@@ -719,7 +719,7 @@ T22a, T22b và T09c là code của lưới: phải xong trước T14b (E0a), đ�
   - Mô tả: `learning/augment.py`; `SgdTrainer` nhận augmentation (mặc định không có, đường MNIST giữ nguyên); trường cấu hình `augmentation` (null thì điền theo dataset); `Assembly.trainer()` truyền giá trị đệm là điểm ảnh đen đã chuẩn hóa.
   - Chấp nhận:
     - Với độ dời và cờ lật đã rút, kết quả trùng `torchvision.transforms.v2.functional` (pad 4, crop, horizontal_flip) áp trên ảnh uint8 rồi chuẩn hóa.
-    - Số ngẫu nhiên chỉ lấy từ Generator được truyền vào; `crop_flip` từ chối ảnh không phải 3×32×32.
+    - Số ngẫu nhiên chỉ lấy từ Generator được truyền vào. Cấu hình chỉ cho `crop_flip` với ảnh 3×32×32; `CropFlip` từ chối batch có số kênh khác số giá trị đệm.
     - Hai runtime vẫn trùng từng byte trên `smoke_cifar10` (T-INV-13).
   - Kiểm chứng: `make check-task`; `pytest -q tests/unit/test_augment.py`
   - Phụ thuộc: T28d

@@ -233,7 +233,8 @@ class LocalTrainer(Protocol):
         """Chạy τ bước SGD tại chỗ trên `model`, từ w_i^t tới w_i^(t+1/2); trả về mất mát trung bình.
 
         Mỗi bước lấy B mẫu có hoàn lại từ `data` bằng `generator` (luồng batch riêng của node), ví dụ qua
-        torch.randint(..., generator=generator):
+        torch.randint(..., generator=generator). Với augmentation crop_flip (ADR-012), cùng `generator` cấp
+        tiếp 2B độ dời rồi B cờ lật của bước đó:
         https://docs.pytorch.org/docs/2.14/generated/torch.randint.html
         Mất mát là `loss_scale` × cross-entropy + μ/2 · ‖w − anchor‖², với anchor là bản clone + detach
         của tham số lúc bắt đầu gọi và không có gradient (G6). `loss_scale` là c_i: bằng 1 theo mặc định,

@@ -246,9 +246,9 @@ def test_central_baseline_is_one_node_without_topology(tmp_path: Path) -> None:
     assert (config.num_nodes, config.topology.kind, config.partition.scheme) == (1, "central", "iid")
 
 
-def test_every_dataset_and_model_declares_an_input_shape() -> None:
-    assert set(cfg.DATASET_INPUTS) == set(cfg.DATASETS)
-    assert set(cfg.MODEL_INPUTS) == set(cfg.MODELS)
+def test_every_dataset_has_a_model_that_takes_its_images() -> None:
+    assert set(cfg.DATASETS) == {"mnist", "cifar10", "synthetic", "synthetic_cifar10"}
+    assert set(cfg.MODELS) == {"smallcnn", "logreg", "mlp2nn", "cnn_mcmahan", "cnn_niidbench"}
     assert all(shape in set(cfg.MODEL_INPUTS.values()) for shape in cfg.DATASET_INPUTS.values())
 
 

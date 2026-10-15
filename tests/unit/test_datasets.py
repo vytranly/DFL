@@ -369,6 +369,18 @@ def test_mnist_images_normalize_through_one_lookup_table_as_before(
         assert torch.equal(split.x, torch.from_numpy(table[raw].reshape(len(raw), 1, 28, 28)))
 
 
+def test_prepared_synthetic_tensors_are_unchanged_by_the_cifar10_extension() -> None:
+    # Review T28, R4: sha256 của x đã chuẩn hóa (train‖validation‖test), tính ngày 2026-10-15 bằng code ở
+    # commit 1c10f2b (trước ADR-012); giữ đường chuẩn hóa của MNIST đúng từng bit. Phụ thuộc numpy của
+    # requirements.lock.
+    prepared = ds.load("synthetic")
+    digest = hashlib.sha256()
+    for split in (prepared.train, prepared.validation, prepared.test):
+        digest.update(split.x.numpy().tobytes())
+
+    assert digest.hexdigest() == "6284758ed45c17faa2ae320db1e1c1a983e45bce4e04bde69e3909544a6d51ac"
+
+
 def test_synthetic_mnist_data_is_unchanged_by_the_cifar10_extension() -> None:
     # sha256 tính ngày 2026-10-15 trên code trước ADR-012 (commit 1c10f2b): dữ liệu smoke không đổi.
     train, test = ds.synthetic_raw()
@@ -461,6 +473,13 @@ def test_cifar10_files_of_the_wrong_size_are_rejected(tmp_path: Path) -> None:
 def test_missing_cifar10_files_raise_file_not_found_with_the_download_hint(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError, match="python -m dfl download cifar10"):
         ds.load("cifar10", root=tmp_path)
+
+
+def test_cifar10_train_files_are_joined_in_the_order_data_batch_1_to_5(fake_cifar10: Path) -> None:
+    # Review T28, R3: thứ tự nối quyết định ảnh nào vào validation và mọi cách chia dữ liệu.
+    train, _ = ds.load_cifar10_raw(fake_cifar10)
+
+    assert np.array_equal(train.labels, cifar_striped_split((5000,) * 10).labels)
 
 
 def test_load_cifar10_splits_45k_for_nodes_and_5k_validation(fake_cifar10: Path) -> None:
