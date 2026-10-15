@@ -84,12 +84,14 @@ class NodeDataset:
     Ảnh lấy từ torchvision.datasets.MNIST; Fashion-MNIST có cùng tham số khởi tạo:
     https://docs.pytorch.org/vision/0.29/generated/torchvision.datasets.MNIST.html
     https://docs.pytorch.org/vision/0.29/generated/torchvision.datasets.FashionMNIST.html
+    CIFAR-10 đọc từ bản binary bằng numpy (data/datasets.py, ADR-012).
     UNVERIFIED: hai thuộc tính .data và .targets không có trong trang tài liệu 0.29, chỉ có trong mã nguồn
     đã cài; task nào dùng chúng phải ghi rõ điều này.
     """
 
     node_id: int
-    # float32, shape (n_i, 1, 28, 28), đã chuẩn hóa bằng mean/std của tập train.
+    # float32, shape (n_i, C, H, W): (1, 28, 28) với MNIST, (3, 32, 32) với CIFAR-10; đã chuẩn hóa theo kênh
+    # bằng mean/std của phần train chia cho node.
     x: torch.Tensor
     # int64, shape (n_i,), nhãn 0..9.
     y: torch.Tensor

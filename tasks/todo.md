@@ -691,7 +691,7 @@ T22a, T22b và T09c là code của lưới: phải xong trước T14b (E0a), đ�
   - Kiểm chứng: review diff `docs/`, `SPEC.md`
   - File: `docs/decisions/ADR-012-cifar10-binary-niidbench-cnn-crop-flip.md`, `docs/decisions/README.md`, `docs/decisions/ADR-003-mnist-primary-dataset.md`, `SPEC.md`, `tasks/todo.md`
 
-- [ ] **T28b · Đọc và tải CIFAR-10, chuẩn hóa theo kênh, `synthetic_cifar10`** — nhánh `binh` · M
+- [x] **T28b · Đọc và tải CIFAR-10, chuẩn hóa theo kênh, `synthetic_cifar10`** — nhánh `binh` · M
   - Mô tả: `data/datasets.py` nhận ảnh (n, 3, 32, 32) bên cạnh (n, 28, 28); đọc 6 file binary bằng `np.fromfile`; `download_cifar10` gọi `torchvision.datasets.utils.download_and_extract_archive` với URL và md5 của trang chính thức; mean/std theo kênh; dữ liệu tổng hợp 3×32×32.
   - Chấp nhận:
     - Trên file binary giả: nhãn là byte đầu, các kênh R, G, B theo thứ tự hàng; file sai cỡ thì ValueError; thiếu file thì FileNotFoundError kèm lệnh tải.
