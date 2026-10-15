@@ -62,8 +62,10 @@ CIFAR10_MD5 = "c32a1d4ab5d03f1284b67883e8d87530"
 CIFAR10_DIR = "cifar-10-batches-bin"
 CIFAR10_TRAIN_FILES = tuple(f"data_batch_{k}.bin" for k in range(1, 6))
 CIFAR10_TEST_FILE = "test_batch.bin"
+CIFAR10_FILES = (*CIFAR10_TRAIN_FILES, CIFAR10_TEST_FILE)
 CIFAR10_RECORDS_PER_FILE = 10_000
 CIFAR10_RECORD_BYTES = 1 + 3 * 32 * 32
+CIFAR10_FILE_BYTES = CIFAR10_RECORDS_PER_FILE * CIFAR10_RECORD_BYTES
 # Profile smoke (SPEC §5.2): 2,000 ảnh train, 200 trong đó làm validation, và 500 ảnh test.
 SYNTHETIC_TRAIN_SIZE = 2000
 SYNTHETIC_VALIDATION_SIZE = 200
@@ -289,12 +291,11 @@ def download_mnist(root: Path | str) -> None:
 
 def _read_cifar10_file(path: Path) -> RawSplit:
     """Một file của bản binary: đúng 10,000 bản ghi 3,073 byte."""
-    expected = CIFAR10_RECORDS_PER_FILE * CIFAR10_RECORD_BYTES
     raw = np.fromfile(path, dtype=np.uint8)
-    if raw.size != expected:
+    if raw.size != CIFAR10_FILE_BYTES:
         raise ValueError(
-            f"{path} phải dài đúng {expected:,} byte (10,000 bản ghi 3,073 byte), nhận {raw.size:,}; xóa "
-            f"{path.parent} rồi tải lại bằng `python -m dfl download cifar10`"
+            f"{path} phải dài đúng {CIFAR10_FILE_BYTES:,} byte (10,000 bản ghi 3,073 byte), nhận "
+            f"{raw.size:,}; giải nén lại bằng `python -m dfl download cifar10 --root {path.parent.parent}`"
         )
     records = raw.reshape(CIFAR10_RECORDS_PER_FILE, CIFAR10_RECORD_BYTES)
     images = np.ascontiguousarray(records[:, 1:]).reshape(CIFAR10_RECORDS_PER_FILE, *CIFAR10_SHAPE)
@@ -305,7 +306,7 @@ def load_cifar10_raw(root: Path | str) -> tuple[RawSplit, RawSplit]:
     """Train (50k, nối năm file data_batch theo thứ tự) và test (10k) của CIFAR-10 bản binary đã giải nén vào
     `root`; không tải gì (ENG-8)."""
     folder = Path(root) / CIFAR10_DIR
-    missing = [name for name in (*CIFAR10_TRAIN_FILES, CIFAR10_TEST_FILE) if not (folder / name).is_file()]
+    missing = [name for name in CIFAR10_FILES if not (folder / name).is_file()]
     if missing:
         raise FileNotFoundError(
             f"không thấy {missing} trong {folder}; tải bằng `python -m dfl download cifar10 --root {root}`"
@@ -319,12 +320,16 @@ def load_cifar10_raw(root: Path | str) -> tuple[RawSplit, RawSplit]:
 
 
 def download_cifar10(root: Path | str) -> None:
-    """Tải bản binary của CIFAR-10 và giải nén vào `root`/cifar-10-batches-bin (torchvision kiểm md5 trước khi
-    giải nén); đã đủ sáu file thì không tải lại."""
+    """Tải bản binary của CIFAR-10 và giải nén vào `root`/cifar-10-batches-bin (torchvision kiểm md5 trước
+    khi giải nén). Đủ sáu file đúng cỡ thì không làm gì. Thiếu file hay có file sai cỡ (giải nén dở) thì
+    torchvision giải nén lại từ archive đã kiểm md5, và chỉ tải lại khi archive không còn hay sai md5."""
     from torchvision.datasets.utils import download_and_extract_archive
 
     folder = Path(root) / CIFAR10_DIR
-    if all((folder / name).is_file() for name in (*CIFAR10_TRAIN_FILES, CIFAR10_TEST_FILE)):
+    if all(
+        (folder / name).is_file() and (folder / name).stat().st_size == CIFAR10_FILE_BYTES
+        for name in CIFAR10_FILES
+    ):
         return
     download_and_extract_archive(CIFAR10_URL, str(root), md5=CIFAR10_MD5)
 

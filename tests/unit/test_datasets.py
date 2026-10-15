@@ -452,8 +452,10 @@ def test_cifar10_files_of_the_wrong_size_are_rejected(tmp_path: Path) -> None:
     path = tmp_path / "cifar-10-batches-bin" / "data_batch_3.bin"
     path.write_bytes(path.read_bytes()[:-3073])
 
-    with pytest.raises(ValueError, match="30,730,000"):
+    with pytest.raises(ValueError, match="30,730,000") as excinfo:
         ds.load_cifar10_raw(tmp_path)
+
+    assert f"python -m dfl download cifar10 --root {tmp_path}" in str(excinfo.value)
 
 
 def test_missing_cifar10_files_raise_file_not_found_with_the_download_hint(tmp_path: Path) -> None:
@@ -534,6 +536,29 @@ def test_download_cifar10_skips_when_every_batch_file_is_present(
     ds.download_cifar10(fake_cifar10)
 
     assert calls == []
+
+
+def test_download_cifar10_extracts_again_when_a_file_has_the_wrong_size(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # Giải nén dở (một file bị cắt) không được tính là đã có: torchvision giải nén lại từ archive đã kiểm md5.
+    import torchvision.datasets.utils
+
+    folder = tmp_path / "cifar-10-batches-bin"
+    folder.mkdir()
+    for name in [f"data_batch_{k}.bin" for k in range(1, 6)] + ["test_batch.bin"]:
+        with (folder / name).open("wb") as file:
+            file.truncate(30_730_000)  # file thưa đúng cỡ, nội dung không quan trọng ở đây
+    with (folder / "test_batch.bin").open("r+b") as file:
+        file.truncate(12_345)
+    calls: list[str] = []
+    monkeypatch.setattr(
+        torchvision.datasets.utils, "download_and_extract_archive", lambda url, *_, **__: calls.append(url)
+    )
+
+    ds.download_cifar10(tmp_path)
+
+    assert calls == ["https://www.cs.toronto.edu/~kriz/cifar-10-binary.tar.gz"]
 
 
 def test_synthetic_cifar10_data_is_fixed_balanced_and_shaped_like_cifar10() -> None:
