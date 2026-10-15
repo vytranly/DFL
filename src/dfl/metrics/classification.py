@@ -37,6 +37,14 @@ def confusion_matrix(y_true: np.ndarray, y_pred: np.ndarray) -> np.ndarray:
     """C[y, ŷ], shape (10, 10), kiểu int64."""
     y_true = np.asarray(y_true, dtype=np.int64)
     y_pred = np.asarray(y_pred, dtype=np.int64)
+    # Độ dài lệch thì broadcast im lặng, nhãn ngoài 0..9 thì rơi sang ô của lớp khác (review C3 P3.7, P2-12).
+    if y_true.ndim != 1 or y_true.shape != y_pred.shape:
+        raise ValueError(
+            f"y_true và y_pred phải là mảng 1-D cùng độ dài, nhận {y_true.shape} và {y_pred.shape}"
+        )
+    for name, values in (("y_true", y_true), ("y_pred", y_pred)):
+        if len(values) and (values.min() < 0 or values.max() >= NUM_CLASSES):
+            raise ValueError(f"{name} phải nằm trong 0..{NUM_CLASSES - 1}")
     counts = np.bincount(y_true * NUM_CLASSES + y_pred, minlength=NUM_CLASSES * NUM_CLASSES)
     return counts.reshape(NUM_CLASSES, NUM_CLASSES)
 

@@ -228,3 +228,16 @@ def test_evaluator_rejects_invalid_inputs(
 
     with pytest.raises(ValueError):
         clf.ClassificationEvaluator(tiny_model(99), x, y if eval_labels is None else eval_labels, **options)
+
+
+@pytest.mark.parametrize(
+    ("y_true", "y_pred"),
+    [([0, 1, 2], [0]), ([[0, 1]], [[0, 1]]), ([0, 1], [0, 10]), ([0, -1], [0, 1])],
+    ids=["length-mismatch", "two-dimensional", "prediction-10", "negative-label"],
+)
+def test_confusion_matrix_rejects_inputs_that_would_count_into_the_wrong_cell(
+    y_true: list[int], y_pred: list[int]
+) -> None:
+    # Review C3 P3.7, P2-12: độ dài lệch từng broadcast im lặng; nhãn ngoài 0..9 rơi sang ô của lớp khác.
+    with pytest.raises(ValueError):
+        clf.confusion_matrix(np.array(y_true), np.array(y_pred))
