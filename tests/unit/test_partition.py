@@ -262,3 +262,14 @@ def test_exhausting_retries_makes_one_try_plus_exactly_1000_resamples(
     for _ in range(1_001):
         one_try(twin)
     assert rng.bit_generator.state == twin.bit_generator.state
+
+
+def test_exhausted_dirichlet_names_the_zero_probability_cause() -> None:
+    # Review C3 P3.7, P2-3: với α rất nhỏ, phần lớn lần thử bị bỏ vì mọi xác suất còn lại bằng 0, không
+    # phải vì min_size; thông báo lỗi phải nói cả nguyên nhân đó, để người chạy biết nên tăng α.
+    small = np.repeat(np.arange(10), 10)
+
+    with pytest.raises(ValueError, match="1,000 lần") as excinfo:
+        part.DirichletPartitioner(alpha=1e-4, min_size=60)(small, 2, _rng(0))
+
+    assert "xác suất còn lại bằng 0" in str(excinfo.value)

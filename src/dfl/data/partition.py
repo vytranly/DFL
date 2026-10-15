@@ -43,8 +43,16 @@ def _result(parts: list[np.ndarray], retries: int, min_size: int) -> PartitionRe
     return PartitionResult(parts=tuple(np.asarray(p, dtype=np.int64) for p in parts), retries=retries)
 
 
-def _too_many_retries(what: str) -> ValueError:
-    return ValueError(f"{what}: đã lấy mẫu lại {MAX_RETRIES:,} lần mà vẫn có node nhỏ hơn min_size")
+def _too_many_retries(what: str, zero_probability: int = 0) -> ValueError:
+    cause = "vẫn có node nhỏ hơn min_size"
+    if zero_probability:
+        # Review C3 P3.7, P2-3: với α rất nhỏ, nguyên nhân chính thường là xác suất bằng 0, không phải
+        # min_size.
+        cause = (
+            f"{zero_probability:,}/{MAX_RETRIES + 1:,} lần thử bị bỏ vì mọi xác suất còn lại bằng 0 "
+            "(α quá nhỏ), các lần còn lại có node nhỏ hơn min_size"
+        )
+    return ValueError(f"{what}: đã lấy mẫu lại {MAX_RETRIES:,} lần mà không chia được: {cause}")
 
 
 @dataclass(frozen=True, slots=True)
@@ -81,6 +89,7 @@ class DirichletPartitioner:
         _check_inputs(labels, num_nodes)
         cap = len(labels) / num_nodes
         class_indices = [np.flatnonzero(labels == k) for k in range(NUM_CLASSES)]
+        zero_probability = 0
         for attempt in range(MAX_RETRIES + 1):
             parts: list[list[int]] = [[] for _ in range(num_nodes)]
             for idx_k in class_indices:
@@ -88,6 +97,7 @@ class DirichletPartitioner:
                 p = rng.dirichlet(np.full(num_nodes, self.alpha))
                 p = np.array([pj * (len(nodes) < cap) for pj, nodes in zip(p, parts, strict=True)])
                 if p.sum() == 0:  # tràn số khi α rất nhỏ: bỏ lần thử này
+                    zero_probability += 1
                     break
                 p = p / p.sum()
                 cuts = (np.cumsum(p) * len(idx)).astype(int)[:-1]
@@ -96,7 +106,7 @@ class DirichletPartitioner:
             else:
                 if min(len(nodes) for nodes in parts) >= self.min_size:
                     return _result([np.array(nodes) for nodes in parts], attempt, self.min_size)
-        raise _too_many_retries(f"Dirichlet α = {self.alpha}")
+        raise _too_many_retries(f"Dirichlet α = {self.alpha}", zero_probability)
 
 
 @dataclass(frozen=True, slots=True)
