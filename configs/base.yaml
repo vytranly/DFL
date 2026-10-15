@@ -7,6 +7,7 @@ seed: 0
 local_steps: 4000          # τ·R, giống nhau cho mọi điều kiện (ADR-006)
 model: smallcnn            # ADR-004; logreg, mlp2nn, cnn_mcmahan chỉ cho E8 (ADR-011);
                            # cnn_niidbench cho ảnh 3×32×32 của CIFAR-10 (ADR-012)
+augmentation: null         # none | crop_flip (ADR-012); null: crop_flip với ảnh 3×32×32, none với MNIST
 mixing: metropolis_hastings
 threads: 1                 # số luồng mỗi lượt, hằng số của cả lưới (chốt ở T13)
 runtime: inprocess         # processes: mỗi node một tiến trình (ADR-010)

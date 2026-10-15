@@ -546,3 +546,19 @@ def test_synthetic_cifar10_data_is_fixed_balanced_and_shaped_like_cifar10() -> N
     assert class_counts(train.labels) == [200] * 10 and class_counts(test.labels) == [50] * 10
     assert (len(prepared.train.y), len(prepared.validation.y), len(prepared.test.y)) == (1800, 200, 500)
     assert prepared.test.x.shape == (500, 3, 32, 32)
+
+
+def test_black_is_the_normalized_value_of_a_zero_pixel_in_each_channel() -> None:
+    # Phần đệm của augmentation crop_flip (ADR-012) phải đúng bằng ảnh đen sau chuẩn hóa, từng bit.
+    train = cifar_split((5,) * 10, seed=12)
+    train.images[:, :, 0, 0] = 0
+
+    prepared = ds.prepare(train, train, validation_size=10)
+
+    for c, value in enumerate(prepared.black()):
+        assert torch.equal(prepared.train.x[:, c, 0, 0], torch.full((40,), value))
+
+
+def test_prepare_rejects_train_and_test_with_different_image_shapes() -> None:
+    with pytest.raises(ValueError, match="cùng shape"):
+        ds.prepare(cifar_split((5,) * 10, seed=13), raw_split((2,) * 10, seed=14), validation_size=10)

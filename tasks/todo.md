@@ -715,7 +715,7 @@ T22a, T22b và T09c là code của lưới: phải xong trước T14b (E0a), đ�
   - Phụ thuộc: T28b, T28c
   - File: `src/dfl/config.py`, `src/dfl/cli.py`, `src/dfl/sim/run.py`, `src/dfl/sim/sweep.py`, `configs/profiles/{smoke_cifar10,cifar10_fast}.yaml`, test tương ứng
 
-- [ ] **T28e · Augmentation `crop_flip`** — nhánh `binh` · M
+- [x] **T28e · Augmentation `crop_flip`** — nhánh `binh` · M
   - Mô tả: `learning/augment.py`; `SgdTrainer` nhận augmentation (mặc định không có, đường MNIST giữ nguyên); trường cấu hình `augmentation` (null thì điền theo dataset); `Assembly.trainer()` truyền giá trị đệm là điểm ảnh đen đã chuẩn hóa.
   - Chấp nhận:
     - Với độ dời và cờ lật đã rút, kết quả trùng `torchvision.transforms.v2.functional` (pad 4, crop, horizontal_flip) áp trên ảnh uint8 rồi chuẩn hóa.

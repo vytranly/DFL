@@ -111,6 +111,8 @@ def test_a_number_that_pyyaml_reads_as_a_string_is_rejected_with_a_hint(tmp_path
         ("model: resnet\n", "model"),
         ("model: cnn_niidbench\n", "1×28×28"),
         ("dataset: cifar10\n", "cnn_niidbench"),
+        ("augmentation: crop_flip\n", "3×32×32"),
+        ("dataset: cifar10\nmodel: cnn_niidbench\naugmentation: flip\n", "augmentation"),
         ("[1, 2]\n", "mapping"),
         ("algorithm: 3\n", "mapping"),
         ("num_nodes: 0\n", "num_nodes"),
@@ -151,6 +153,8 @@ def test_a_number_that_pyyaml_reads_as_a_string_is_rejected_with_a_hint(tmp_path
         "bad-model",
         "model-dataset-shape-mismatch",
         "cifar10-needs-its-model",
+        "crop-flip-needs-cifar10-images",
+        "bad-augmentation",
         "not-a-mapping",
         "section-not-a-mapping",
         "zero-nodes",
@@ -257,4 +261,26 @@ def test_cifar10_profiles_change_only_the_dataset_and_model_of_their_mnist_twin(
     loaded = cfg.load_config(CONFIGS / "profiles" / f"{profile}.yaml")
     twin = cfg.load_config(CONFIGS / "profiles" / f"{base}.yaml")
 
-    assert loaded == dataclasses.replace(twin, dataset=dataset, model="cnn_niidbench")
+    assert loaded == dataclasses.replace(
+        twin, dataset=dataset, model="cnn_niidbench", augmentation="crop_flip"
+    )
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("", "none"),
+        ("dataset: cifar10\nmodel: cnn_niidbench\n", "crop_flip"),
+        ("dataset: synthetic_cifar10\nmodel: cnn_niidbench\naugmentation: null\n", "crop_flip"),
+        ("dataset: cifar10\nmodel: cnn_niidbench\naugmentation: none\n", "none"),
+    ],
+    ids=["mnist-default", "cifar10-default", "synthetic-cifar10-null", "cifar10-none"],
+)
+def test_augmentation_null_follows_the_dataset_and_survives_the_child_yaml(
+    tmp_path: Path, text: str, expected: str
+) -> None:
+    # ADR-012: null là crop_flip với ảnh 3×32×32, none với MNIST; "none" không bị PyYAML đọc thành null.
+    config = cfg.load_config(write(tmp_path, "a.yaml", text))
+
+    assert config.augmentation == expected
+    assert cfg.load_config(write(tmp_path, "child.yaml", cfg.to_yaml(config))) == config

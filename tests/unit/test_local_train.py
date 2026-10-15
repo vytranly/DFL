@@ -216,3 +216,21 @@ def test_a_non_finite_loss_is_returned_at_once_without_updating_or_running_more_
 def test_invalid_hyperparameters_raise_value_error(kwargs: dict[str, object], message: str) -> None:
     with pytest.raises(ValueError, match=message):
         SgdTrainer(**{"tau": 1, "lr": LR, **kwargs})
+
+
+def test_the_trainer_trains_on_the_augmented_batch_drawn_after_the_indices() -> None:
+    # Augmentation giả (ADR-012): ghi lại batch và Generator nhận được, rồi trả ảnh 0, để thấy model học trên
+    # ảnh đã biến đổi, với cùng Generator batch của node.
+    model, data, generator = smallcnn(), dataset(64), batches()
+    seen: list[tuple[torch.Tensor, torch.Generator]] = []
+
+    def zero_out(x: torch.Tensor, g: torch.Generator) -> torch.Tensor:
+        seen.append((x.clone(), g))
+        return torch.zeros_like(x)
+
+    loss = SgdTrainer(tau=1, lr=LR, augment=zero_out)(model, data, loss_scale=1.0, generator=generator)
+
+    idx = torch.randint(64, (32,), generator=batches())
+    expected = torch.nn.functional.cross_entropy(smallcnn()(torch.zeros((32, 1, 28, 28))), data.y[idx])
+    assert len(seen) == 1 and torch.equal(seen[0][0], data.x[idx]) and seen[0][1] is generator
+    assert loss == expected.item()

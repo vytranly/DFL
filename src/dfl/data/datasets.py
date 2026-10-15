@@ -133,6 +133,13 @@ class Datasets:
     mean: tuple[float, ...]
     std: tuple[float, ...]
 
+    def black(self) -> tuple[float, ...]:
+        """Giá trị đã chuẩn hóa của điểm ảnh đen (mức 0) ở từng kênh, đúng bằng giá trị trong `x`;
+        augmentation crop_flip đệm bằng nó (ADR-012)."""
+        return tuple(
+            float(np.float32((0 - mean) / std)) for mean, std in zip(self.mean, self.std, strict=True)
+        )
+
     def split(self, name: str) -> ImageSet:
         """Đủ tập đánh giá theo `eval.split` (ADR-007): test, hoặc validation với E0a."""
         if name not in EVAL_SUBSET_KEYS:

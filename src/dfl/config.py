@@ -64,6 +64,8 @@ MODEL_INPUTS = {
 }
 MODELS = tuple(MODEL_INPUTS)
 DATASETS = tuple(DATASET_INPUTS)
+# none: không augmentation; crop_flip: đệm 4, cắt dời, lật ngang, chỉ cho ảnh 3×32×32 (ADR-012).
+AUGMENTATIONS = ("none", "crop_flip")
 # Dữ liệu tổng hợp của các profile smoke: không bao giờ được ghi vào results/ (SPEC §5.3).
 SYNTHETIC_DATASETS = ("synthetic", "synthetic_cifar10")
 SPLITS = ("test", "validation")
@@ -178,6 +180,9 @@ class RunConfig:
     # τ·R, giống nhau cho mọi điều kiện (ADR-006).
     local_steps: int = 4000
     model: str = "smallcnn"
+    # null: crop_flip với ảnh 3×32×32 (CIFAR-10), none với dataset khác. Cấu hình chuẩn hóa ghi giá trị đã
+    # điền (ADR-012), nên dataclasses.replace đổi dataset thì phải đặt lại trường này.
+    augmentation: str | None = None
     mixing: str = "metropolis_hastings"
     # Số luồng mỗi lượt, hằng số của cả lưới (SPEC §5.2).
     threads: int = 1
@@ -194,6 +199,16 @@ class RunConfig:
         _one_of(self.mixing, MIXINGS, "mixing")
         _one_of(self.runtime, RUNTIMES, "runtime")
         _one_of(self.deploy, DEPLOYS, "deploy")
+        cifar_images = DATASET_INPUTS[self.dataset] == CIFAR10_INPUT
+        if self.augmentation is None:
+            # dataclass frozen: tài liệu dataclasses chỉ cách này
+            object.__setattr__(self, "augmentation", "crop_flip" if cifar_images else "none")
+        _one_of(self.augmentation, AUGMENTATIONS, "augmentation")
+        if self.augmentation == "crop_flip" and not cifar_images:
+            raise ValueError(
+                f"augmentation crop_flip chỉ dùng với ảnh {_shape_text(CIFAR10_INPUT)} (cifar10, "
+                "synthetic_cifar10): lật ngang làm sai nghĩa chữ số MNIST (ADR-012)"
+            )
         if MODEL_INPUTS[self.model] != DATASET_INPUTS[self.dataset]:
             shape = DATASET_INPUTS[self.dataset]
             fitting = [name for name, accepted in MODEL_INPUTS.items() if accepted == shape]

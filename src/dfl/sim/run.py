@@ -14,6 +14,8 @@ thì cùng cách chia, cùng vị trí và cùng w⁰ ở mọi topology và thu
 - Baseline (T11c): B1 và B1-4k là `central`, một node giữ đủ phần train theo thứ tự gốc (không dùng luồng
   partition hay placement), rút minibatch từ luồng riêng B1_BATCH, W = [1], không có message; B2 là
   `local_only` (W = I); B3 là đường server.
+- Augmentation (ADR-012): với `augmentation: crop_flip`, trainer nhận CropFlip đệm bằng điểm ảnh đen đã chuẩn
+  hóa của dữ liệu lượt chạy (`Datasets.black()`); số ngẫu nhiên lấy từ luồng batch của node, ở cả hai runtime.
 - Spectral gap ghi vào manifest là của W tĩnh, kể cả ma trận hiệu dụng của đường server; None với gossip và
   với W = I (local_only), vì khi đó nó không mô tả tốc độ trộn.
 - Learning curve đánh giá trên tập con phân tầng của `eval.split` theo `eval.every_steps`. Sau round cuối, mọi
@@ -80,6 +82,7 @@ from dfl.io.manifest import (
     unassembled_manifest,
 )
 from dfl.io.run_logger import FINISHED, JsonRunLogger, LockBusy, attempt_statuses, file_lock, next_attempt
+from dfl.learning.augment import CropFlip
 from dfl.learning.local_train import SgdTrainer
 from dfl.learning.models import build_model
 from dfl.metrics.classification import ClassificationEvaluator
@@ -257,8 +260,13 @@ class Assembly:
 
     def trainer(self) -> SgdTrainer:
         algorithm = self.config.algorithm
+        augment = CropFlip(fill=self.datasets.black()) if self.config.augmentation == "crop_flip" else None
         return SgdTrainer(
-            tau=algorithm.tau, lr=algorithm.lr, mu=algorithm.mu, batch_size=algorithm.batch_size
+            tau=algorithm.tau,
+            lr=algorithm.lr,
+            mu=algorithm.mu,
+            batch_size=algorithm.batch_size,
+            augment=augment,
         )
 
     def evaluator(self, images: data.ImageSet) -> ClassificationEvaluator:

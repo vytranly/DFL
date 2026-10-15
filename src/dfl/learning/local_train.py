@@ -10,6 +10,9 @@ torch.optim.SGD (`param.add_(grad, alpha=-lr)`), nên với μ = 0 kết quả t
 Anchor là bản clone + detach của tham số lúc bắt đầu lời gọi, tức w_i^t, và cố định suốt τ bước (G6). Với
 μ = 0 thì không tính số hạng prox và không cần anchor.
 
+Augmentation (ADR-012), nếu có, biến đổi minibatch ngay sau khi rút chỉ số, bằng chính Generator batch của
+node; không có augmentation thì phép tính giữ nguyên như trước, từng bit.
+
 torch.randint: https://docs.pytorch.org/docs/2.14/generated/torch.randint.html
 torch.nn.functional.cross_entropy: https://docs.pytorch.org/docs/2.14/generated/torch.nn.functional.cross_entropy.html
 torch.autograd.grad: https://docs.pytorch.org/docs/2.14/generated/torch.autograd.grad.html
@@ -22,12 +25,15 @@ torch.no_grad: https://docs.pytorch.org/docs/2.14/generated/torch.no_grad.html
 from __future__ import annotations
 
 import math
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
 import torch
 
 from dfl.contracts import NodeDataset
+
+# Augmentation của minibatch: nhận batch ảnh và Generator batch của node, trả batch mới (augment.CropFlip).
+Augment = Callable[[torch.Tensor, torch.Generator], torch.Tensor]
 
 
 def make_anchor(model: torch.nn.Module) -> list[torch.Tensor]:
@@ -47,12 +53,14 @@ def _check_int(value: object, what: str) -> None:
 
 @dataclass(frozen=True, slots=True)
 class SgdTrainer:
-    """LocalTrainer của dự án: τ bước, bước η, prox μ (0 = DFedAvg/D-PSGD), minibatch B (KH §3.5)."""
+    """LocalTrainer của dự án: τ bước, bước η, prox μ (0 = DFedAvg/D-PSGD), minibatch B (KH §3.5), và
+    augmentation của minibatch (ADR-012; mặc định không có)."""
 
     tau: int
     lr: float
     mu: float = 0.0
     batch_size: int = 32
+    augment: Augment | None = None
 
     def __post_init__(self) -> None:
         _check_int(self.tau, "tau")
@@ -75,7 +83,8 @@ class SgdTrainer:
         total = 0.0
         for _ in range(self.tau):
             idx = torch.randint(len(data.y), (self.batch_size,), generator=generator)
-            loss = loss_scale * torch.nn.functional.cross_entropy(model(data.x[idx]), data.y[idx])
+            x = data.x[idx] if self.augment is None else self.augment(data.x[idx], generator)
+            loss = loss_scale * torch.nn.functional.cross_entropy(model(x), data.y[idx])
             if self.mu:
                 loss = loss + prox_term(params, anchor, self.mu)
             value = loss.item()
