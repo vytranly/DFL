@@ -1001,3 +1001,11 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - File: configs/experiments/e0a_lr.yaml (24 lượt: 9 τ = 20, 6 τ = 1, 6 τ = 50, 3 B1 τ·R = 17,200; seed 100; chỉ validation), docs/experiments/E0a.md (thẻ theo mẫu H§5.3), docs/experiments/CODE_VERSIONS.md (dòng đầu, code_version 00fe7f19…), tests/unit/test_experiment_e0a.py (4 test giữ hình dạng lưới)
 - `make check-inv`: 86 test xanh. Máy lúc 12:06 có tải 13 trên 8 lõi, nên `--workers 6` của PERF.md chưa hợp lúc này
 
+## 2026-10-16 — Phiên #19 (tiếp) — T14b (E0a): đã chạy
+- Người dùng xác nhận Gate G1, thẻ E0a, dry-run 24 lượt và commit lưới trên `binh`. Đổi trạng thái ADR-001…011 sang Accepted bị bộ lọc an toàn chặn: người dùng hay nhóm tự ghi
+- Worktree `/root/ecaep/dfl-grid` ở `50fef80`, `results` là symlink tới results/ của repo chính; `--workers 6` (khoảng 7.6 lõi rảnh). 12:14–13:30: **24/24 ok**, một code_version, mọi lượt đánh giá cuối trên 5,000 ảnh validation; SAN-5 đạt
+- `analysis.select_lr`: η chung 0.1 (xấu nhất theo η: 0.6656 / 0.7625 / 0.7879, đều ở ring-#C2); τ = 1, τ = 50: η tốt nhất 0.1, không kích hoạt T19c; η của B1 0.1; μ = 0.05 và 0.5 (QS-2). Bảng đủ ở docs/experiments/E0a.md
+- Ghi chú: η = 0.1 là đầu trên của dải đăng ký; không quét thêm (SPEC §8), báo cáo nêu là giới hạn
+- Còn mở trước E0b: điền η, μ, η của B1 vào ADR-007 (nhóm duyệt diff). configs/base.yaml phải trùng mặc định của RunConfig (test_config), nên đổi `lr` ở base.yaml sẽ kéo theo sửa src/ và đổi code_version; cần nhóm quyết cách đưa η = 0.1 vào E0b mà không đổi code của lưới
+- T14b chưa đánh dấu xong: tiêu chí chấp nhận cần η, μ, η của B1 trong ADR-007
+
