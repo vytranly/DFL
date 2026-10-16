@@ -950,3 +950,15 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - Test mới: 53 (30 trong đó là bảng t so với scipy)
 - Việc tiếp theo: T08b (describe topology) để đóng C1/C2; chuẩn bị E0a (T14b) khi nhóm duyệt
 
+## 2026-10-16 — Phiên #19 (tiếp) — T08b: bảng topology trong `dfl describe`
+- Trạng thái: T08b ✅
+- File: src/dfl/sim/describe.py, src/dfl/cli.py, tests/integration/test_describe.py
+- Nội dung (KH §3.3; ADR-009; INV-2):
+  - `describe_topologies`: spectral gap MH của T0 star, T1 ring, T4 FC; T2 ER (p của config hay 0.3) trên đồ thị seed 0 … S − 1 cùng luồng graph với lượt chạy (TB, min, max, từng seed)
+  - T3 và T3b ghi **tốc độ trộn kỳ vọng** 1 − √λ₂(E[W]), không phải spectral gap: T3 dạng đóng (0.312 ở N = 20, test đối chiếu E[W] lấy mẫu từ chính lịch gossip), T3b ước lượng từ 10⁴ matching của lịch seed 0
+  - message/round = 2·|E| là thuộc tính của đồ thị; test gửi một round snapshot giả qua InMemoryTransport trên chính các đồ thị đó và so số đếm
+  - describe.json có khóa `topologies`; lệnh in bảng cạnh cột KH §3.3
+- Demo N = 20 (configs/profiles/fast.yaml, 20 seed, ~9 s): ring 0.0326, FC 1.000, ER TB 0.233 (0.149–0.340), T3 0.312, T3b 0.062, star 0.050. ER khác số của KH (TB 0.198) vì luồng seed khác spike script, vẫn trong [0.15, 0.25]
+- Test mới: 4
+- Việc tiếp theo: Checkpoint C2 (make check-full, tăng MIN_TESTS, nhóm duyệt); E0a (T14b) khi nhóm duyệt
+

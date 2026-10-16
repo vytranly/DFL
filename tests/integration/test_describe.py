@@ -1,5 +1,5 @@
-"""`dfl describe` trên dữ liệu tổng hợp: mọi cách chia × seed, JSON đọc lại được, không NaN, CSV, và lệnh
-`--check-req02` (T05a; KH §3.2; SPEC REQ-02, QS-11).
+"""`dfl describe` trên dữ liệu tổng hợp: mọi cách chia × seed, JSON đọc lại được, không NaN, CSV, lệnh
+`--check-req02` (T05a; KH §3.2; SPEC REQ-02, QS-11), và bảng topology (T08b; KH §3.3; ADR-009; INV-2).
 """
 
 import csv
@@ -10,14 +10,18 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+import torch
 
 from dfl import cli, seeding
-from dfl.config import PartitionConfig, load_config
+from dfl.config import PartitionConfig, RunConfig, load_config
 from dfl.data import datasets
 from dfl.data.heterogeneity import summarize
 from dfl.data.partition import DirichletPartitioner, assign_positions
+from dfl.network import mixing, topology
+from dfl.network.transport import InMemoryTransport
 from dfl.seeding import Stream
 from dfl.sim import describe
+from dfl.sim.node import make_snapshot
 
 ROOT = Path(__file__).resolve().parents[2]
 # N = 10 để có #C = k (G23); min_size nhỏ để α = 0.05 chia được 1,800 ảnh tổng hợp.
@@ -124,3 +128,76 @@ def test_check_req02_on_synthetic_data_exits_non_zero(
     assert status == 1
     assert "REQ-02" in capsys.readouterr().out
     assert (tmp_path / "out" / "describe.json").exists()
+
+
+# Bảng topology (T08b): khe phổ, tốc độ trộn kỳ vọng và số thông điệp kỳ vọng mỗi round.
+
+
+@pytest.fixture(scope="module")
+def topologies_n20() -> dict[str, dict[str, object]]:
+    return describe.describe_topologies(RunConfig(), seeds=20, matchings=2_000)
+
+
+def test_spectral_gaps_match_the_kh_3_3_table_at_n_20(topologies_n20: dict[str, dict[str, object]]) -> None:
+    ring, fc, er = topologies_n20["T1 ring"], topologies_n20["T4 FC"], topologies_n20["T2 ER"]
+
+    assert ring["spectral_gap"] == pytest.approx(0.0326, abs=1e-4)
+    assert fc["spectral_gap"] == pytest.approx(1.0)
+    assert 0.15 <= er["spectral_gap"] <= 0.25 and len(er["spectral_gap_per_seed"]) == 20
+    assert min(er["spectral_gap_per_seed"]) <= er["spectral_gap"] <= max(er["spectral_gap_per_seed"])
+
+
+def test_gossip_reports_an_expected_mixing_rate_not_a_spectral_gap(
+    topologies_n20: dict[str, dict[str, object]],
+) -> None:
+    # ADR-009: 1 − √λ₂(E[W]) = 0.312 ở N = 20; so với E[W] ước lượng từ chính lịch gossip của lượt chạy.
+    t3 = topologies_n20["T3 gossip"]
+    schedule = topology.gossip(20, lambda r: seeding.numpy_rng(0, Stream.GOSSIP, r))
+    expected = np.mean([mixing.metropolis_hastings(schedule.graph_at(r)) for r in range(4_000)], axis=0)
+    sampled = 1 - math.sqrt(np.sort(np.linalg.eigvalsh(expected))[-2])
+
+    assert "spectral_gap" not in t3 and t3["mixing_rate"] == pytest.approx(0.312, abs=1e-3)
+    assert sampled == pytest.approx(t3["mixing_rate"], abs=0.01)
+    assert t3["messages_per_round"] == 20
+    assert "spectral_gap" not in topologies_n20["T3b ER gossip"]
+    assert 0 < topologies_n20["T3b ER gossip"]["mixing_rate"] < 1
+
+
+def test_expected_messages_are_twice_the_edges_and_match_one_transport_round() -> None:
+    # Chi phí thật chỉ do Transport đếm (INV-2); 2·|E| chỉ là thuộc tính của đồ thị, nên phải khớp số đếm.
+    config = RunConfig(num_nodes=6)
+    rows = describe.describe_topologies(config, seeds=2, matchings=200)
+    graphs = {
+        "T0 star": topology.star(6).graph_at(0),
+        "T1 ring": topology.ring(6).graph_at(0),
+        "T4 FC": topology.fully_connected(6).graph_at(0),
+        "T2 ER": topology.erdos_renyi(6, 0.3, seeding.numpy_rng(0, Stream.GRAPH)).graph_at(0),
+    }
+    snapshot = make_snapshot(0, 0, {"w": torch.zeros(3)})
+    for name, graph in graphs.items():
+        transport = InMemoryTransport(6)
+        for u, v in graph.edges():
+            transport.send(v, dataclasses.replace(snapshot, sender=u))
+            transport.send(u, dataclasses.replace(snapshot, sender=v))
+        expected = rows[name]["messages_per_round" if name != "T2 ER" else "messages_per_round_seed0"]
+        assert transport.counters().messages_cum == expected == 2 * graph.number_of_edges(), name
+
+
+def test_the_command_prints_the_topology_table_next_to_kh_3_3(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    code = cli.main(
+        [
+            "describe",
+            "--config",
+            str(ROOT / "configs" / "profiles" / "smoke.yaml"),
+            "--seeds",
+            "2",
+            "--out",
+            str(tmp_path),
+        ]
+    )
+
+    printed = capsys.readouterr().out
+    assert code == 0 and "T1 ring" in printed and "KH §3.3" in printed
+    assert "T3 gossip" in json.loads((tmp_path / "describe.json").read_text(encoding="utf-8"))["topologies"]

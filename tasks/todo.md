@@ -161,7 +161,7 @@
   - Phụ thuộc: T06
   - File: `src/dfl/network/transport.py`, `src/dfl/sim/node.py`, `tests/unit/test_transport.py`, `tests/unit/test_snapshot.py`
 
-- [ ] **T08b · `dfl describe`: topology** — TV3 · S · ∥ T10a
+- [x] **T08b · `dfl describe`: topology** — TV3 · S · ∥ T10a
   - Mô tả: mở rộng `describe` với bảng topology: spectral gap của T1, T4, và T2 trên 20 seed; số message/round dự kiến = 2·|E|, là thuộc tính của đồ thị, không phải phép đếm chi phí; T0 star; tốc độ trộn kỳ vọng của T3; ước lượng cho T3b từ 10⁴ matching. Chi phí thật chỉ do CommLedger đếm trong lượt chạy (INV-2); test của T08b gửi một round message giả qua Transport trên chính các đồ thị đó và so số đếm với 2·|E|.
   - Chấp nhận:
     - Ring 0.0326 (±1e-4), FC 1, ER trung bình trong [0.15, 0.25] trên 20 seed. Con số 0.312 của T3 được ghi là tốc độ trộn, không phải spectral gap.
