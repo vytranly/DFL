@@ -293,7 +293,7 @@
   - Phụ thuộc: T10c
   - File: `src/dfl/sim/engine.py`, `tests/integration/test_engine_review.py`, `tests/integration/test_engine_consensus.py`, `tests/integration/test_engine_messages.py`
 
-- [ ] **T15a · Analysis: đọc kết quả + kiểm INT-2, INT-3, INT-6** — TV3 · M · ∥ T10c, T11b
+- [x] **T15a · Analysis: đọc kết quả + kiểm INT-2, INT-3, INT-6** — TV3 · M · ∥ T10c, T11b
   - Mô tả:
     - `analysis/aggregate.py`: đọc `results/` qua chỉ mục của nhóm, theo từng `code_version`; mỗi lượt một dòng; xuất CSV.
     - `analysis/checks.py` báo lỗi khi:

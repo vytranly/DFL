@@ -876,3 +876,11 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - QS-8: lệnh `python scripts/perf_t13.py laptop` chạy được trên mọi hệ điều hành; các bước cài thử ở `docs/PERF.md` §6. Vẫn chờ nhóm chạy trên laptop thật và trả lời O6 (hệ điều hành)
 - Việc tiếp theo: chạy QS-8 trên laptop; T14a, T14e (lệnh sanity, quy tắc chọn η); T16a; rồi E0a
 
+## 2026-10-16 — Phiên #19 (tiếp) — T15a: analysis đọc kết quả và kiểm INT-2, INT-3, INT-6
+- Trạng thái: T15a ✅ (mở đường cho T14a, T14e, T16a)
+- File mới: analysis/aggregate.py, analysis/checks.py, tests/analysis_fakes.py, tests/unit/test_{aggregate,checks}.py, tests/integration/test_analysis_smoke.py
+- Nội dung:
+  - `aggregate`: đọc lượt qua chỉ mục nhóm theo đúng một `code_version` (`scan` không qua chỉ mục, chỉ cho --draft); mỗi run_id nhiều nhất một attempt đã xong; đếm attempt `failed` và bị ngắt; lượt thiếu và lượt phân kỳ vẫn có dòng; JSON chứa NaN hay vô cực bị từ chối lúc đọc; CLI `python -m analysis.aggregate` ghi CSV
+  - `checks`: một code_version mỗi so sánh; `dirty`/`env_match` chỉ qua với --draft; biến cố định (dataset, N, model, η, B, τ·R, lịch đánh giá, tập đánh giá, số luồng, máy) trừ trục; baseline B1, B1-4k, B2 được miễn khi vẽ làm đường tham chiếu, đường server thì không; tập seed chung phải khai báo, seed thiếu được trả về để báo cáo; NaN ở lượt `ok`; báo cáo attempt `failed`/`diverged`; dòng của CODE_VERSIONS.md (INT-6)
+- Test mới: 23 (mỗi luật một ca lỗi và một ca hợp lệ; một test chạy analysis trên lượt smoke thật)
+
