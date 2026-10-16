@@ -119,6 +119,39 @@ def test_san4_without_the_iid_cell_of_a_topology_reports_missing_runs(tmp_path: 
     assert sanity.san4(read(tmp_path, ids)).status == "thiếu lượt"
 
 
+# ------------------------------------------------------------------------------- lượt độ nhạy η (E0b)
+
+
+def test_san2_ignores_the_eta_sensitivity_runs_of_the_same_cell(tmp_path: Path) -> None:
+    # E0b có thêm FC-IID ở η/2 và 2η (seed 0); SAN-2 phải so lượt cùng η với B1-4k, không lấy lượt độ nhạy.
+    # Tên "fcx-…" xếp sau "fc-…", nên code chỉ giữ lượt cuối cùng của mỗi seed sẽ lấy nhầm lượt độ nhạy.
+    ids = cell(tmp_path, "b14k", B1_4K, [0.98] * 3) + cell(tmp_path, "fc", FC_IID, [0.975] * 3)
+    ids += cell(tmp_path, "fcx-half", {**FC_IID, "algorithm__lr": 0.025}, [0.50])
+    ids += cell(tmp_path, "fcx-double", {**FC_IID, "algorithm__lr": 0.1}, [0.50])
+
+    verdict = sanity.san2(read(tmp_path, ids))
+
+    assert verdict.status == "đạt" and "0.9750" in verdict.detail
+
+
+def test_san4_compares_iid_at_the_eta_of_the_alpha_100_cell(tmp_path: Path) -> None:
+    ids = cell(tmp_path, "ring-iid", {}, [0.98] * 5) + cell(tmp_path, "ring-a100", ALPHA100, [0.975] * 5)
+    ids += cell(tmp_path, "ringx-iid-double", {"algorithm__lr": 0.1}, [0.50])
+
+    verdict = sanity.san4(read(tmp_path, ids))
+
+    assert verdict.status == "đạt" and "IID 0.9800" in verdict.detail
+
+
+def test_two_runs_of_one_cell_at_one_seed_are_an_error_not_a_silent_pick(tmp_path: Path) -> None:
+    ids = cell(tmp_path, "b1", B1, [0.99] * 3) + cell(
+        tmp_path, "b1-other", {**B1, "algorithm__lr": 0.05}, [0.9]
+    )
+
+    with pytest.raises(aggregate.AnalysisError, match="seed 0"):
+        sanity.san1(read(tmp_path, ids))
+
+
 # ------------------------------------------------------------------------------------------- SAN-5
 
 

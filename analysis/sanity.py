@@ -6,6 +6,9 @@
   bao giờ đổi vì kết quả trên tập test.
 - Lượt được nhận diện từ cấu hình trong manifest: B1 là `central` với hơn 4,000 bước, B1-4k là `central` với
   đúng 4,000 bước, B2 là `local_only`, DFedAvg-FC-IID là FC + IID + MH với τ = 20, μ = 0.
+- Ô được so phải cùng η với ô đối chứng: SAN-2 lấy FC-IID ở η của B1-4k (η chung), SAN-4 lấy IID ở η của ô
+  α = 100. Nhờ vậy lượt độ nhạy η/2, 2η của E0b (cùng ô, seed 0) không lọt vào phép so. Một ô còn hai lượt ở
+  cùng seed là lỗi, không chọn ngầm một lượt.
 - Accuracy của một lượt là trung bình `final_acc_per_node` trên đủ tập test (với FC mọi node bằng nhau; với
   B1 chỉ có một node). Lượt phân kỳ không có accuracy, nên SAN chứa nó là "không đạt".
 - SAN-5 là điều kiện cấu trúc trên `rounds.jsonl`, kiểm được trên lượt của bất kỳ nhóm nào.
@@ -85,9 +88,21 @@ def _accuracy(run: Run) -> float | None:
     return sum(values) / len(values)
 
 
+def _lr(run: Run) -> float:
+    return run.config["algorithm"]["lr"]
+
+
 def _cell(runs: Sequence[Run], keep: Callable[[Run], bool], seeds: Sequence[int]) -> list[Run] | None:
-    """Các lượt của ô theo đúng `seeds`; None nếu thiếu seed nào."""
-    by_seed = {run.seed: run for run in runs if keep(run)}
+    """Các lượt của ô theo đúng `seeds`; None nếu thiếu seed nào, lỗi nếu một seed có hai lượt."""
+    by_seed: dict[int, Run] = {}
+    for run in runs:
+        if keep(run):
+            if run.seed in by_seed:
+                raise AnalysisError(
+                    f"ô có hai lượt ở seed {run.seed} ({by_seed[run.seed].run_id}, {run.run_id}); "
+                    "SAN không chọn ngầm một lượt"
+                )
+            by_seed[run.seed] = run
     if any(seed not in by_seed for seed in seeds):
         return None
     return [by_seed[seed] for seed in seeds]
@@ -120,10 +135,17 @@ def san1(runs: Sequence[Run], seeds: Sequence[int] = BASELINE_SEEDS) -> Verdict:
 
 def san2(runs: Sequence[Run], seeds: Sequence[int] = BASELINE_SEEDS) -> Verdict:
     """SAN-2: DFedAvg-FC-IID kém B1-4k không quá 1.0 điểm % (trung bình seed 0, 1, 2)."""
-    fc = _cell(runs, lambda r: _kind(r) == "fully_connected" and _is_iid(r) and _is_dfedavg(r), seeds)
     b14k = _cell(runs, _is_b1_4k, seeds)
-    if fc is None or b14k is None:
-        return _missing("SAN-2", "DFedAvg-FC-IID" if fc is None else "B1-4k", seeds)
+    if b14k is None:
+        return _missing("SAN-2", "B1-4k", seeds)
+    etas = {_lr(r) for r in b14k}
+    fc = _cell(
+        runs,
+        lambda r: _kind(r) == "fully_connected" and _is_iid(r) and _is_dfedavg(r) and _lr(r) in etas,
+        seeds,
+    )
+    if fc is None:
+        return _missing("SAN-2", f"DFedAvg-FC-IID ở η = {sorted(etas)}", seeds)
     fc_mean, b_mean = _mean(fc), _mean(b14k)
     if fc_mean is None or b_mean is None:
         return _diverged("SAN-2", "DFedAvg-FC-IID hay B1-4k")
@@ -159,7 +181,12 @@ def san4(runs: Sequence[Run]) -> Verdict:
     for kind in topologies:
         seeds = sorted(r.seed for r in runs if _kind(r) == kind and _alpha(r) == 100.0 and _is_dfedavg(r))
         a100 = _cell(runs, lambda r, k=kind: _kind(r) == k and _alpha(r) == 100.0 and _is_dfedavg(r), seeds)
-        iid = _cell(runs, lambda r, k=kind: _kind(r) == k and _is_iid(r) and _is_dfedavg(r), seeds)
+        etas = {_lr(r) for r in a100}
+        iid = _cell(
+            runs,
+            lambda r, k=kind, e=etas: _kind(r) == k and _is_iid(r) and _is_dfedavg(r) and _lr(r) in e,
+            seeds,
+        )
         if iid is None:
             return _missing("SAN-4", f"IID của {kind}", seeds)
         a_mean, i_mean = _mean(a100), _mean(iid)

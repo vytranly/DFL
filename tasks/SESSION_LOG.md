@@ -1014,3 +1014,7 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - Còn mở: cách đưa η = 0.1 vào E0b mà không đổi `src/` (chốt ở T14c); trạng thái Accepted của ADR-001…011 cho G1 do nhóm tự ghi (bộ lọc chặn agent ghi)
 - Việc tiếp theo: T14c (E0b, 43 lượt) khi nhóm duyệt thẻ và cách ghi η
 
+## 2026-10-16 — Phiên #19 (tiếp) — Sửa SAN-2, SAN-4 trước E0b
+- Người dùng duyệt cách đưa η = 0.1 vào E0b: ghi `algorithm.lr` trong YAML thí nghiệm, không đổi base.yaml hay src/
+- Lỗi thật tìm ra khi soạn E0b: `analysis.sanity._cell` gom lượt bằng `{seed: run}`, nên ô FC-IID (SAN-2) và ring-IID (SAN-4) có thể lấy nhầm lượt độ nhạy η/2, 2η ở seed 0 (cùng ô, khác η), tùy thứ tự run_id. Sửa: SAN-2 lấy FC-IID ở η của B1-4k, SAN-4 lấy IID ở η của ô α = 100; ô còn hai lượt cùng seed thì báo AnalysisError. 3 test tái hiện (đỏ trên code cũ khi lượt độ nhạy xếp sau). Chỉ đổi analysis/, code_version của lưới giữ nguyên
+
