@@ -60,7 +60,7 @@ ABSOLUTE_TOLERANCE = 0.002
 # Giá trị in cạnh bảng của lệnh, lấy từ bảng KH §3.3 (N = 20, MH, p = 0.3).
 KH_3_3 = {
     "T1 ring": "0.033",
-    "T2 ER": "TB 0.198 (0.085–0.310)",
+    "T2 ER": "TB 0.233 (0.149–0.340)",
     "T3 gossip": "0.312 (tốc độ trộn)",
     "T4 FC": "1.000",
 }
@@ -191,8 +191,8 @@ def describe_topologies(config: RunConfig, *, seeds: int, matchings: int = 10_00
 def topology_table(rows: Mapping[str, Any], config: RunConfig) -> list[str]:
     """Các dòng bảng topology để in. Cột KH §3.3 chỉ in khi N = 20 và p = 0.3, là thiết lập của bảng đó.
 
-    ER khác số của KH (TB 0.198) vì docs/spikes/spike_topology_partition.py tạo Generator thẳng từ seed, còn
-    lượt chạy dùng luồng `Stream.GRAPH`; bảng in đúng các đồ thị mà lượt chạy dùng.
+    Hàng ER của KH §3.3 được sửa theo đúng các đồ thị này (luồng `Stream.GRAPH`) ngày 2026-10-16; spike
+    docs/spikes/spike_topology_partition.py tạo đồ thị theo seed cách khác nên ra số khác.
     """
     p = config.topology.p if config.topology.p is not None else DEFAULT_ER_P
     reference = KH_3_3 if config.num_nodes == 20 and p == DEFAULT_ER_P else {}

@@ -224,7 +224,7 @@ Nhận xét: P1 đồng thời sinh ra quantity skew (CV = 0.57 ở α = 0.1) v�
 | Mã | Topology | Xây dựng (NetworkX 3.x) | Ghi chú |
 |---|---|---|---|
 | T1 | Ring hai chiều | `nx.cycle_graph(N)` | Bậc 2, đường kính N/2 |
-| T2 | Erdős–Rényi liên thông | `nx.erdos_renyi_graph(N, p, seed=...)`, lấy mẫu lại tới khi `nx.is_connected` | p = 0.3 mặc định; đồ thị cố định theo seed. Spectral gap thay đổi đáng kể theo seed (0.085–0.310), nên luôn ghi gap của từng lượt |
+| T2 | Erdős–Rényi liên thông | `nx.erdos_renyi_graph(N, p, seed=...)`, lấy mẫu lại tới khi `nx.is_connected` | p = 0.3 mặc định; đồ thị cố định theo seed. Spectral gap thay đổi đáng kể theo seed (0.149–0.340), nên luôn ghi gap của từng lượt |
 | T3 | Random pairwise gossip trên $K_N$ (thay đổi theo round) | Mỗi round một perfect matching đều trên $K_N$, sinh từ **lịch chung**: mọi node tự tính đối tác của mình từ (seed chung, chỉ số round), không cần điều phối viên. Cặp $(i,j)$: $W_{ii}=W_{jj}=W_{ij}=W_{ji}=\frac12$ | "Random gossip" trong đề (Boyd et al. 2006); chính là Metropolis–Hastings áp lên đồ thị matching. Giả định mạnh: mọi node biết địa chỉ của mọi node |
 | T3b | Gossip giới hạn trên cạnh ER | Mỗi round một maximal matching ngẫu nhiên trên cạnh của đồ thị T2 (cũng từ lịch chung); node không được ghép giữ nguyên model | Đối chứng công bằng cho H4 |
 | T4 | Fully-connected | `nx.complete_graph(N)` | Với MH, $W = \frac1N\mathbf 1\mathbf 1^\top$: sau tổng hợp mọi node có **cùng một model** |
@@ -239,13 +239,13 @@ Các biến thể cho E4:
 - **Size-weighted trên FC**: $W_{ij}=n_j/n$, đúng bằng FedAvg (baseline B3).
 - *Đã loại:* $W_{ij}\propto n_j$ chuẩn hóa theo hàng trên đồ thị không đầy đủ. Ma trận này hội tụ về trọng số tỉ lệ $n_j\cdot s_j$ (với $s_j$ là tổng dữ liệu trong lân cận của $j$), không phải $n_j$, nên không hiệu chỉnh được lệch mục tiêu.
 
-Số liệu thực đo được (N = 20, MH, mỗi message là một SmallCNN 0.187 MB; đồ thị ngẫu nhiên ghi giá trị ở seed 0 và dải qua 20 seed):
+Số liệu thực đo được (N = 20, MH, mỗi message là một SmallCNN 0.187 MB; đồ thị ngẫu nhiên ghi giá trị ở seed 0 và dải qua 20 seed). Hai hàng Erdős–Rényi lấy từ chính các đồ thị mà lượt chạy dùng (luồng `Stream.GRAPH`, sinh bằng `python -m dfl describe`; nhóm duyệt sửa ngày 2026-10-16, C2); các hàng còn lại từ spike, vốn tạo đồ thị ngẫu nhiên theo seed theo cách khác:
 
 | Topology | Bậc TB (seed 0) | Spectral gap | Số round để độ lệch đồng thuận còn 1% (chỉ trộn, seed 0) | Message/round (seed 0) | MB/round (seed 0) |
 |---|---|---|---|---|---|
 | Ring | 2 | **0.033** | 139 | 40 | 7.48 |
-| Erdős–Rényi p = 0.2 | 3.2 | 0.061 ở seed 0; TB 0.106 (0.059–0.188) | 74 | 64 | 11.96 |
-| Erdős–Rényi p = 0.3 | 5.4 | 0.188 ở seed 0; TB 0.198 (0.085–0.310) | 23 | 108 | 20.19 |
+| Erdős–Rényi p = 0.2 | 4.1 | 0.145 ở seed 0; TB 0.110 (0.053–0.210) | 30 | 82 | 15.33 |
+| Erdős–Rényi p = 0.3 | 5.7 | 0.182 ở seed 0; TB 0.233 (0.149–0.340) | 23 | 114 | 21.31 |
 | Random 4-regular | 4 | 0.231 ở seed 0; TB 0.213 (0.121–0.290) | 18 | 80 | 14.95 |
 | Đồ thị mũ (tĩnh) | 8 | 0.444 | 8 | 160 | 29.91 |
 | Random pairwise gossip trên $K_N$ | 1 | 0.312\* | 13\* | 20 | 3.74 |

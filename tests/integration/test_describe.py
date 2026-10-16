@@ -147,6 +147,16 @@ def test_spectral_gaps_match_the_kh_3_3_table_at_n_20(topologies_n20: dict[str, 
     assert min(er["spectral_gap_per_seed"]) <= er["spectral_gap"] <= max(er["spectral_gap_per_seed"])
 
 
+def test_the_kh_er_reference_is_the_one_computed_from_the_run_graphs(
+    topologies_n20: dict[str, dict[str, object]],
+) -> None:
+    # Hàng ER của KH §3.3 được sửa theo code (C2, 2026-10-16); nếu luồng graph đổi thì bảng KH phải sửa theo.
+    er = topologies_n20["T2 ER"]
+
+    expected = f"TB {er['spectral_gap']:.3f} ({er['spectral_gap_min']:.3f}–{er['spectral_gap_max']:.3f})"
+    assert describe.KH_3_3["T2 ER"] == expected
+
+
 def test_gossip_reports_an_expected_mixing_rate_not_a_spectral_gap(
     topologies_n20: dict[str, dict[str, object]],
 ) -> None:

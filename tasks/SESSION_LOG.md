@@ -976,3 +976,8 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - Còn mở: có sửa số ER ở bảng KH §3.3 theo code không (KH giữ nguyên tới khi nhóm quyết); Checkpoint C1 chưa làm
 - Việc tiếp theo: C1 (describe --check-req02 và P7 trên MNIST thật vào build/describe); E0a (T14b) khi nhóm duyệt thẻ thí nghiệm
 
+## 2026-10-16 — Phiên #19 (tiếp) — KH §3.3: hàng ER theo số của code
+- Người dùng duyệt "sửa theo số của code": hai hàng Erdős–Rényi (p = 0.2, p = 0.3) và dải gap ở hàng T2 của KH §3.3 lấy từ chính đồ thị của lượt chạy (Stream.GRAPH, 20 seed, N = 20). p = 0.3: bậc 5.7, gap seed 0 0.182, TB 0.233 (0.149–0.340), 23 round tới 1%, 114 message, 21.31 MB. p = 0.2: bậc 4.1, 0.145, TB 0.110 (0.053–0.210), 30 round, 82 message, 15.33 MB
+- `describe.KH_3_3` theo số mới; test mới giữ cột KH của ER khớp với số tính từ code
+- Chưa sửa (cần hỏi): ADR-005 (Consequences ghi "KH §3.3 ghi 0.198 (0.085–0.310)") và HANDOFF_GUIDELINE dòng 150 vẫn trích số cũ
+
