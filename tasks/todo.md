@@ -147,7 +147,7 @@
   - Phụ thuộc: T05a (định dạng JSON; có thể bắt đầu với file giả)
   - File: `analysis/plots.py`, `tests/unit/test_plots_p7.py`
 
-- [ ] **Checkpoint C1** — sau T05a, T05b (plan §7): `make check-full`; chạy `describe --check-req02` và vẽ P7 trên MNIST thật vào `build/describe` (không vào `figures/`); review diff bằng `code-reviewer`; tăng `MIN_TESTS`; nhóm duyệt
+- [x] **Checkpoint C1** — sau T05a, T05b (plan §7): `make check-full`; chạy `describe --check-req02` và vẽ P7 trên MNIST thật vào `build/describe` (không vào `figures/`); review diff bằng `code-reviewer`; tăng `MIN_TESTS`; nhóm duyệt. Nhóm duyệt ngày 2026-10-16, làm sau C2 (plan §13); còn mở: `--check-req02` có từ chối cấu hình khác thiết lập của bảng KH §3.2 không; có sửa số ER cũ ở ADR-005, HANDOFF dòng 150 không
 
 - [x] **T08 · Transport + CommLedger + snapshot** — TV2 · M · ∥ T05a, T05b
   - Mô tả:

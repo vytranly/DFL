@@ -989,3 +989,8 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
   - Test ở đúng biên sai số REQ-02 (0.005 − 0.003 = 0.002): đã thử đổi `>` thành `>=` thì test đỏ
 - Chưa làm (gợi ý, cần nhóm quyết): `--check-req02` không kiểm cấu hình của báo cáo có khớp thiết lập của bảng KH (MNIST, N = 20, min_size 64, 20 seed); `load_table` nhận bảng thiếu; cột kích thước của P7 chưa chung trục y với heatmap khi N nhỏ
 
+## 2026-10-16 — Phiên #19 (tiếp) — C1 được duyệt
+- Người dùng trả lời "duyệt": đánh dấu Checkpoint C1 trong todo, ghi kết luận vào plan §13
+- Còn mở: `--check-req02` có từ chối cấu hình khác thiết lập của bảng KH §3.2 không; số ER cũ ở ADR-005 và HANDOFF dòng 150
+- Việc tiếp theo: E0a (T14b) khi nhóm duyệt thẻ thí nghiệm
+
