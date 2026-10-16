@@ -971,3 +971,8 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - Lần check-full đầu có 1 test sweep fail `code_changed` vì sửa src/dfl giữa lúc test chạy; chạy riêng thì xanh
 - Test mới: 5 (875 test)
 
+## 2026-10-16 — Phiên #19 (tiếp) — C2 được duyệt
+- Người dùng trả lời "duyệt": đánh dấu Checkpoint C2 (M2) trong todo, ghi kết luận vào plan §13
+- Còn mở: có sửa số ER ở bảng KH §3.3 theo code không (KH giữ nguyên tới khi nhóm quyết); Checkpoint C1 chưa làm
+- Việc tiếp theo: C1 (describe --check-req02 và P7 trên MNIST thật vào build/describe); E0a (T14b) khi nhóm duyệt thẻ thí nghiệm
+

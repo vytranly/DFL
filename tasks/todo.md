@@ -170,7 +170,7 @@
   - Phụ thuộc: T05a, T06, T07, T08
   - File: `src/dfl/sim/describe.py`, `tests/integration/test_describe.py`
 
-- [ ] **Checkpoint C2 (M2)** — sau T08, T08b: `make check-full`; bảng spectral gap sinh từ code; review diff; tăng `MIN_TESTS`; nhóm duyệt
+- [x] **Checkpoint C2 (M2)** — sau T08, T08b: `make check-full`; bảng spectral gap sinh từ code; review diff; tăng `MIN_TESTS`; nhóm duyệt. Nhóm duyệt ngày 2026-10-16 (plan §13); còn mở: có sửa số ER ở bảng KH §3.3 theo code không (cần duyệt riêng vì là sửa KH)
 
 - [x] **T10a · Engine ATC lõi** ⚠ — TV2 · M · ∥ T09a
   - Mô tả:
