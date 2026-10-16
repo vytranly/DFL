@@ -44,6 +44,14 @@ def test_a_value_off_the_table_or_out_of_order_fails_naming_the_scheme(
     assert any(message in problem for problem in problems)
 
 
+def test_a_value_exactly_at_the_tolerance_passes() -> None:
+    # 0.005 − 0.003 đúng bằng 0.002 trong số thực dấu phẩy động: chỉ lệch *quá* sai số mới fail.
+    # quantity_0.5 không nằm trong chuỗi thứ tự, nên chỉ phép so sai số được thử.
+    measured = {**FAKE_TABLE, "quantity_0.5": 0.005}
+
+    assert describe.check_req02(measured, FAKE_TABLE) == []
+
+
 def test_a_missing_scheme_fails() -> None:
     measured = {k: v for k, v in FAKE_TABLE.items() if k != "label_2"}
 

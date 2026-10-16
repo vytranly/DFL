@@ -213,11 +213,15 @@ def describe_matrices(report: dict[str, Any], *, seed: int = 0) -> dict[str, np.
     """Nhãn cách chia → ma trận node × lớp ở `seed`, từ describe.json (T05b), theo JS trung bình tăng dần."""
     if seed not in report["seeds"]:
         raise AnalysisError(f"describe.json không có seed {seed} (có {report['seeds']})")
-    entries = sorted(report["schemes"].values(), key=lambda entry: entry["mean"]["js_mean"])
-    return {
-        entry["label"]: np.array(next(s for s in entry["per_seed"] if s["seed"] == seed)["node_class_counts"])
-        for entry in entries
-    }
+    if not report["schemes"]:
+        raise AnalysisError("describe.json không có cách chia nào")
+    matrices = {}
+    for entry in sorted(report["schemes"].values(), key=lambda entry: entry["mean"]["js_mean"]):
+        rows = [row for row in entry["per_seed"] if row["seed"] == seed]
+        if not rows:
+            raise AnalysisError(f"cách chia {entry['label']} thiếu seed {seed} trong describe.json")
+        matrices[entry["label"]] = np.array(rows[0]["node_class_counts"])
+    return matrices
 
 
 def draw_p7_describe(report: dict[str, Any], *, seed: int = 0) -> Figure:

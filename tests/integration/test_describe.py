@@ -20,7 +20,7 @@ from dfl.data.partition import DirichletPartitioner, assign_positions
 from dfl.network import mixing, topology
 from dfl.network.transport import InMemoryTransport
 from dfl.seeding import Stream
-from dfl.sim import describe
+from dfl.sim import describe, run
 from dfl.sim.node import make_snapshot
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -63,6 +63,34 @@ def test_the_report_reads_back_without_nan(described: tuple[Path, dict[str, obje
     numbers = walk_numbers(described[1])
 
     assert numbers and all(math.isfinite(x) for x in numbers)
+
+
+@pytest.mark.parametrize(
+    ("key", "partition"),
+    [
+        ("iid", {"scheme": "iid"}),
+        ("dirichlet_0.1", {"scheme": "dirichlet", "alpha": 0.1}),
+        ("label_2", {"scheme": "label_k", "k": 2}),
+        ("quantity_0.5", {"scheme": "quantity", "beta": 0.5}),
+    ],
+)
+def test_describe_matches_the_partition_that_a_run_assembles(
+    described: tuple[Path, dict[str, object]], key: str, partition: dict[str, object]
+) -> None:
+    # So với chính run.assemble, không chép lại đường của describe: lượt chạy đổi cách chia thì test này đỏ.
+    ds = datasets.load("synthetic")
+    for seed in range(SEEDS):
+        config = dataclasses.replace(CONFIG, seed=seed, partition=PartitionConfig(min_size=8, **partition))
+
+        assembled = run.assemble(config, ds).heterogeneity.node_class_counts
+
+        row = described[1]["schemes"][key]["per_seed"][seed]
+        assert row["node_class_counts"] == [list(r) for r in assembled], (key, seed)
+
+
+def test_at_least_one_seed_is_required() -> None:
+    with pytest.raises(ValueError, match="seeds ≥ 1"):
+        describe.describe(CONFIG, datasets.load("synthetic").train.y.numpy(), seeds=0)
 
 
 def test_each_seed_uses_the_partition_and_placement_streams_of_a_run(

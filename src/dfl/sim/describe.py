@@ -90,6 +90,8 @@ def schemes(min_size: int) -> tuple[Scheme, ...]:
 
 def describe(config: RunConfig, labels: np.ndarray, *, seeds: int) -> dict[str, Any]:
     """Báo cáo JSON được của mọi cách chia × seed 0 … `seeds` − 1, với N, min_size của `config`."""
+    if seeds < 1:
+        raise ValueError(f"cần seeds ≥ 1, nhận {seeds}")
     n = config.num_nodes
     report: dict[str, Any] = {
         "config": json.loads(canonical_json(config)),

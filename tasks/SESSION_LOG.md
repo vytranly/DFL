@@ -981,3 +981,11 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - `describe.KH_3_3` theo số mới; test mới giữ cột KH của ER khớp với số tính từ code
 - Chưa sửa (cần hỏi): ADR-005 (Consequences ghi "KH §3.3 ghi 0.198 (0.085–0.310)") và HANDOFF_GUIDELINE dòng 150 vẫn trích số cũ
 
+## 2026-10-16 — Phiên #19 (tiếp) — C1: sửa theo review T05a, T05b
+- Demo C1 trên MNIST thật (`describe --config configs/base.yaml --seeds 20 --out build/describe --check-req02`): REQ-02 đạt, mã thoát 0. JS TB: IID 0.0006, α100 0.0018, α1 0.176, α0.5 0.276, α0.1 0.562, α0.05 0.636, #C2 0.615, #C1 0.758, β0.5 0.0032, shards 0.594. P7 vẽ vào build/describe/P7-describe.png (không vào figures/)
+- Review `code-reviewer`: APPROVE, không Critical. Đã sửa:
+  - Important: test "dùng luồng của lượt chạy" chỉ chép lại đường của describe. Thêm test so với chính `run.assemble` (4 cách chia × 3 seed)
+  - `describe(seeds=0)` báo lỗi rõ thay vì StatisticsError; P7 từ describe.json không có cách chia, hay thiếu seed ở một cách chia, báo AnalysisError thay vì ZeroDivisionError/StopIteration
+  - Test ở đúng biên sai số REQ-02 (0.005 − 0.003 = 0.002): đã thử đổi `>` thành `>=` thì test đỏ
+- Chưa làm (gợi ý, cần nhóm quyết): `--check-req02` không kiểm cấu hình của báo cáo có khớp thiết lập của bảng KH (MNIST, N = 20, min_size 64, 20 seed); `load_table` nhận bảng thiếu; cột kích thước của P7 chưa chung trục y với heatmap khi N nhỏ
+

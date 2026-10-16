@@ -65,3 +65,18 @@ def test_command_line_writes_p7_from_describe_outside_figures_only(tmp_path: Pat
     assert (tmp_path / "out" / "P7-describe.png").stat().st_size > 0
     with pytest.raises(AnalysisError, match="figures/"):
         plots.main(["--describe", str(source), "--out", str(plots.FIGURES_ROOT)])
+
+
+def test_a_report_without_schemes_is_an_error() -> None:
+    report = {**describe_report(), "schemes": {}}
+
+    with pytest.raises(AnalysisError, match="không có cách chia"):
+        plots.draw_p7_describe(report, seed=0)
+
+
+def test_a_scheme_missing_the_seed_is_an_error_naming_it() -> None:
+    report = describe_report()
+    report["schemes"]["iid"]["per_seed"] = report["schemes"]["iid"]["per_seed"][:1]
+
+    with pytest.raises(AnalysisError, match="IID.*seed 1"):
+        plots.describe_matrices(report, seed=1)
