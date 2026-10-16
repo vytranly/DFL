@@ -138,7 +138,7 @@
   - Phụ thuộc: T03, T04b, T04c
   - File: `src/dfl/sim/describe.py`, `src/dfl/cli.py`, `tests/integration/test_describe.py`, `configs/reference/kh_js_table.yaml`
 
-- [ ] **T05b · Hình P7** — TV3 · S · ∥ T08
+- [x] **T05b · Hình P7** — TV3 · S · ∥ T08
   - Mô tả: hàm vẽ P7 (heatmap node × lớp, bảng màu an toàn cho người mù màu) trong `analysis/plots.py`. Hàm đọc `describe.json`, và sau này cả `node_class_counts` trong manifest. `analysis` chỉ import `dfl.contracts`. Ở task này hình chỉ được ghi vào `build/`, không vào `figures/`: hình cho báo cáo chỉ sinh bằng lệnh chuẩn, có PROVENANCE, từ T16a trở đi (INT-1).
   - Chấp nhận:
     - Sinh được P7 cho mọi cách chia từ `describe.json` mẫu của test; trục có nhãn.

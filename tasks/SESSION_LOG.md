@@ -930,3 +930,12 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - Test mới: 11 (10 unit, 1 e2e vẽ từ smoke thật). Đã xem tận mắt P1 và P7 vẽ từ 7 seed fast thật; sửa chồng chữ, vạch chia lẻ, nhãn bị cắt
 - Việc tiếp theo: T15c (thống kê và quy tắc quyết định), T05b, T08b; chuẩn bị E0a (T14b) khi nhóm duyệt
 
+## 2026-10-16 — Phiên #19 (tiếp) — T05b: P7 từ describe.json
+- Trạng thái: T05b ✅
+- File: analysis/plots.py, tests/unit/test_plots_p7.py (mới)
+- Nội dung:
+  - Hàm vẽ heatmap node × lớp kèm cột kích thước node, dùng chung cho P7 từ manifest (T16a) và P7 từ describe.json; lưới tối đa 5 ô mỗi hàng, các cách chia xếp theo JS tăng dần
+  - `python -m analysis.plots --describe build/describe/describe.json --out build/describe [--seed s]`; từ chối ghi vào figures/ (INT-1)
+- Chạy trên MNIST thật (mục của checkpoint C1): `python -m dfl describe --config configs/base.yaml --seeds 20 --out build/describe --check-req02` → "REQ-02: đạt"; P7 của 10 cách chia ở build/describe/P7-describe.png, đã xem: #C = 1 một lớp mỗi node, #C = 2 hai lớp, quantity lệch kích thước, nhãn IID
+- Test mới: 4
+

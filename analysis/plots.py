@@ -30,6 +30,8 @@ https://matplotlib.org/3.11.2/api/layout_engine_api.html
 from __future__ import annotations
 
 import argparse
+import json
+import math
 import shlex
 import sys
 from collections import Counter, defaultdict
@@ -158,17 +160,30 @@ def draw_p1(runs: Sequence[Run], *, draft: bool) -> Figure | None:
     return figure
 
 
-def draw_p7(runs: Sequence[Run], *, draft: bool) -> Figure | None:
-    matrices = class_matrices(runs)
-    if not matrices:
-        return None
-    names = sorted(matrices)
-    figure, axes = _figure(
-        2 * len(names), 5.5 * len(names), gridspec_kw={"width_ratios": [4, 1] * len(names)}
+PANELS_PER_ROW = 5
+
+
+def _class_matrix_figure(matrices: dict[str, np.ndarray], title: str) -> Figure:
+    """Mỗi cách chia một heatmap node × lớp kèm cột kích thước node; tối đa PANELS_PER_ROW ô mỗi hàng."""
+    names = list(matrices)
+    cols = min(PANELS_PER_ROW, len(names))
+    rows = math.ceil(len(names) / cols)
+    figure, axes = plt.subplots(
+        rows,
+        2 * cols,
+        figsize=(5.5 * cols, 4 * rows),
+        squeeze=False,
+        layout="constrained",
+        gridspec_kw={"width_ratios": [4, 1] * cols},
     )
+    figure.get_layout_engine().set(rect=CONTENT_RECT)
+    for ax in axes.flat:
+        ax.set_axis_off()
     for i, name in enumerate(names):
         counts = matrices[name]
-        heat, sizes = axes[0][2 * i], axes[0][2 * i + 1]
+        heat, sizes = axes[i // cols][2 * (i % cols)], axes[i // cols][2 * (i % cols) + 1]
+        heat.set_axis_on()
+        sizes.set_axis_on()
         image = heat.imshow(counts, aspect="auto", cmap="viridis")
         heat.set_title(name)
         heat.set_xlabel("lớp")
@@ -180,8 +195,41 @@ def draw_p7(runs: Sequence[Run], *, draft: bool) -> Figure | None:
         sizes.invert_yaxis()
         sizes.set_xlabel("kích thước\nnode (mẫu)")
         sizes.set_yticks([])
-    figure.suptitle("P7 · phân bố lớp theo node (từ manifest)")
+    figure.suptitle(title)
+    return figure
+
+
+def draw_p7(runs: Sequence[Run], *, draft: bool) -> Figure | None:
+    """P7 từ node_class_counts của manifest (lượt của lưới)."""
+    matrices = class_matrices(runs)
+    if not matrices:
+        return None
+    figure = _class_matrix_figure(dict(sorted(matrices.items())), "P7 · phân bố lớp theo node (từ manifest)")
     _stamp(figure, runs, draft=draft)
+    return figure
+
+
+def describe_matrices(report: dict[str, Any], *, seed: int = 0) -> dict[str, np.ndarray]:
+    """Nhãn cách chia → ma trận node × lớp ở `seed`, từ describe.json (T05b), theo JS trung bình tăng dần."""
+    if seed not in report["seeds"]:
+        raise AnalysisError(f"describe.json không có seed {seed} (có {report['seeds']})")
+    entries = sorted(report["schemes"].values(), key=lambda entry: entry["mean"]["js_mean"])
+    return {
+        entry["label"]: np.array(next(s for s in entry["per_seed"] if s["seed"] == seed)["node_class_counts"])
+        for entry in entries
+    }
+
+
+def draw_p7_describe(report: dict[str, Any], *, seed: int = 0) -> Figure:
+    """P7 từ describe.json: mọi cách chia của KH §3.2 ở một seed, trước khi có lượt nào (T05b, M2)."""
+    config = report["config"]
+    figure = _class_matrix_figure(
+        describe_matrices(report, seed=seed),
+        f"P7 · phân bố lớp theo node ({config['dataset']}, N = {config['num_nodes']}, seed {seed})",
+    )
+    figure.text(
+        0.99, 0.005, f"describe · {report['train_size']:,} ảnh train", ha="right", va="bottom", fontsize=7
+    )
     return figure
 
 
@@ -217,7 +265,21 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--results", type=Path, default=Path("results"))
     parser.add_argument("--out", type=Path, default=Path("figures"))
     parser.add_argument("--draft", action="store_true", help="smoke/demo: nhãn DRAFT, không ghi vào figures/")
+    parser.add_argument("--describe", type=Path, help="vẽ P7 từ describe.json (T05b), chỉ ra ngoài figures/")
+    parser.add_argument("--seed", type=int, default=0, help="seed của P7 từ describe.json")
     args = parser.parse_args(argv)
+    if args.describe is not None:
+        if _inside(args.out, FIGURES_ROOT):
+            raise AnalysisError(
+                "P7 từ describe.json chỉ ghi ra ngoài figures/ (INT-1); chọn --out như build/describe"
+            )
+        report = json.loads(args.describe.read_text(encoding="utf-8"))
+        figure = draw_p7_describe(report, seed=args.seed)
+        args.out.mkdir(parents=True, exist_ok=True)
+        figure.savefig(args.out / "P7-describe.png", dpi=DPI)
+        plt.close(figure)
+        print(f"đã vẽ {args.out / 'P7-describe.png'}")
+        return 0
     if args.draft and _inside(args.out, FIGURES_ROOT):
         raise AnalysisError(
             "--draft không bao giờ được ghi vào figures/ (INT-1); chọn --out khác, ví dụ build/"
