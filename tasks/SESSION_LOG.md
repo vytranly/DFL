@@ -1009,3 +1009,8 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - Còn mở trước E0b: điền η, μ, η của B1 vào ADR-007 (nhóm duyệt diff). configs/base.yaml phải trùng mặc định của RunConfig (test_config), nên đổi `lr` ở base.yaml sẽ kéo theo sửa src/ và đổi code_version; cần nhóm quyết cách đưa η = 0.1 vào E0b mà không đổi code của lưới
 - T14b chưa đánh dấu xong: tiêu chí chấp nhận cần η, μ, η của B1 trong ADR-007
 
+## 2026-10-16 — Phiên #19 (tiếp) — T14b xong: ADR-007 có η
+- Người dùng duyệt diff ADR-007: η = 0.1, η của B1 = 0.1, μ = 0.05 và 0.5, kèm code_version, commit lưới và số liệu E0a. Đánh dấu T14b
+- Còn mở: cách đưa η = 0.1 vào E0b mà không đổi `src/` (chốt ở T14c); trạng thái Accepted của ADR-001…011 cho G1 do nhóm tự ghi (bộ lọc chặn agent ghi)
+- Việc tiếp theo: T14c (E0b, 43 lượt) khi nhóm duyệt thẻ và cách ghi η
+

@@ -430,7 +430,7 @@
   - Phụ thuộc: T15a, T15b, T05b, T11b
   - File: `analysis/plots.py`, `analysis/provenance.py`, `tests/unit/test_plots.py`, `tests/e2e/test_plots_smoke.py`
 
-- [ ] **T14b · E0a: chọn η (24 lượt)** — TV3 · M
+- [x] **T14b · E0a: chọn η (24 lượt)** — TV3 · M · xong 2026-10-16: 24/24 ok ở code_version `00fe7f19…` (commit lưới `50fef80`); η = 0.1, η của B1 = 0.1, μ = 0.05 và 0.5 ghi vào ADR-007 (nhóm duyệt diff). Còn mở: đưa η = 0.1 vào E0b mà không đổi `src/` (base.yaml phải trùng mặc định của RunConfig; đề xuất ghi `algorithm.lr` trong YAML thí nghiệm từ E0b), nhóm chốt ở T14c
   - Mô tả:
     - Chuẩn bị: thẻ tiền đăng ký E0a (mẫu H§5.3), `configs/experiments/e0a_lr.yaml`, dòng đầu tiên của `docs/experiments/CODE_VERSIONS.md`, và worktree của lưới.
     - Chạy sweep với seed 100, chỉ đánh giá trên validation.

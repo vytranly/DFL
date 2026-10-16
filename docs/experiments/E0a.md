@@ -49,4 +49,4 @@
   - η = 0.1 là đầu trên của dải đã đăng ký, và accuracy còn tăng từ 0.05 lên 0.1 ở mọi ô Non-IID. Không quét thêm η > 0.1: quy tắc chỉ chọn trong {0.01, 0.05, 0.1} (ADR-007), và chọn lại siêu tham số sau khi xem kết quả là việc SPEC §8 cấm. Báo cáo nêu điều này như một giới hạn.
   - Ở FC-IID τ = 1, η = 0.05 (0.9894) hơn η = 0.1 (0.9884) 0.1 điểm %, trong ngưỡng hòa 0.2 điểm %, nên η chung được coi là tốt nhất cho τ = 1.
   - Ring-#C2 thấp hơn hẳn (0.79 ở η tốt nhất), đúng kỳ vọng của ô Non-IID khó nhất; đây là ô quyết định η theo quy tắc trường hợp xấu nhất.
-- **Còn lại trước E0b:** điền η, μ, η của B1 vào ADR-007 (nhóm duyệt diff, Ask first).
+- **ADR-007:** η, μ, η của B1 đã ghi vào mục Decision; nhóm duyệt diff ngày 2026-10-16.
