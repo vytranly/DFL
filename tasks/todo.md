@@ -354,7 +354,7 @@
   - Phụ thuộc: T15a, T15b
   - File: `analysis/sanity.py`, `tests/unit/test_sanity.py`
 
-- [ ] **T14e · Quy tắc chọn η** — TV1 · S · ∥ T14a
+- [x] **T14e · Quy tắc chọn η** — TV1 · S · ∥ T14a
   - Mô tả: `analysis/select_lr.py` cài các quy tắc của ADR-007.
     - η chung: trung bình 5 mốc cuối trên tập con validation, lấy trường hợp xấu nhất qua các ô; hòa trong 0.2 điểm % thì xét AUC ở ring-α0.1.
     - Quy tắc cho τ = 1 và τ = 50, cùng điều kiện kích hoạt 24 lượt bổ sung.

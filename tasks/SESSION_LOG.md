@@ -906,3 +906,15 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - Test mới: 19 (mỗi SAN: đạt, không đạt, thiếu lượt; SAN-5 thêm ba kiểu vi phạm và baseline có message)
 - Thử SAN-5 trên 8 lượt thật trong build/ (full, fast, N = 8 hai runtime, τ = 1, τ = 20, CIFAR-10): đạt
 
+## 2026-10-16 — Phiên #19 (tiếp) — T14e: quy tắc chọn η
+- Trạng thái: T14e ✅
+- File: analysis/select_lr.py (mới), tests/unit/test_select_lr.py (mới)
+- Nội dung (ADR-007):
+  - η chung: tối đa hóa trường hợp xấu nhất qua FC-IID, ring-α0.1, ring-#C2 (τ = 20); hòa trong 0.2 điểm % thì AUC validation ở ring-α0.1 quyết định; lượt phân kỳ tính là 0
+  - τ = 1, τ = 50: η chung trong 0.2 điểm % thì giữ; khác thì báo kích hoạt 12 lượt bổ sung
+  - η riêng của B1; μ của DFedProx theo QS-2 (η·μ·τ ∈ {0.1, 1} ở τ = 20)
+  - Chỉ nhận lượt đánh giá trên validation; gặp lượt test thì báo lỗi (G8, G25); thiếu ô là lỗi, không lặng lẽ bỏ η
+  - Dòng lệnh: `python -m analysis.select_lr --results results/ --experiment e0a_lr`
+- Quyết định nhỏ cần nhóm biết: ADR-007 không định nghĩa "hòa" khi chọn η của B1; code dùng cùng ngưỡng 0.2 điểm % như η chung, rồi AUC
+- Test mới: 9 (hòa, phân kỳ = 0, τ = 1/50 giữ η chung, τ = 50 kích hoạt lượt bổ sung, η của B1, μ theo QS-2, từ chối lượt test, thiếu ô)
+
