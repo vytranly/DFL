@@ -41,7 +41,10 @@ def load_raw_dataset(dataset_name='mnist', data_dir='./data'):
 
 
 def dirichlet(dataset, num_clients, alpha=100, min_require_size=1):
-    targets = torch.tensor(dataset.targets).numpy()
+    if torch.is_tensor(dataset.targets):
+        targets = dataset.targets.cpu().numpy()
+    else:
+        targets = np.array(dataset.targets)
     num_classes = len(np.unique(targets))
     
     min_size = 0
