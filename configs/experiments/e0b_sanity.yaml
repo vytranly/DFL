@@ -1,0 +1,37 @@
+# E0b: sanity và baseline trên tập test (ADR-007; SPEC EXP-2, §9.3; thẻ docs/experiments/E0b.md). 43 lượt.
+# η lấy từ E0a (ADR-007): η chung 0.1, η của B1 0.1. η được ghi ở đây, không ở base.yaml: base.yaml phải trùng
+# mặc định của RunConfig trong src/, và sửa src/ sẽ đổi code_version của lưới (người dùng duyệt 2026-10-16).
+# - B1 (3), B1-4k (3), B2 × {IID, α = 0.1} (6), B3 × IID (3): seed {0, 1, 2};
+# - DFedAvg IID × {T1 ring, T2 ER, T3 gossip, T4 FC} (20): seed {0…4};
+# - độ nhạy η/2 = 0.05 và 2η = 0.2 × {T1, T4} × {IID, α = 0.1} (8): seed 0, chỉ để mô tả, không chọn lại η.
+experiment: e0b_sanity
+profile: ../profiles/full.yaml
+blocks:
+  - seeds: [0, 1, 2]  # B1: η riêng, τ·R = 17,200 (khoảng 10 epoch, F19)
+    set:
+      num_nodes: 1
+      topology: {kind: central}
+      partition: {scheme: iid}
+      local_steps: 17200
+      algorithm: {lr: 0.1}
+  - seeds: [0, 1, 2]  # B1-4k: η chung, 4,000 bước (đối chứng của SAN-2)
+    set:
+      num_nodes: 1
+      topology: {kind: central}
+      partition: {scheme: iid}
+      algorithm: {lr: 0.1}
+  - seeds: [0, 1, 2]  # B2: chỉ cục bộ, W = I (SAN-3)
+    set: {topology: {kind: local_only}, algorithm: {lr: 0.1}}
+    grid:
+      partition: [{scheme: iid}, {scheme: dirichlet, alpha: 0.1}]
+  - seeds: [0, 1, 2]  # B3: FedAvg có server, trọng số n_k/n
+    set: {topology: {kind: server}, mixing: size_weighted, partition: {scheme: iid}, algorithm: {lr: 0.1}}
+  - seeds: [0, 1, 2, 3, 4]  # DFedAvg IID × T1–T4
+    set: {partition: {scheme: iid}, algorithm: {lr: 0.1}}
+    grid:
+      topology: [{kind: ring}, {kind: erdos_renyi}, {kind: gossip}, {kind: fully_connected}]
+  - seeds: [0]  # độ nhạy η/2, 2η (ADR-007): chỉ mô tả
+    grid:
+      algorithm: [{lr: 0.05}, {lr: 0.2}]
+      topology: [{kind: ring}, {kind: fully_connected}]
+      partition: [{scheme: iid}, {scheme: dirichlet, alpha: 0.1}]

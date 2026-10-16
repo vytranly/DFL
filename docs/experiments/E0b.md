@@ -1,0 +1,26 @@
+# E0b — Sanity và baseline (tiền đăng ký)
+
+- **Mục đích:** kiểm hệ thống trên tập test trước mọi thí nghiệm có giả thuyết (SPEC §9.3), dựng baseline của REQ-12, và mô tả độ nhạy với η. Đây là cổng của E1: không đạt SAN-1…3 hay SAN-5 thì dừng, debug, báo nhóm; không chạy E1.
+- **Lưới** (`configs/experiments/e0b_sanity.yaml`, 43 lượt, đúng SPEC EXP-2):
+  - B1: một node giữ đủ 55k ảnh, τ·R = 17,200 (khoảng 10 epoch), η của B1 = 0.1; seed {0, 1, 2} = 3 lượt;
+  - B1-4k: như B1 nhưng 4,000 bước và η chung 0.1; seed {0, 1, 2} = 3 lượt;
+  - B2 (chỉ cục bộ, W = I) × {IID, α = 0.1}; seed {0, 1, 2} = 6 lượt;
+  - B3 (FedAvg có server, trọng số n_k/n, đường server) × IID; seed {0, 1, 2} = 3 lượt;
+  - DFedAvg IID × {T1 ring, T2 ER p = 0.3, T3 gossip, T4 FC}; seed {0…4} = 20 lượt;
+  - độ nhạy: η ∈ {0.05, 0.2} (η/2, 2η) × {T1, T4} × {IID, α = 0.1}; seed 0 = 8 lượt.
+- **Cố định** (profile `configs/profiles/full.yaml`, T13): N = 20 (trừ B1, B1-4k), τ = 20, τ·R = 4,000, B = 32 lấy có hoàn lại, μ = 0, SmallCNN, Metropolis–Hastings (B3: size-weighted), min_size = 64, 1 luồng mỗi lượt; đánh giá mỗi 100 bước trên tập con test phân tầng 2,000 ảnh, đánh giá cuối trên đủ 10,000 ảnh test.
+- **η** (ADR-007, E0a ngày 2026-10-16): η chung 0.1, η của B1 0.1. Ghi trong YAML thí nghiệm, không ở `configs/base.yaml`, vì base.yaml phải trùng mặc định của `RunConfig` trong `src/` và sửa `src/` sẽ đổi code_version (nhóm duyệt 2026-10-16).
+- **Ngưỡng** (CONSTRAINTS R7, SPEC §9.3; không đổi vì kết quả):
+  - SAN-1: B1 ≥ 98.5% trên đủ tập test (trung bình 3 seed);
+  - SAN-2: DFedAvg-FC-IID kém B1-4k không quá 1.0 điểm % (seed {0, 1, 2}, cùng η chung);
+  - SAN-3: B2 ở α = 0.1 thấp hơn B2 ở IID ít nhất 20 điểm %;
+  - SAN-5: điều kiện cấu trúc trên `rounds.jsonl` của mọi lượt.
+- **Độ nhạy η/2, 2η:** chỉ mô tả giá trị của từng cấu hình; 1 seed nên không dùng để kết luận H2, và không bao giờ dùng để chọn lại η (ADR-007, SPEC §8). `analysis.sanity` so SAN-2 ở η của B1-4k, nên các lượt này không lọt vào phép so (sửa ở `b2ddf01`).
+- **code_version:** `00fe7f198c9a156bfac710d4d2edfcea9ea1830143a43b752a9d3a2904d46461` (giống E0a). Commit lưới mới chứa thẻ này; `src/` không đổi kể từ `50fef80`.
+- **Lệnh** (từ worktree `/root/ecaep/dfl-grid`, sau khi chuyển nó tới commit chứa thẻ):
+  - `python -m dfl sweep --experiment configs/experiments/e0b_sanity.yaml --dry-run`, nhóm duyệt (lưới hơn 10 lượt)
+  - `python -m dfl sweep --experiment configs/experiments/e0b_sanity.yaml --workers 6` (số lõi rảnh trừ 1)
+  - `python -m analysis.sanity --results results/ --e0b e0b_sanity`
+- **Ngân sách:** khoảng 12.1 giờ-lõi (docs/PERF.md §5), tức khoảng 2–2.5 giờ với 6 worker.
+- **Tiêu chí hợp lệ:** cả 43 run_id có attempt `ok` hoặc `diverged`, cùng một code_version; `final_eval_split` là test ở mọi lượt; attempt `failed` giữ nguyên và ghi nguyên nhân ở đây.
+- **Kết quả** (điền sau khi chạy): SAN-1, SAN-2, SAN-3, SAN-5; accuracy của từng baseline và từng topology IID; bảng độ nhạy η/2, 2η.
