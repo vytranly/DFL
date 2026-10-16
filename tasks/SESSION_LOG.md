@@ -939,3 +939,14 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - Chạy trên MNIST thật (mục của checkpoint C1): `python -m dfl describe --config configs/base.yaml --seeds 20 --out build/describe --check-req02` → "REQ-02: đạt"; P7 của 10 cách chia ở build/describe/P7-describe.png, đã xem: #C = 1 một lớp mỗi node, #C = 2 hai lớp, quantity lệch kích thước, nhãn IID
 - Test mới: 4
 
+## 2026-10-16 — Phiên #19 (tiếp) — T15c: thống kê và quy tắc quyết định
+- Trạng thái: T15c ✅
+- File: analysis/stats.py (mới), tests/unit/test_stats.py (mới)
+- Nội dung (ADR-007):
+  - CI 95% theo t với bảng giá trị tới hạn df 1…30 của NIST/SEMATECH e-Handbook §1.3.6.7.2 (K11: không thêm phụ thuộc chạy; test đối chiếu `scipy.stats.t`, sai số ≤ 5e-4)
+  - Hiệu số ghép cặp theo tập seed khai báo (thiếu seed là lỗi); quy tắc "ủng hộ / gợi ý / không ủng hộ / chưa kết luận" cho 5 và 3 seed; hiệu bằng 0 không tính là đúng chiều; có seed phân kỳ thì "chưa kết luận"
+  - Kiểm định dấu cho R@x bị kiểm duyệt: "> ngân sách" lớn hơn mọi giá trị hữu hạn, "≤ 100" nhỏ hơn mọi giá trị > 100, cùng bị kiểm duyệt là hòa, hòa không đúng chiều
+  - Độ dốc OLS của H2 theo từng seed (khớp numpy.polyfit), quyết định với df = 4; mức khuyến nghị (REQ-13)
+- Test mới: 53 (30 trong đó là bảng t so với scipy)
+- Việc tiếp theo: T08b (describe topology) để đóng C1/C2; chuẩn bị E0a (T14b) khi nhóm duyệt
+

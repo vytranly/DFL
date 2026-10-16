@@ -255,7 +255,7 @@
   - Phụ thuộc: T01
   - File: `analysis/convergence.py`, `tests/unit/test_convergence.py`
 
-- [ ] **T15c · Thống kê + quy tắc quyết định** — TV3 · S · ∥ T10b, T10c
+- [x] **T15c · Thống kê + quy tắc quyết định** — TV3 · S · ∥ T10b, T10c
   - Mô tả: `analysis/stats.py` gồm:
     - mean ± CI 95% theo phân phối t, dùng bảng giá trị tới hạn cho df ≤ 30 có ghi nguồn (plan K11);
     - hiệu số ghép cặp;
