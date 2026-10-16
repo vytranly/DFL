@@ -17,7 +17,7 @@ RUFF ?= $(if $(wildcard $(VENV_BIN)ruff),$(VENV_BIN)ruff,ruff)
 LINT_IMPORTS ?= $(if $(wildcard $(VENV_BIN)lint-imports),$(VENV_BIN)lint-imports,lint-imports)
 PY_DIRS := src analysis tests
 # F5 (ratchet): số test thu thập được không được giảm. Chỉ được tăng; cập nhật ở mỗi checkpoint.
-MIN_TESTS := 882
+MIN_TESTS := 891
 # T1: ngân sách thời gian của check-task; vượt thì chỉ cảnh báo, không chặn.
 TASK_BUDGET_S := 90
 

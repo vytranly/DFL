@@ -74,10 +74,10 @@ Các kiểm tra sau không do chính test của dự án tự chấm:
 
 ## Đo và giữ (ratchet)
 
-| Chỉ số | Giá trị đo ở C2 (2026-10-16; C3 ngày 2026-10-02 là 611 test, 95.2%; P1.9 ngày 2026-09-30 là 34 test, 100%, 1 s) | Hướng | Kiểm bằng |
+| Chỉ số | Giá trị đo ở C1 (2026-10-16, làm sau C2 là 882 test, 95.19%; C3 ngày 2026-10-02 là 611 test, 95.2%; P1.9 ngày 2026-09-30 là 34 test, 100%, 1 s) | Hướng | Kiểm bằng |
 |---|---|---|---|
-| Số test thu thập được | 882 | Không giảm. `MIN_TESTS` trong Makefile chỉ được tăng, cập nhật ở mỗi checkpoint | `check-floor` (F5) |
-| Coverage tổng (`src/dfl` + `analysis/`) | 95.19% dòng (3,661 dòng, 176 chưa chạy; C2 không đo nhánh). Hai module chạy trong tiến trình con không được đo: `process_runtime.py` 71%, `torchdist.py` 66% | Không dưới 80%. Ghi lại giá trị ở mỗi checkpoint | `check-task` |
+| Số test thu thập được | 891 | Không giảm. `MIN_TESTS` trong Makefile chỉ được tăng, cập nhật ở mỗi checkpoint | `check-floor` (F5) |
+| Coverage tổng (`src/dfl` + `analysis/`) | 95.20% dòng (3,670 dòng, 176 chưa chạy; C1, C2 không đo nhánh). Hai module chạy trong tiến trình con không được đo: `process_runtime.py` 71%, `torchdist.py` 66% | Không dưới 80%. Ghi lại giá trị ở mỗi checkpoint | `check-task` |
 | Thời gian check-task | 182–184 s ở C2 (C3: 66–134 s); tăng theo số test của analysis/ và CIFAR-10; khoảng 65 s là test chạy tiến trình con thật | ≤ 90 s (chỉ cảnh báo) | `check-task` |
 
 ## Kích hoạt theo task
