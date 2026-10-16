@@ -1,0 +1,24 @@
+# E0a — Chọn η trên validation (tiền đăng ký)
+
+- **Mục đích:** chọn η chung của lưới, η riêng của B1, và biết hai đầu dải τ (τ = 1, τ = 50) có bị thiệt vì η chung không. Không kiểm giả thuyết nào; E0a là bước chọn siêu tham số đã đăng ký trước ở ADR-007 (mục "Chọn lr") và KH §3.5.
+- **Lưới** (`configs/experiments/e0a_lr.yaml`, 24 lượt, đúng SPEC EXP-2):
+  - τ = 20: η ∈ {0.01, 0.05, 0.1} × {FC-IID, ring-α0.1, ring-#C2} = 9 lượt;
+  - τ = 1: η × {FC-IID, ring-α0.1} = 6 lượt; τ = 50: η × {FC-IID, ring-α0.1} = 6 lượt;
+  - B1: η × một node giữ đủ 55k ảnh, τ·R = 17,200 (khoảng 10 epoch với B = 32, F19) = 3 lượt.
+- **Cố định** (profile `configs/profiles/full.yaml`, đã chốt ở T13, docs/PERF.md): DFedAvg (μ = 0), N = 20, τ·R = 4,000, B = 32 lấy có hoàn lại, SmallCNN, Metropolis–Hastings, min_size = 64, 1 luồng mỗi lượt. Seed 100 (ngoài {0…4}). Đánh giá mỗi 100 bước cục bộ trên tập con phân tầng 2,000 ảnh của **validation**; đánh giá cuối trên đủ 5,000 ảnh validation. Không lượt nào đánh giá trên tập test.
+- **Quy tắc chọn** (ADR-007; cài ở `analysis/select_lr.py`, T14e):
+  - Accuracy validation của một lượt = trung bình `acc_mean` ở 5 mốc cuối (3,600 … 4,000 bước); lượt phân kỳ tính là 0.
+  - η chung: η có accuracy validation nhỏ nhất qua 3 ô τ = 20 là lớn nhất. Các η cách giá trị tốt nhất không quá 0.2 điểm % là hòa; hòa thì chọn η có AUC validation lớn hơn ở ring-α0.1.
+  - τ = 1, τ = 50: η tốt nhất theo cùng quy tắc trên 2 ô; nếu η chung cách giá trị tốt nhất không quá 0.2 điểm % thì coi η chung là tốt nhất. Khác η chung thì kích hoạt T19c (12 lượt bổ sung ở Tier 2).
+  - η của B1: accuracy validation lớn nhất trong 3 lượt B1 (hòa 0.2 điểm % thì AUC lớn hơn).
+  - μ của DFedProx không chọn bằng lượt chạy: μ = 0.1/(20η) và 1/(20η), giữ ημτ ∈ {0.1, 1} ở τ = 20 (SPEC QS-2).
+- **code_version** (hash nội dung src/ + file khóa): `00fe7f198c9a156bfac710d4d2edfcea9ea1830143a43b752a9d3a2904d46461`, ở commit của nhánh `binh` chứa thẻ này.
+- **Lệnh** (từ worktree của commit lưới, `results/` là symlink tới results/ của repo chính; SPEC §5.3):
+  - `git worktree add -d ../dfl-grid <commit>`; trong worktree: `ln -s <repo>/results results`
+  - `python -m dfl sweep --experiment configs/experiments/e0a_lr.yaml --dry-run`, nhóm duyệt (lưới hơn 10 lượt)
+  - `python -m dfl sweep --experiment configs/experiments/e0a_lr.yaml --workers 6` (docs/PERF.md: số lõi rảnh trừ 1)
+  - `python -m analysis.select_lr --results results/ --experiment e0a_lr`
+- **Ngân sách:** khoảng 7.3 giờ-lõi (docs/PERF.md §5), tức khoảng 1.5 giờ với 6 worker.
+- **Tiêu chí hợp lệ:** cả 24 run_id có attempt `ok` hoặc `diverged`, cùng một code_version; `final_eval_split` là validation ở mọi lượt; attempt `failed` giữ nguyên và ghi nguyên nhân ở đây.
+- **Điều kiện trước khi chạy** (T14b): Gate G1 (ADR Accepted); `make check-inv` xanh; cây sạch; nhóm duyệt kết quả `--dry-run`.
+- **Kết quả** (điền sau khi chạy): η chung, η của B1, μ, η tốt nhất của τ = 1 và τ = 50, kèm ngày và run ID; ghi vào ADR-007 (nhóm duyệt diff) trước E0b.

@@ -1,0 +1,48 @@
+# E0a: chọn η trên validation, seed 100 (ADR-007; SPEC EXP-2; thẻ docs/experiments/E0a.md). 24 lượt:
+# - τ = 20: η ∈ {0.01, 0.05, 0.1} × {FC-IID, ring-α0.1, ring-#C2} (9), cho η chung;
+# - τ = 1 và τ = 50: η × {FC-IID, ring-α0.1} (6 + 6), để biết hai đầu dải τ có thiệt vì η chung không;
+# - B1: η × 1 node giữ đủ 55k ảnh, τ·R = 17,200 (khoảng 10 epoch, F19) (3), cho η riêng của B1.
+# Mọi lượt đánh giá trên validation (learning curve trên tập con 2,000 ảnh, đánh giá cuối trên 5,000 ảnh);
+# không lượt nào đụng tập test. μ không được chọn bằng lượt chạy mà tính từ η theo QS-2.
+experiment: e0a_lr
+profile: ../profiles/full.yaml
+blocks:
+  - seeds: [100]
+    set: {topology: {kind: fully_connected}, partition: {scheme: iid}, eval: {split: validation}}
+    grid:
+      algorithm:
+        - {tau: 20, lr: 0.01}
+        - {tau: 20, lr: 0.05}
+        - {tau: 20, lr: 0.1}
+        - {tau: 1, lr: 0.01}
+        - {tau: 1, lr: 0.05}
+        - {tau: 1, lr: 0.1}
+        - {tau: 50, lr: 0.01}
+        - {tau: 50, lr: 0.05}
+        - {tau: 50, lr: 0.1}
+  - seeds: [100]
+    set: {topology: {kind: ring}, partition: {scheme: dirichlet, alpha: 0.1}, eval: {split: validation}}
+    grid:
+      algorithm:
+        - {tau: 20, lr: 0.01}
+        - {tau: 20, lr: 0.05}
+        - {tau: 20, lr: 0.1}
+        - {tau: 1, lr: 0.01}
+        - {tau: 1, lr: 0.05}
+        - {tau: 1, lr: 0.1}
+        - {tau: 50, lr: 0.01}
+        - {tau: 50, lr: 0.05}
+        - {tau: 50, lr: 0.1}
+  - seeds: [100]
+    set: {topology: {kind: ring}, partition: {scheme: label_k, k: 2}, eval: {split: validation}}
+    grid:
+      algorithm: [{tau: 20, lr: 0.01}, {tau: 20, lr: 0.05}, {tau: 20, lr: 0.1}]
+  - seeds: [100]
+    set:
+      num_nodes: 1
+      topology: {kind: central}
+      partition: {scheme: iid}
+      local_steps: 17200
+      eval: {split: validation}
+    grid:
+      algorithm: [{tau: 20, lr: 0.01}, {tau: 20, lr: 0.05}, {tau: 20, lr: 0.1}]

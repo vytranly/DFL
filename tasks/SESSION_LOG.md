@@ -994,3 +994,10 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - Còn mở: `--check-req02` có từ chối cấu hình khác thiết lập của bảng KH §3.2 không; số ER cũ ở ADR-005 và HANDOFF dòng 150
 - Việc tiếp theo: E0a (T14b) khi nhóm duyệt thẻ thí nghiệm
 
+## 2026-10-16 — Phiên #19 (tiếp) — T14b (E0a): chuẩn bị, chưa chạy
+- Người dùng: "duyệt thẻ thí nghiệm, bắt đầu E0a". Thẻ chưa tồn tại nên soạn mới; chưa chạy lưới vì:
+  - Gate G1 chưa đạt: ADR-001…012 vẫn Proposed, T14b phụ thuộc "G1 (ADR đã Accepted)", G1 cần nhóm và GVHD
+  - Lưới hơn 10 lượt: nhóm phải duyệt kết quả `--dry-run` (T14b, CLAUDE.md Ask first)
+- File: configs/experiments/e0a_lr.yaml (24 lượt: 9 τ = 20, 6 τ = 1, 6 τ = 50, 3 B1 τ·R = 17,200; seed 100; chỉ validation), docs/experiments/E0a.md (thẻ theo mẫu H§5.3), docs/experiments/CODE_VERSIONS.md (dòng đầu, code_version 00fe7f19…), tests/unit/test_experiment_e0a.py (4 test giữ hình dạng lưới)
+- `make check-inv`: 86 test xanh. Máy lúc 12:06 có tải 13 trên 8 lõi, nên `--workers 6` của PERF.md chưa hợp lúc này
+
