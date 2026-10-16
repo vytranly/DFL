@@ -884,3 +884,14 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
   - `checks`: một code_version mỗi so sánh; `dirty`/`env_match` chỉ qua với --draft; biến cố định (dataset, N, model, η, B, τ·R, lịch đánh giá, tập đánh giá, số luồng, máy) trừ trục; baseline B1, B1-4k, B2 được miễn khi vẽ làm đường tham chiếu, đường server thì không; tập seed chung phải khai báo, seed thiếu được trả về để báo cáo; NaN ở lượt `ok`; báo cáo attempt `failed`/`diverged`; dòng của CODE_VERSIONS.md (INT-6)
 - Test mới: 23 (mỗi luật một ca lỗi và một ca hợp lệ; một test chạy analysis trên lượt smoke thật)
 
+## 2026-10-16 — Phiên #19 (tiếp) — T15b: R@x, AUC, độ dao động, mức sụt
+- Trạng thái: T15b ✅
+- File: analysis/convergence.py (mới), analysis/aggregate.py (cột độ đo suy ra), tests/unit/test_convergence.py (mới), tests/unit/test_aggregate.py
+- Nội dung:
+  - R@x theo REQ-04: lần vượt bền vững đầu tiên, cửa sổ 200 bước, dung sai 0.5 điểm %, "≤ 100", "> ngân sách", "không đạt (phân kỳ)"; quy ra round và bytes@x
+  - AUC hình thang (không xác định với lượt phân kỳ); lưới chuẩn 100 bước, trừ B1/B1-4k và lượt phân kỳ có lưới là phần đầu của lưới chuẩn
+  - Độ dao động trên 20 mốc cuối và mức sụt lớn nhất, tính theo node rồi mới lấy trung bình (G24); độ phân tán cuối (std, min, max − min, trung bình 10% kém nhất); tải lớn nhất trên một node
+  - CSV của `analysis.aggregate` có thêm các cột này
+- Test mới: 19, gồm đủ các ví dụ có đáp án tính tay ở REVIEW-C3-P3.7 §5 (1–14; ví dụ 15 về độ dao động theo node)
+- Thử trên lượt full thật (build/perf): R@90 = 101, R@95 = 245, AUC 0.984, độ dao động 0.0017
+

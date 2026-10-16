@@ -4,6 +4,7 @@ failed và bị ngắt, không bỏ lượt phân kỳ hay thiếu (T15a; SPEC �
 
 from pathlib import Path
 
+import pandas as pd
 import pytest
 
 from analysis import aggregate
@@ -102,3 +103,17 @@ def test_command_line_writes_one_csv_per_experiment(tmp_path: Path) -> None:
     assert code == 0
     text = (tmp_path / "out" / "e1.csv").read_text(encoding="utf-8")
     assert text.splitlines()[0].startswith("run_id,") and "r1" in text
+
+
+def test_frame_carries_the_derived_metrics_of_finished_runs(tmp_path: Path) -> None:
+    # SPEC §4: CSV kèm độ đo suy ra; lượt phân kỳ không đạt và không có AUC.
+    write_run(tmp_path, "ok", rounds=curve([0.80, 0.91, 0.96, 0.97]))
+    write_run(tmp_path, "div", status="diverged", rounds=curve([0.96]))
+    write_index(tmp_path, "e1", {CODE_VERSION: ["div", "ok"]})
+
+    table = aggregate.frame(aggregate.read_experiment(tmp_path, "e1")).set_index("run_id")
+
+    # R@90 = 100 + (0.90 − 0.80)/(0.91 − 0.80) × 100 = 190.9; R@95 = 200 + 0.04/0.05 × 100 = 280.
+    assert table.loc["ok", "r90_label"] == "191" and table.loc["ok", "r95_label"] == "280"
+    assert table.loc["ok", "auc"] == pytest.approx((0.855 + 0.935 + 0.965) / 3)
+    assert table.loc["div", "r95_label"] == "không đạt (phân kỳ)" and pd.isna(table.loc["div", "auc"])

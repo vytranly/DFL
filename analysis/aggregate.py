@@ -211,9 +211,41 @@ def row(attempts: Attempts) -> dict[str, Any]:
     }
 
 
+def derived(run: Run) -> dict[str, Any]:
+    """Độ đo suy ra của một lượt (T15b), trên lưới mốc của chính lượt đó: lưới chuẩn 100 bước với lượt của
+    lưới, lịch riêng của profile với --draft (INT-1). So sánh giữa các lượt thì `convergence.check_grid` kiểm
+    lưới chuẩn."""
+    # Import trong hàm: convergence dùng Run và AnalysisError của module này.
+    from analysis import convergence
+
+    every = run.config["eval"]["every_steps"] or run.config["algorithm"]["tau"]
+    steps = [int(r["local_steps"]) for r in run.rounds]
+    r90, r95 = (convergence.run_reach(run, x, every=every) for x in (0.90, 0.95))
+    per_node = [r["acc_per_node"] for r in run.rounds]
+    finished = run.status == "ok" and len(steps) >= 3
+    drop = (
+        convergence.max_drop(steps, per_node, budget=run.config["local_steps"]) if finished else (None, None)
+    )
+    return {
+        "r90": r90.step,
+        "r90_label": r90.label,
+        "r95": r95.step,
+        "r95_label": r95.label,
+        "bytes95": convergence.bytes_at(steps, [r["bytes_cum"] for r in run.rounds], r95)
+        if r95.reached
+        else None,
+        "auc": convergence.run_auc(run, every=every),
+        "oscillation": convergence.oscillation(per_node) if finished else None,
+        "max_drop_mean": drop[0],
+        "max_drop_max": drop[1],
+        "max_node_load": convergence.max_node_load(run),
+    }
+
+
 def frame(attempts: Sequence[Attempts]) -> pd.DataFrame:
-    """Bảng mỗi run_id một dòng, theo thứ tự đầu vào; lượt thiếu và lượt phân kỳ vẫn có dòng (INT-3)."""
-    return pd.DataFrame([row(a) for a in attempts])
+    """Bảng mỗi run_id một dòng, theo thứ tự đầu vào, kèm độ đo suy ra; lượt thiếu và lượt phân kỳ vẫn có dòng
+    (INT-3)."""
+    return pd.DataFrame([{**row(a), **(derived(a.finished) if a.finished else {})} for a in attempts])
 
 
 def main(argv: Sequence[str] | None = None) -> int:
