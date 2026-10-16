@@ -417,7 +417,7 @@
   - Phụ thuộc: T11c, T11d, T12, T22b, T09c
   - File: `docs/PERF.md`, `configs/base.yaml`, `configs/profiles/full.yaml`, `tasks/plan.md`
 
-- [ ] **T16a · Khung vẽ hình + PROVENANCE + P1** — TV3 · M · ∥ T13
+- [x] **T16a · Khung vẽ hình + PROVENANCE + P1** — TV3 · M · ∥ T13
   - Mô tả: khung chung của `analysis/plots.py` gồm bảng màu, đơn vị, và một `code_version` mỗi hình.
     - `figures/PROVENANCE.json` ghi lệnh, `code_version`, `analysis_version`, commit và run_id.
     - Ghi vào `figures/` khi `analysis/` bẩn thì từ chối. Không có `--draft` thì chỉ đọc `results/`.

@@ -918,3 +918,15 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - Quyết định nhỏ cần nhóm biết: ADR-007 không định nghĩa "hòa" khi chọn η của B1; code dùng cùng ngưỡng 0.2 điểm % như η chung, rồi AUC
 - Test mới: 9 (hòa, phân kỳ = 0, τ = 1/50 giữ η chung, τ = 50 kích hoạt lượt bổ sung, η của B1, μ theo QS-2, từ chối lượt test, thiếu ô)
 
+## 2026-10-16 — Phiên #19 (tiếp) — T16a: khung vẽ hình, PROVENANCE, P1 và P7
+- Trạng thái: T16a ✅. T05b (P7 từ `describe` trên MNIST thật, checkpoint C1) vẫn mở
+- File mới: analysis/plots.py, analysis/provenance.py, tests/unit/test_plots.py, tests/e2e/test_plots_smoke.py
+- Nội dung:
+  - `python -m analysis.plots --results results/ --out figures/`. Không có --draft: chỉ đọc results/ của repo qua chỉ mục, từ chối khi analysis/ bẩn (không hỏi được git thì coi là bẩn), mỗi hình qua INT-2 và INT-6. Có --draft: đọc mọi lượt của thư mục, nhãn DRAFT, không bao giờ ghi vào figures/
+  - --draft chỉ nới đúng các điều của INT-1; biến cố định và một code_version mỗi hình vẫn được kiểm. Lỗi này lộ ra khi thử trên dữ liệu thật (lượt khác N bị gộp chung); đã có test tái hiện
+  - PROVENANCE.json: lệnh, code_version, analysis_version (sha256 của analysis/*.py, tính như code_version), commit, run_id của từng hình; giữ mục của hình không vẽ lại
+  - Hình thiếu dữ liệu thì bỏ qua và in tên, không ghi đè hình cũ
+  - P1: learning curve trung bình ± std qua seed, mỗi ô một topology, màu theo mức Non-IID (Okabe–Ito); chỉ DFL, τ = 20, μ = 0, η chung; số lượt phân kỳ ghi trong chú giải. P7: heatmap node × lớp kèm kích thước node, từ manifest
+- Test mới: 11 (10 unit, 1 e2e vẽ từ smoke thật). Đã xem tận mắt P1 và P7 vẽ từ 7 seed fast thật; sửa chồng chữ, vạch chia lẻ, nhãn bị cắt
+- Việc tiếp theo: T15c (thống kê và quy tắc quyết định), T05b, T08b; chuẩn bị E0a (T14b) khi nhóm duyệt
+
