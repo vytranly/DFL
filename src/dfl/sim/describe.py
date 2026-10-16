@@ -25,7 +25,7 @@ import csv
 import dataclasses
 import json
 import math
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from statistics import fmean
@@ -115,7 +115,12 @@ def describe(config: RunConfig, labels: np.ndarray, *, seeds: int) -> dict[str, 
     return report
 
 
-def _static_row(graph: Any) -> dict[str, Any]:
+def _static_row(build: Callable[[], Any]) -> dict[str, Any]:
+    """Hàng của một đồ thị tĩnh; không dựng được với N này (ring cần N ≥ 3) thì ghi lý do, không dừng lệnh."""
+    try:
+        graph = build()
+    except ValueError as error:
+        return {"skipped": str(error)}
     return {
         "edges": graph.number_of_edges(),
         "messages_per_round": 2 * graph.number_of_edges(),
@@ -137,12 +142,20 @@ def gossip_mixing_rate(num_nodes: int) -> float:
 
 
 def describe_topologies(config: RunConfig, *, seeds: int, matchings: int = 10_000) -> dict[str, Any]:
-    """Bảng topology của KH §3.3 với N của `config`; ER dùng p của config hay p mặc định."""
+    """Bảng topology của KH §3.3 với N của `config`; ER dùng p của config hay p mặc định.
+
+    T0 là đường server của B3/E1c (KH §3.3 "Star + server"): server ảo id N nhận N snapshot và gửi lại N, nên
+    2N message mỗi round, như engine đếm qua Transport. Topology `star` (hub là node 0, nằm trong N node) là
+    một hàng riêng.
+    """
+    if seeds < 1 or matchings < 1:
+        raise ValueError(f"cần seeds ≥ 1 và matchings ≥ 1, nhận {seeds}, {matchings}")
     n = config.num_nodes
     p = config.topology.p if config.topology.p is not None else DEFAULT_ER_P
     rows: dict[str, Any] = {
-        "T0 star": _static_row(topology.star(n).graph_at(0)),
-        "T1 ring": _static_row(topology.ring(n).graph_at(0)),
+        "T0 server": {"messages_per_round": 2 * n},
+        "star": _static_row(lambda: topology.star(n).graph_at(0)),
+        "T1 ring": _static_row(lambda: topology.ring(n).graph_at(0)),
     }
     graphs = [
         topology.erdos_renyi(n, p, seeding.numpy_rng(s, Stream.GRAPH)).graph_at(0) for s in range(seeds)
@@ -171,17 +184,27 @@ def describe_topologies(config: RunConfig, *, seeds: int, matchings: int = 10_00
         "matchings": matchings,
         "messages_per_round": messages / matchings,
     }
-    rows["T4 FC"] = _static_row(topology.fully_connected(n).graph_at(0))
+    rows["T4 FC"] = _static_row(lambda: topology.fully_connected(n).graph_at(0))
     return rows
 
 
-def topology_table(rows: Mapping[str, Any], num_nodes: int) -> list[str]:
-    """Các dòng bảng topology để in, kèm cột giá trị KH §3.3 (chỉ so được khi N = 20)."""
+def topology_table(rows: Mapping[str, Any], config: RunConfig) -> list[str]:
+    """Các dòng bảng topology để in. Cột KH §3.3 chỉ in khi N = 20 và p = 0.3, là thiết lập của bảng đó.
+
+    ER khác số của KH (TB 0.198) vì docs/spikes/spike_topology_partition.py tạo Generator thẳng từ seed, còn
+    lượt chạy dùng luồng `Stream.GRAPH`; bảng in đúng các đồ thị mà lượt chạy dùng.
+    """
+    p = config.topology.p if config.topology.p is not None else DEFAULT_ER_P
+    reference = KH_3_3 if config.num_nodes == 20 and p == DEFAULT_ER_P else {}
     lines = [
-        f"Topology (N = {num_nodes}, MH; KH §3.3 ghi cho N = 20)",
-        f"{'topology':<15} {'spectral gap':<30} {'tốc độ trộn':<12} {'message/round':<15} KH §3.3",
+        f"Topology (N = {config.num_nodes}, MH, ER p = {p:g})",
+        f"{'topology':<15} {'spectral gap':<30} {'tốc độ trộn':<12} {'message/round':<15} "
+        + ("KH §3.3" if reference else "(KH §3.3 chỉ so được ở N = 20, p = 0.3)"),
     ]
     for name, row in rows.items():
+        if "skipped" in row:
+            lines.append(f"{name:<15} bỏ qua: {row['skipped']}")
+            continue
         if "spectral_gap_per_seed" in row:
             gap = (
                 f"TB {row['spectral_gap']:.3f} ({row['spectral_gap_min']:.3f}–{row['spectral_gap_max']:.3f})"
@@ -191,7 +214,7 @@ def topology_table(rows: Mapping[str, Any], num_nodes: int) -> list[str]:
             gap = f"{row['spectral_gap']:.4f}" if "spectral_gap" in row else "—"
             messages = f"{row['messages_per_round']:g}"
         rate = f"{row['mixing_rate']:.3f}" if "mixing_rate" in row else "—"
-        lines.append(f"{name:<15} {gap:<30} {rate:<12} {messages:<15} {KH_3_3.get(name, '—')}")
+        lines.append(f"{name:<15} {gap:<30} {rate:<12} {messages:<15} {reference.get(name, '')}".rstrip())
     lines.append("message/round = 2·|E| là thuộc tính của đồ thị; chi phí thật chỉ do Transport đếm (INV-2)")
     return lines
 

@@ -13,7 +13,7 @@ import pytest
 import torch
 
 from dfl import cli, seeding
-from dfl.config import PartitionConfig, RunConfig, load_config
+from dfl.config import PartitionConfig, RunConfig, TopologyConfig, load_config
 from dfl.data import datasets
 from dfl.data.heterogeneity import summarize
 from dfl.data.partition import DirichletPartitioner, assign_positions
@@ -168,7 +168,7 @@ def test_expected_messages_are_twice_the_edges_and_match_one_transport_round() -
     config = RunConfig(num_nodes=6)
     rows = describe.describe_topologies(config, seeds=2, matchings=200)
     graphs = {
-        "T0 star": topology.star(6).graph_at(0),
+        "star": topology.star(6).graph_at(0),
         "T1 ring": topology.ring(6).graph_at(0),
         "T4 FC": topology.fully_connected(6).graph_at(0),
         "T2 ER": topology.erdos_renyi(6, 0.3, seeding.numpy_rng(0, Stream.GRAPH)).graph_at(0),
@@ -181,6 +181,48 @@ def test_expected_messages_are_twice_the_edges_and_match_one_transport_round() -
             transport.send(u, dataclasses.replace(snapshot, sender=v))
         expected = rows[name]["messages_per_round" if name != "T2 ER" else "messages_per_round_seed0"]
         assert transport.counters().messages_cum == expected == 2 * graph.number_of_edges(), name
+
+
+def test_t0_counts_the_server_path_of_b3_like_the_engine() -> None:
+    # KH §3.3: T0 là star + server ảo id N (B3, E1c); engine gửi N snapshot lên và N snapshot về.
+    rows = describe.describe_topologies(RunConfig(num_nodes=6), seeds=1, matchings=10)
+    transport = InMemoryTransport(6, with_server=True)
+    snapshot = make_snapshot(0, 0, {"w": torch.zeros(3)})
+    for k in range(6):
+        transport.send(6, dataclasses.replace(snapshot, sender=k))
+        transport.send(k, dataclasses.replace(snapshot, sender=6))
+
+    assert rows["T0 server"]["messages_per_round"] == transport.counters().messages_cum == 12
+    assert "spectral_gap" not in rows["T0 server"]
+
+
+def test_gossip_mixing_rate_has_an_odd_n_branch() -> None:
+    # N lẻ: mỗi cặp được ghép với xác suất 1/N, nên λ₂(E[W]) = 1/2.
+    assert describe.gossip_mixing_rate(5) == pytest.approx(1 - math.sqrt(0.5))
+    assert describe.gossip_mixing_rate(20) == pytest.approx(1 - math.sqrt(0.5 - 1 / 38))
+
+
+def test_er_gossip_on_a_complete_base_graph_is_the_gossip_of_t3() -> None:
+    # p = 1 cho ER là K_N, nên T3b phải về đúng T3; đây là phép kiểm có giá trị biết trước cho ước lượng T3b.
+    config = dataclasses.replace(RunConfig(num_nodes=8), topology=TopologyConfig("erdos_renyi", 1.0))
+
+    t3b = describe.describe_topologies(config, seeds=1, matchings=4_000)["T3b ER gossip"]
+
+    assert t3b["mixing_rate"] == pytest.approx(describe.gossip_mixing_rate(8), abs=0.01)
+    assert t3b["messages_per_round"] == 8  # K_8 luôn có perfect matching được nhận tham lam
+
+
+def test_rows_that_need_more_nodes_are_skipped_not_fatal() -> None:
+    rows = describe.describe_topologies(RunConfig(num_nodes=2), seeds=2, matchings=10)
+
+    assert rows["T1 ring"] == {"skipped": "ring cần N ≥ 3, nhận 2"}
+    assert rows["T4 FC"]["spectral_gap"] == pytest.approx(1.0)
+
+
+def test_the_kh_column_is_printed_only_for_the_kh_setting() -> None:
+    rows = describe.describe_topologies(RunConfig(num_nodes=6), seeds=2, matchings=10)
+
+    assert "0.033" not in "\n".join(describe.topology_table(rows, RunConfig(num_nodes=6)))
 
 
 def test_the_command_prints_the_topology_table_next_to_kh_3_3(

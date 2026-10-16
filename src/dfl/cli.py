@@ -95,7 +95,7 @@ def _describe(args: argparse.Namespace) -> int:
     report = describe.describe(config, labels, seeds=args.seeds)
     report["topologies"] = describe.describe_topologies(config, seeds=args.seeds)
     describe.write(report, args.out)
-    print("\n".join(describe.topology_table(report["topologies"], config.num_nodes)))
+    print("\n".join(describe.topology_table(report["topologies"], config)))
     print(f"đã ghi {args.out / 'describe.json'} và {args.out / 'describe.csv'}")
     if not args.check_req02:
         return 0

@@ -962,3 +962,12 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - Test mới: 4
 - Việc tiếp theo: Checkpoint C2 (make check-full, tăng MIN_TESTS, nhóm duyệt); E0a (T14b) khi nhóm duyệt
 
+## 2026-10-16 — Phiên #19 (tiếp) — C2: sửa T08b theo review
+- Review `code-reviewer` cho C2 (T08b, 501755a): không có lỗi Critical; 3 lỗi Important, đã sửa:
+  - T0 in 38 message/round (đồ thị star có hub là node 0), trong khi đường server của B3/E1c đếm 2N = 40 qua Transport. Giờ "T0 server" = 2N, có test so với `InMemoryTransport(with_server=True)`. Topology `star` thành hàng riêng
+  - Cột KH §3.3 được in cả khi N ≠ 20 hay p ≠ 0.3: giờ chỉ in ở thiết lập của bảng KH. Ghi rõ vì sao ER khác KH (spike tạo Generator thẳng từ seed, lượt chạy dùng Stream.GRAPH)
+  - N = 2 làm cả lệnh `describe` dừng (ring cần N ≥ 3): giờ hàng đó ghi `skipped`
+- Gợi ý đã làm: test nhánh N lẻ của tốc độ trộn T3; T3b trên K_N (ER p = 1) phải về T3; seeds/matchings < 1 báo lỗi rõ
+- Lần check-full đầu có 1 test sweep fail `code_changed` vì sửa src/dfl giữa lúc test chạy; chạy riêng thì xanh
+- Test mới: 5 (875 test)
+
