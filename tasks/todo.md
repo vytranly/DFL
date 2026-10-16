@@ -345,7 +345,7 @@
   - Phụ thuộc: T11b, T03, T09b
   - File: `src/dfl/sim/observer.py`, `src/dfl/sim/run.py`, `src/dfl/config.py`, `tests/integration/test_final_eval.py`
 
-- [ ] **T14a · Lệnh kiểm sanity + chọn η** — TV1 · S · ∥ T11b
+- [x] **T14a · Lệnh kiểm sanity + chọn η** — TV1 · S · ∥ T11b
   - Mô tả: `analysis/sanity.py` kiểm SAN-1…5 (R7; SAN-2 so với B1-4k; SAN-5 là điều kiện cấu trúc), đọc `results/` và trả mã lỗi khác 0 khi không đạt.
   - Chấp nhận:
     - Mỗi SAN có unit test cho ba ca: đạt, không đạt, thiếu lượt.

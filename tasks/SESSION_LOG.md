@@ -895,3 +895,14 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - Test mới: 19, gồm đủ các ví dụ có đáp án tính tay ở REVIEW-C3-P3.7 §5 (1–14; ví dụ 15 về độ dao động theo node)
 - Thử trên lượt full thật (build/perf): R@90 = 101, R@95 = 245, AUC 0.984, độ dao động 0.0017
 
+## 2026-10-16 — Phiên #19 (tiếp) — T14a: lệnh kiểm sanity SAN-1…5
+- Trạng thái: T14a ✅
+- File: analysis/sanity.py (mới), tests/unit/test_sanity.py (mới), tests/analysis_fakes.py (tham số final_acc)
+- Nội dung:
+  - SAN-1…4 theo ngưỡng của CONSTRAINTS R7; SAN-5 là điều kiện cấu trúc trên rounds.jsonl, kiểm được trên lượt của bất kỳ nhóm nào
+  - Mỗi SAN trả "đạt", "không đạt" hoặc "thiếu lượt"; thiếu seed hay ô chưa chạy không bao giờ tính là đạt; lượt phân kỳ làm SAN "không đạt"
+  - Lượt nhận diện từ manifest: B1 (central > 4,000 bước), B1-4k (central = 4,000), B2 (local_only), DFedAvg-FC-IID (FC, IID, MH, τ = 20, μ = 0)
+  - Dòng lệnh: `python -m analysis.sanity --results results/ --e0b e0b_sanity [--e1 e1_noniid] [--san5 …]`, mã 0 chỉ khi mọi SAN đạt; trước khi kiểm, chạy INT-2 (một code_version, cây sạch)
+- Test mới: 19 (mỗi SAN: đạt, không đạt, thiếu lượt; SAN-5 thêm ba kiểu vi phạm và baseline có message)
+- Thử SAN-5 trên 8 lượt thật trong build/ (full, fast, N = 8 hai runtime, τ = 1, τ = 20, CIFAR-10): đạt
+

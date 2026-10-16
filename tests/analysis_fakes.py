@@ -94,6 +94,7 @@ def write_run(
     env_match: bool = True,
     machine: str = MACHINE,
     final_eval_split: str | None = None,
+    final_acc: float = 0.9,
 ) -> Path:
     """Một attempt trong `root`/runs/<run_id>/attempt-<k>/; status ok, diverged, failed hay None (bị ngắt)."""
     cfg = cfg if cfg is not None else config()
@@ -132,10 +133,10 @@ def write_run(
             "bytes_total": last["bytes_cum"],
             "final_eval_split": split,
             "final_eval_size": 10_000 if split == "test" else 5_000,
-            "final_acc_per_node": [0.9] * n,
-            "final_acc_local_per_node": [0.9] * n,
-            "final_f1_macro_per_node": [0.9] * n,
-            "final_acc_avg_model": 0.9,
+            "final_acc_per_node": [final_acc] * n,
+            "final_acc_local_per_node": [final_acc] * n,
+            "final_f1_macro_per_node": [final_acc] * n,
+            "final_acc_avg_model": final_acc,
         },
         "diverged": {
             "status": "diverged",
