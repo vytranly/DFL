@@ -87,34 +87,3 @@ def build_dataloaders(dataset_name='mnist',
     global_test_loader = DataLoader(global_test_dataset, batch_size=batch_size, shuffle=False)
     return client_loaders, global_test_loader, client_indices, train_dataset
 
-# ===================================================================
-# ĐOẠN CODE TEST ĐỘC LẬP (Chỉ chạy khi gọi trực tiếp file này)
-# ===================================================================
-if __name__ == "__main__":
-    print("Đang tải dữ liệu MNIST và phân mảnh theo Dirichlet (alpha=0.1)...")
-    
-    # Gọi hàm chia dữ liệu cho 5 Client để dễ quan sát
-    client_loaders, global_test_loader, client_indices, train_dataset = build_dataloaders(
-        dataset_name='mnist',
-        num_clients=5,   # Test với 5 máy
-        alpha=0.1,       # Mức Non-IID khốc liệt
-        batch_size=32
-    )
-
-    print(f"\n[+] Số lượng ảnh trong Global Test Set: {len(global_test_loader.dataset)} ảnh")
-
-    print("\n[+] SỐ LƯỢNG ẢNH ĐƯỢC CẤP PHÁT CHO TỪNG CLIENT:")
-    for cid, loader in client_loaders.items():
-        print(f"    - Client {cid}: {len(loader.dataset)} ảnh (chia thành {len(loader)} mini-batches)")
-
-    print("\n[+] KIỂM TRA ĐỘ LỆCH NHÃN (NON-IID) CỦA CLIENT 0 VÀ CLIENT 1:")
-    # Hàm phụ trợ để đếm xem trong túi của Client có bao nhiêu ảnh của từng chữ số (0-9)
-    def count_labels(dataset, indices):
-        targets = np.array(dataset.targets)
-        client_labels = targets[indices]
-        unique_labels, counts = np.unique(client_labels, return_counts=True)
-        return dict(zip(unique_labels, counts))
-
-    # In kết quả của Client 0 và 1
-    print(f"    - Nhãn của Client 0: {count_labels(train_dataset, client_indices[0])}")
-    print(f"    - Nhãn của Client 1: {count_labels(train_dataset, client_indices[1])}")
