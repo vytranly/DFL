@@ -15,10 +15,13 @@ def create_topology(name, num_clients, random_p=0.5, seed=42):
             print(f"p={random_p} is too low (high disconnect risk).")
             print(f"-> Auto-adjusted to safe level: {actual_p:.3f}")
         
-        G = nx.erdos_renyi_graph(num_clients, actual_p, seed=seed)
-        
-        if not nx.is_connected(G):
-            print(f"Graph is disconnect")            
+        for attempt in range(10):
+            G = nx.erdos_renyi_graph(num_clients, actual_p, seed=seed + attempt)
+            if nx.is_connected(G):
+                break
+        else:
+            print(f"[topology] Warning: could not generate connected random graph after 10 attempts, falling back to ring.")
+            G = nx.cycle_graph(num_clients)            
     else:
         raise ValueError(f"Error Topology name!")
     return G

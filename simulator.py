@@ -1,0 +1,179 @@
+"""
+Khối 2 — simulator.py
+Hệ thống mô phỏng DFL: điều phối toàn bộ vòng lặp training.
+
+Mỗi round:
+  1. (FedProx) Lưu anchor weight
+  2. Tất cả client local_train song song (SGD / FedProx)
+  3. Gossip Exchange: mỗi client lấy weight hàng xóm
+  4. Gossip/FedAvg Aggregate: trộn weight
+  5. Evaluate mỗi eval_every round
+  6. Ghi metrics vào MetricsTracker
+"""
+
+import copy
+import numpy as np
+import torch
+from tqdm import tqdm
+
+from trainer import (get_model, get_model_size_kb,
+                     local_train, gossip_aggregate, fedavg_aggregate,
+                     fedprox_aggregate, evaluate, get_mixing_matrix)
+from topology import get_neighbors
+from metrics import MetricsTracker
+
+
+class DFLSimulator:
+    """
+    Mô phỏng DFL với N client trên 1 topology cho trước.
+
+    Args:
+        config        : dict cấu hình (xem config.py)
+        client_loaders: {client_id: DataLoader}
+        test_loader   : DataLoader test chung (Global Test Set)
+        graph         : NetworkX Graph (topology)
+        client_indices: {client_id: list of indices} — để biết num_samples
+    """
+
+    def __init__(self, config: dict, client_loaders: dict,
+                 test_loader, graph, client_indices: dict):
+        self.cfg            = config
+        self.client_loaders = client_loaders
+        self.test_loader    = test_loader
+        self.graph          = graph
+        self.device         = config.get("device", "cpu")
+        self.num_clients    = config["num_clients"]
+        self.algorithm      = config.get("algorithm", "gossip")
+
+        # Số mẫu từng client
+        self.num_samples = {
+            cid: len(client_indices[cid])
+            for cid in range(self.num_clients)
+        }
+
+        # Khởi tạo CNN cho từng client
+        self.models = {
+            cid: get_model(config["dataset"]).to(self.device)
+            for cid in range(self.num_clients)
+        }
+
+        # Mixing Matrix W từ topology
+        self.W         = get_mixing_matrix(graph)
+        self.neighbors = {cid: get_neighbors(graph, cid)
+                          for cid in range(self.num_clients)}
+
+        # Tính communication cost mỗi round
+        sample_model      = get_model(config["dataset"])
+        model_kb          = get_model_size_kb(sample_model)
+        num_edges         = graph.number_of_edges()
+        self.comm_bytes_per_round = int(num_edges * model_kb * 1024 * 2)
+
+        # Metrics tracker
+        self.tracker = MetricsTracker(
+            num_clients=self.num_clients,
+            target_f1=config.get("target_f1", 0.75)
+        )
+
+        print(f"\n{'='*55}")
+        print(f"  DFL Simulator — {config.get('topology','ring').upper()}"
+              f" | {self.algorithm.upper()}"
+              f" | alpha={config.get('alpha', 0.5)}"
+              f" | {self.num_clients} clients")
+        print(f"  Model size : {model_kb:.1f} KB")
+        print(f"  Comm/round : {self.comm_bytes_per_round/1024:.1f} KB")
+        print(f"  Num edges  : {num_edges}")
+        print(f"{'='*55}\n")
+
+    # ── Một round ────────────────────────────────────────────────────
+    def run_round(self, round_num: int):
+        cfg = self.cfg
+        lr      = cfg.get("lr", 0.01)
+        epochs  = cfg.get("local_epochs", 5)
+        mu      = cfg.get("mu", 0.0)
+
+        # Bước 1: Lưu anchor cho FedProx
+        anchors = {}
+        if self.algorithm == "fedprox":
+            anchors = {
+                cid: copy.deepcopy(self.models[cid].state_dict())
+                for cid in range(self.num_clients)
+            }
+
+        # Bước 2: Local training (tất cả client)
+        new_weights = {}
+        for cid in range(self.num_clients):
+            state, _ = local_train(
+                model       = self.models[cid],
+                dataloader  = self.client_loaders[cid],
+                epochs      = epochs,
+                lr          = lr,
+                device      = self.device,
+                algorithm   = self.algorithm,
+                mu          = mu,
+                anchor_state= anchors.get(cid),
+            )
+            new_weights[cid] = state
+
+        # Cập nhật weight sau local train
+        for cid in range(self.num_clients):
+            self.models[cid].load_state_dict(new_weights[cid])
+
+        # Bước 3 + 4: Exchange & Aggregate
+        aggregated = {}
+        for cid in range(self.num_clients):
+            nbs      = self.neighbors[cid]
+            nb_w     = [self.models[j].state_dict() for j in nbs]
+            own_w    = self.models[cid].state_dict()
+
+            if self.algorithm in ("gossip", "fedprox"):
+                # Gossip: trọng số theo Mixing Matrix W
+                mixing = [self.W[cid][cid]] + [self.W[cid][j] for j in nbs]
+                aggregated[cid] = gossip_aggregate(own_w, nb_w, mixing)
+
+            elif self.algorithm == "fedavg":
+                # FedAvg: trọng số theo số mẫu
+                nb_sizes  = [self.num_samples[j] for j in nbs]
+                all_w     = [own_w] + nb_w
+                all_sizes = [self.num_samples[cid]] + nb_sizes
+                aggregated[cid] = fedavg_aggregate(all_w, all_sizes)
+
+        # Nạp weight sau aggregate
+        for cid in range(self.num_clients):
+            self.models[cid].load_state_dict(aggregated[cid])
+
+        # Cộng dồn comm cost
+        self.tracker.add_comm_bytes(self.comm_bytes_per_round)
+
+    # ── Đánh giá tất cả client ────────────────────────────────────────
+    def eval_all(self):
+        results = []
+        for cid in range(self.num_clients):
+            acc, f1, loss = evaluate(
+                self.models[cid], self.test_loader, self.device
+            )
+            results.append((acc, f1, loss))
+        return results
+
+    # ── Vòng lặp chính ───────────────────────────────────────────────
+    def run(self) -> MetricsTracker:
+        cfg        = self.cfg
+        num_rounds = cfg.get("num_rounds", 50)
+        eval_every = cfg.get("eval_every", 5)
+
+        for r in tqdm(range(1, num_rounds + 1), desc="Rounds"):
+            self.run_round(r)
+
+            if r % eval_every == 0 or r == num_rounds:
+                per_client = self.eval_all()
+                self.tracker.log_round(r, per_client)
+
+                last = self.tracker.history[-1]
+                tqdm.write(
+                    f"  Round {r:4d} | "
+                    f"F1={last['mean_f1']:.4f} ± {last['std_f1']:.4f} | "
+                    f"Acc={last['mean_acc']:.4f} | "
+                    f"Comm={last['comm_cost_mb']:.1f} MB"
+                )
+
+        self.tracker.print_summary()
+        return self.tracker
