@@ -1,5 +1,5 @@
-"""Độ đo suy ra từ rounds.jsonl: R@x, bytes@x, AUC, độ dao động, mức sụt, độ phân tán giữa node (module
-analysis; T15b; SPEC REQ-04, REQ-05, REQ-06, REQ-09; ADR-007; KH §3.6; G24).
+"""Độ đo suy ra từ rounds.jsonl: R@x, bytes@x, s@x (ADR-015), AUC, độ dao động, mức sụt, độ phân tán giữa
+node (module analysis; T15b; SPEC REQ-04, REQ-05, REQ-06, REQ-09; ADR-007; KH §3.6; G24).
 
 - **Lưới:** mọi lượt của lưới đánh giá ở 100, 200, …, τ·R bước (ADR-007). Lưới khác thì báo lỗi, trừ hai ca:
   B1/B1-4k dùng lưới bội của 100 tới hết ngân sách của chính nó (cùng quy tắc), và lượt phân kỳ có lưới là
@@ -108,11 +108,16 @@ def rounds_at(reached: Reach, *, tau: int) -> float:
     return reached.step / tau
 
 
-def bytes_at(steps: Sequence[float], bytes_cum: Sequence[float], reached: Reach) -> float:
-    """bytes@x: byte tích lũy nội suy tuyến tính tại R@x (REQ-05); +∞ khi không đạt."""
+def value_at(steps: Sequence[float], values: Sequence[float], reached: Reach) -> float:
+    """Giá trị của một chuỗi tích lũy (byte, giây) nội suy tuyến tính tại R@x; +∞ khi không đạt."""
     if not reached.reached:
         return math.inf
-    return float(np.interp(reached.step, steps, bytes_cum))
+    return float(np.interp(reached.step, steps, values))
+
+
+def bytes_at(steps: Sequence[float], bytes_cum: Sequence[float], reached: Reach) -> float:
+    """bytes@x: byte tích lũy tại R@x (REQ-05); +∞ khi không đạt."""
+    return value_at(steps, bytes_cum, reached)
 
 
 def auc(steps: Sequence[float], acc: Sequence[float]) -> float:

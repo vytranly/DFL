@@ -148,3 +148,90 @@ def test_one_figure_never_mixes_the_two_runtimes(tmp_path: Path) -> None:
     with pytest.raises(AnalysisError, match="runtime"):
         comm_cost.single_runtime(runs)
     assert comm_cost.single_runtime(runs[:1]) == "inprocess"
+
+
+# ------------------------------------------------------ thời gian đo và thời gian phân tán ước tính (ADR-015)
+
+
+def timed_run(root: Path, *, server: bool = False) -> aggregate.Run:
+    """Hai mốc (round 5 và 10) với tải và thời gian biết trước; ở đường server, phần tử thứ N là server ảo."""
+    extra = [[4_000_000], [6_000_000]] if server else [[], []]
+    rounds = [
+        round_record(
+            100, 20, [0.5] * 4, node_bytes_cum=[1_000_000, 2_000_000, 1_000_000, 1_000_000, *extra[0]]
+        ),
+        round_record(
+            200, 20, [0.8] * 4, node_bytes_cum=[2_000_000, 5_000_000, 2_000_000, 2_000_000, *extra[1]]
+        ),
+    ]
+    timing = [
+        {
+            "round": 5,
+            "wall_time_s": 2.0,
+            "train_s": 0.8,
+            "combine_s": 0.1,
+            "eval_s": 0.5,
+            "comm_s": 0.05,
+            "train_s_per_node": [0.1, 0.3, 0.2, 0.2],
+            "comm_s_per_node": [0.0] * 4,
+        },
+        {
+            "round": 10,
+            "wall_time_s": 4.0,
+            "train_s": 0.9,
+            "combine_s": 0.2,
+            "eval_s": 0.5,
+            "comm_s": 0.0,
+            "train_s_per_node": [0.2, 0.2, 0.4, 0.1],
+            "comm_s_per_node": [0.0] * 4,
+        },
+    ]
+    kind = "server" if server else "ring"
+    return one(root, cfg=config(topology__kind=kind), rounds=rounds, timing=timing)
+
+
+def test_estimated_time_is_the_slowest_trainer_plus_the_busiest_link_over_the_bandwidth(
+    tmp_path: Path,
+) -> None:
+    # 8 Mbit/s = 1,000,000 byte/s: khoảng 1 tốn 0.3 + 2.0 s, khoảng 2 tốn 0.4 + 3.0 s.
+    series = comm_cost.time_series(timed_run(tmp_path))
+
+    assert list(series.steps) == [100, 200] and list(series.rounds) == [5, 10]
+    assert comm_cost.estimated_seconds(series, mbit=8.0) == pytest.approx([2.3, 5.7])
+
+
+def test_the_virtual_server_is_the_busiest_link_on_the_server_path(tmp_path: Path) -> None:
+    series = comm_cost.time_series(timed_run(tmp_path, server=True))
+
+    # Khoảng 1: server tải 4e6 byte; khoảng 2: node 1 tải thêm 3e6, server 2e6.
+    assert comm_cost.estimated_seconds(series, mbit=8.0) == pytest.approx([4.3, 7.7])
+
+
+def test_measured_time_adds_train_comm_and_combine_but_not_evaluation(tmp_path: Path) -> None:
+    series = comm_cost.time_series(timed_run(tmp_path))
+
+    assert series.measured == pytest.approx([0.95, 2.05])
+
+
+def test_more_bandwidth_never_makes_a_run_slower(tmp_path: Path) -> None:
+    series = comm_cost.time_series(timed_run(tmp_path))
+
+    slow, fast = (comm_cost.estimated_seconds(series, mbit=b) for b in (1.0, 1_000.0))
+
+    assert np.all(fast < slow) and fast[-1] == pytest.approx(0.7 + 5.0e6 / 125e6)
+
+
+def test_time_series_refuse_timing_that_does_not_follow_the_rounds(tmp_path: Path) -> None:
+    run = timed_run(tmp_path)
+    shifted = [{**t, "round": t["round"] + 1} for t in run.timing]
+
+    with pytest.raises(AnalysisError, match="timing.jsonl"):
+        comm_cost.time_series(aggregate.Run(**{**run.__dict__, "timing": shifted}))
+
+
+def test_time_series_refuse_a_run_written_before_adr_013(tmp_path: Path) -> None:
+    run = timed_run(tmp_path)
+    old = [{k: v for k, v in t.items() if k != "train_s_per_node"} for t in run.timing]
+
+    with pytest.raises(AnalysisError, match="ADR-013"):
+        comm_cost.time_series(aggregate.Run(**{**run.__dict__, "timing": old}))

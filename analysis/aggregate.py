@@ -223,6 +223,23 @@ def row(attempts: Attempts) -> dict[str, Any]:
     }
 
 
+def _seconds_at(run: Run, steps: list[int], reaches: dict[str, Any]) -> dict[str, float | None]:
+    """s@x đo được và ước tính ở băng thông tham chiếu (ADR-015); None khi lượt không có thời gian theo node
+    hay không đạt x."""
+    from analysis import comm_cost, convergence
+
+    columns: dict[str, float | None] = {}
+    series = comm_cost.time_series(run) if comm_cost.has_time(run) else None
+    for x, reached in reaches.items():
+        if series is None or not reached.reached:
+            columns[f"s{x}_measured"] = columns[f"s{x}_est"] = None
+            continue
+        estimated = comm_cost.estimated_seconds(series, mbit=comm_cost.REFERENCE_MBIT)
+        columns[f"s{x}_measured"] = convergence.value_at(steps, series.measured, reached)
+        columns[f"s{x}_est"] = convergence.value_at(steps, estimated, reached)
+    return columns
+
+
 def derived(run: Run) -> dict[str, Any]:
     """Độ đo suy ra của một lượt (T15b), trên lưới mốc của chính lượt đó: lưới chuẩn 100 bước với lượt của
     lưới, lịch riêng của profile với --draft (INT-1). So sánh giữa các lượt thì `convergence.check_grid` kiểm
@@ -251,6 +268,7 @@ def derived(run: Run) -> dict[str, Any]:
         "max_drop_mean": drop[0],
         "max_drop_max": drop[1],
         "max_node_load": convergence.max_node_load(run),
+        **_seconds_at(run, steps, {"90": r90, "95": r95}),
     }
 
 

@@ -1078,3 +1078,10 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - Đối chiếu: đã đáp ứng tách chi phí, đa tiến trình, FedProx ở α thấp, giữ cả Dirichlet lẫn Pathological; còn thiếu lattice, mô tả hub/leaf của đồ thị random, thời gian thực để đạt ngưỡng, đường hội tụ hub/leaf, demo chia dữ liệu từng bước
 - Đo cho ADR-015 (N = 20, 2,000 đồ thị): ER p = 0.3 có 53% hub, 4% leaf, liên thông 98.4% khi chưa lấy mẫu lại (xấp xỉ Poisson 97.7%); BA m = 2 có 16% hub, 46% leaf; lattice 4×5 xuyến gap 0.276. `safe_p` của nhóm Vy (ln N/N + 0.15) cho đúng 0.30 ở N = 20
 - ADR-015 (Proposed), SPEC (US-4, §1.4, §5.2, REQ-04, REQ-07, REQ-10), T31a–g vào todo
+
+## 2026-10-21 — Phiên #21 (tiếp) — T31b: thời gian để đạt ngưỡng, P17
+- `comm_cost.time_series`: thời gian đo (train + comm + combine, không tính đánh giá) và thời gian phân tán ước tính = max huấn luyện của node + max byte (gửi + nhận) của node / B, ở từng khoảng giữa hai mốc; `estimated_seconds(series, mbit)`; `has_time`
+- `convergence.value_at` (bytes_at dùng lại); `aggregate.derived` thêm `s90_measured`, `s95_measured`, `s90_est`, `s95_est` (ước tính ở 10 Mbit/s); lượt không có thời gian theo node để trống
+- `centrality.js_mean` (trùng từng chữ số với `dfl.data.heterogeneity` trên cách chia thật); `plots.pick_level`; P17: (a) accuracy theo round, (b) theo thời gian ước tính ở 10 Mbit/s, (c) thời gian để đạt 90% theo băng thông 1–1,000 Mbit/s (log-log); topology không đạt ghi trên ô
+- Vẽ thử trên 8 lượt tổng hợp (ring, FC, ER, gossip × 2 seed, build/t31b): FC ít round nhất nhưng chậm nhất theo thời gian ước tính ở 10 Mbit/s; khoảng cách hẹp lại khi băng thông tăng (đúng lập luận của GVHD)
+- Kiểm chứng: `make check-task` 1003 test xanh, 121 s (lưới của nhánh `grid` chạy song song)

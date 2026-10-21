@@ -1,5 +1,5 @@
-"""Vẽ hình từ kết quả: khung chung, P1, P7, P12, P13, P14 và P15 (module analysis; T16a, T29c, T30d; SPEC
-INT-1, INT-2, INT-6, REQ-10; KH §3.8; ADR-013, ADR-014).
+"""Vẽ hình từ kết quả: khung chung, P1, P7, P12–P15 và P17 (module analysis; T16a, T29c, T30d, T31b; SPEC
+INT-1, INT-2, INT-6, REQ-10; KH §3.8; ADR-013, ADR-014, ADR-015).
 
 - `python -m analysis.plots --results results/ --out figures/` là cách duy nhất sinh hình cho báo cáo
   (INT-1):
@@ -31,6 +31,10 @@ INT-1, INT-2, INT-6, REQ-10; KH §3.8; ADR-013, ADR-014).
   - P15: đồ thị mạng ở seed nhỏ nhất mà cả ba vị trí đều có; cùng bố cục cho cả ba ô (cùng đồ thị theo G9);
     màu node là accuracy cuối trên một thang tuần tự một sắc chung cho ba ô, cỡ node là tải byte cuối, node
     giữ lớp hiếm có viền đậm.
+- **P17** (ADR-015; góp ý buổi 2: so số round với thời gian thực): lượt như P12, ở một mức dữ liệu (mức có
+  nhiều topology nhất, hòa thì mức lệch hơn theo JS); (a) accuracy theo round, (b) accuracy theo thời gian
+  phân tán ước tính ở 10 Mbit/s, (c) thời gian ước tính để đạt 90% (trung vị qua seed) theo băng thông
+  1–1,000 Mbit/s, trục log. Mô hình ước tính ở analysis/comm_cost.py.
 
 matplotlib (backend Agg không cần màn hình; subplots; Axes.imshow; Figure.savefig):
 https://matplotlib.org/3.11.2/users/explain/figure/backends.html
@@ -64,7 +68,7 @@ import networkx as nx
 import numpy as np
 from matplotlib.figure import Figure
 
-from analysis import centrality, checks, comm_cost, provenance
+from analysis import centrality, checks, comm_cost, convergence, provenance
 from analysis.aggregate import AnalysisError, Run, read_experiment, scan
 
 REPO_ROOT = provenance.REPO_ROOT
@@ -546,6 +550,93 @@ def draw_p15(runs: Sequence[Run], *, draft: bool) -> Figure | None:
     return figure
 
 
+# P17: ngưỡng của thời gian để đạt (REQ-04 x ∈ {90, 95}; 90 để nhiều topology đạt hơn ở mức lệch) và dải băng
+# thông, từ mạng IoT chậm tới LAN (Mbit/s).
+P17_TARGET = 0.90
+BANDWIDTHS_MBIT = np.logspace(0, 3, 31)
+
+
+def pick_level(runs: Sequence[Run]) -> str:
+    """Mức dữ liệu có nhiều topology nhất; hòa thì mức lệch hơn theo JS trung bình, rồi theo tên."""
+    topologies: dict[str, set[str]] = defaultdict(set)
+    js: dict[str, list[float]] = defaultdict(list)
+    for run in runs:
+        topologies[level(run)].add(topology_label(run))
+        js[level(run)].append(centrality.js_mean(run))
+    return max(topologies, key=lambda name: (len(topologies[name]), float(np.mean(js[name])), name))
+
+
+def draw_p17(runs: Sequence[Run], *, draft: bool) -> Figure | None:
+    """P17: accuracy theo round và theo thời gian phân tán ước tính; thời gian để đạt 90% theo băng thông."""
+    if not runs:
+        return None
+    chosen = pick_level(runs)
+    groups, colors, diverged = _by_topology([r for r in runs if level(r) == chosen])
+    if not groups:
+        return None
+    comm_cost.single_runtime([run for group in groups.values() for run in group])
+    figure, axes = _figure(3, 16)
+    rounds_ax, time_ax, bandwidth_ax = axes[0]
+    unreached = []
+    for i, (name, group) in enumerate(groups.items()):
+        series = [comm_cost.time_series(run) for run in group]
+        accuracy = 100 * np.mean([[r["acc_mean"] for r in run.rounds] for run in group], axis=0)
+        style = {"color": colors[name], "linestyle": LINESTYLES[i % len(LINESTYLES)], "linewidth": 2}
+        label = _seeds_label(name, group, diverged)
+        rounds_ax.plot(series[0].rounds, accuracy, label=label, **style)
+        estimated = np.mean(
+            [comm_cost.estimated_seconds(s, mbit=comm_cost.REFERENCE_MBIT) for s in series], axis=0
+        )
+        time_ax.plot(estimated, accuracy, label=label, **style)
+        # R@x trên mốc của chính lượt (chỉ lượt ok), không kiểm lưới chuẩn: thời gian nội suy trên cùng mốc.
+        reaches = [
+            convergence.reach(s.steps, [r["acc_mean"] for r in run.rounds], P17_TARGET)
+            for s, run in zip(series, group, strict=True)
+        ]
+        seconds = [
+            [
+                convergence.value_at(s.steps, comm_cost.estimated_seconds(s, mbit=b), reach)
+                for b in BANDWIDTHS_MBIT
+            ]
+            for s, reach in zip(series, reaches, strict=True)
+        ]
+        median = np.median(seconds, axis=0)
+        if np.all(np.isfinite(median)):
+            bandwidth_ax.plot(BANDWIDTHS_MBIT, median, label=label, **style)
+        else:
+            unreached.append(name)
+    rounds_ax.set_xlabel("round")
+    rounds_ax.set_ylabel("accuracy trung bình qua node (%)")
+    rounds_ax.legend(fontsize=7)
+    time_ax.set_xlabel(f"thời gian phân tán ước tính (s), B = {comm_cost.REFERENCE_MBIT:g} Mbit/s")
+    bandwidth_ax.axvline(comm_cost.REFERENCE_MBIT, color="#808080", linestyle=":", linewidth=1)
+    bandwidth_ax.set_xscale("log")
+    bandwidth_ax.set_yscale("log")
+    bandwidth_ax.set_xlabel("băng thông B (Mbit/s)")
+    bandwidth_ax.set_ylabel(f"thời gian ước tính để đạt {100 * P17_TARGET:.0f}% (s)")
+    if bandwidth_ax.lines[1:]:
+        bandwidth_ax.legend(fontsize=7)
+    if unreached:
+        bandwidth_ax.text(
+            0.02,
+            0.02,
+            f"không đạt {100 * P17_TARGET:.0f}% (trung vị qua seed): {', '.join(unreached)}",
+            transform=bandwidth_ax.transAxes,
+            fontsize=7,
+        )
+    for ax in axes[0]:
+        ax.grid(alpha=0.3)
+    rounds_ax.set_title("(a) theo round")
+    time_ax.set_title("(b) theo thời gian ước tính")
+    bandwidth_ax.set_title(f"(c) thời gian để đạt {100 * P17_TARGET:.0f}% theo băng thông")
+    figure.suptitle(
+        f"P17 · số round so với thời gian ({chosen}; ước tính = max huấn luyện + max byte của node / B, "
+        "các node song song)"
+    )
+    _stamp(figure, [run for group in groups.values() for run in group], draft=draft)
+    return figure
+
+
 # Tên hình → (nhóm thí nghiệm cấp dữ liệu khi không có --draft, hàm chọn lượt, hàm vẽ).
 FIGURES: dict[str, tuple[tuple[str, ...], Callable[..., list[Run]], Callable[..., Figure | None]]] = {
     "P1": (("e1_noniid", "e0b_sanity"), select_p1, draw_p1),
@@ -554,6 +645,7 @@ FIGURES: dict[str, tuple[tuple[str, ...], Callable[..., list[Run]], Callable[...
     "P13": (("e1_noniid", "e2_topology", "e0b_sanity"), select_comm, draw_p13),
     "P14": (("e7_centrality",), select_e7, draw_p14),
     "P15": (("e7_centrality",), select_e7, draw_p15),
+    "P17": (("e1_noniid", "e2_topology", "e0b_sanity"), select_comm, draw_p17),
 }
 
 

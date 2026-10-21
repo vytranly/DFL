@@ -312,3 +312,69 @@ def test_a_draft_draws_p14_and_p15_with_their_provenance(tmp_path: Path) -> None
     for name in ("P14", "P15"):
         assert (tmp_path / "out" / f"{name}.png").stat().st_size > 0
         assert len(record["figures"][name]["run_ids"]) == 6
+
+
+# ------------------------------------------------------------------ P17: số round so với thời gian (ADR-015)
+
+
+def time_runs(root: Path) -> list[aggregate.Run]:
+    """Ring và FC ở IID (2 seed), cùng ring ở α = 0.1 (1 seed): IID có nhiều topology hơn nên được chọn."""
+    for seed in (0, 1):
+        write_run(root, f"ring-{seed}", cfg=config(seed=seed), rounds=curve([0.6, 0.85, 0.93, 0.95]))
+        write_run(
+            root,
+            f"fc-{seed}",
+            cfg=config(seed=seed, topology__kind="fully_connected"),
+            rounds=curve([0.8, 0.92, 0.95, 0.96]),
+        )
+    write_run(
+        root,
+        "ring-a01",
+        cfg=config(partition__scheme="dirichlet", partition__alpha=0.1),
+        rounds=curve([0.4, 0.6, 0.7, 0.8]),
+    )
+    return [a.finished for a in aggregate.scan(root) if a.finished is not None]
+
+
+def test_p17_compares_rounds_estimated_time_and_bandwidth_on_one_level(tmp_path: Path) -> None:
+    runs = plots.select_comm(time_runs(tmp_path), draft=False)
+
+    figure = plots.draw_p17(runs, draft=False)
+
+    rounds_ax, time_ax, bandwidth_ax = figure.axes[:3]
+    assert (rounds_ax.get_xlabel(), rounds_ax.get_ylabel()) == ("round", "accuracy trung bình qua node (%)")
+    assert "10 Mbit/s" in time_ax.get_xlabel()
+    assert (bandwidth_ax.get_xscale(), bandwidth_ax.get_yscale()) == ("log", "log")
+    assert bandwidth_ax.get_xlabel() == "băng thông B (Mbit/s)"
+    assert "IID" in figure.get_suptitle()
+    legend = {t.get_text() for t in rounds_ax.get_legend().get_texts()}
+    assert legend == {"fully_connected (2 seed)", "ring (2 seed)"}
+
+
+def test_p17_marks_topologies_that_never_reach_the_target(tmp_path: Path) -> None:
+    for seed in (0, 1):
+        write_run(tmp_path, f"ring-{seed}", cfg=config(seed=seed), rounds=curve([0.5, 0.6, 0.7, 0.8]))
+        write_run(
+            tmp_path,
+            f"fc-{seed}",
+            cfg=config(seed=seed, topology__kind="fully_connected"),
+            rounds=curve([0.8, 0.92, 0.95, 0.96]),
+        )
+    runs = plots.select_comm(
+        [a.finished for a in aggregate.scan(tmp_path) if a.finished is not None], draft=False
+    )
+
+    figure = plots.draw_p17(runs, draft=False)
+
+    texts = " ".join(t.get_text() for t in figure.axes[2].texts)
+    assert "không đạt 90%" in texts and "ring" in texts
+
+
+def test_a_draft_draws_p17_with_its_provenance(tmp_path: Path) -> None:
+    time_runs(tmp_path)
+
+    assert plots.main(["--results", str(tmp_path), "--out", str(tmp_path / "out"), "--draft"]) == 0
+
+    record = json.loads((tmp_path / "out" / "PROVENANCE.json").read_text())
+    assert (tmp_path / "out" / "P17.png").stat().st_size > 0
+    assert len(record["figures"]["P17"]["run_ids"]) == 5

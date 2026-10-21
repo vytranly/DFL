@@ -49,6 +49,21 @@ def holders(run: Run) -> np.ndarray:
     return counts[:, list(RARE_CLASSES)].sum(axis=1) > 0
 
 
+def js_mean(run: Run) -> float:
+    """Trung bình qua node của JS(P_i ‖ P) (bit) từ `node_class_counts`, như `dfl.data.heterogeneity`: mức
+    Non-IID của cách chia, dùng để xếp các mức dữ liệu khi chọn hàng của P16 và mức của P17 (ADR-015)."""
+    counts = np.array(run.manifest["node_class_counts"], dtype=float)
+    dists = counts / counts.sum(axis=1, keepdims=True)
+    pooled = counts.sum(axis=0) / counts.sum()
+    middle = 0.5 * (dists + pooled)
+
+    def kl(a: np.ndarray, b: np.ndarray) -> np.ndarray:
+        ratio = np.divide(a, b, out=np.ones_like(a), where=a > 0)
+        return (a * np.log2(ratio)).sum(axis=-1)
+
+    return float(np.mean(0.5 * kl(dists, middle) + 0.5 * kl(np.broadcast_to(pooled, dists.shape), middle)))
+
+
 def final_accuracy(run: Run) -> np.ndarray:
     return np.array(run.summary["final_acc_per_node"], dtype=float)
 

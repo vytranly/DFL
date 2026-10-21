@@ -821,7 +821,7 @@ T22a, T22b và T09c là code của lưới: phải xong trước T14b (E0a), đ�
   - Phụ thuộc: —
   - File: `docs/decisions/ADR-015-feedback-2-lattice-hub-leaf-real-time.md`, `docs/decisions/README.md`, `SPEC.md`, `tasks/todo.md`
 
-- [ ] **T31b · Thời gian phân tán ước tính, s@x, P17** — nhánh `binh` · M
+- [x] **T31b · Thời gian phân tán ước tính, s@x, P17** — nhánh `binh` · M
   - Mô tả: `comm_cost.time_series` (thời gian đo của các pha train, comm, combine; thời gian ước tính max train + max byte / B); `convergence.value_at`; cột `s90_*`, `s95_*` trong `aggregate`; P17 (accuracy theo round, theo thời gian ước tính ở 10 Mbit/s, thời gian để đạt 90% theo băng thông).
   - Chấp nhận: thời gian ước tính đúng trên lượt giả biết trước kết quả (cả đường server); lượt thiếu `train_s_per_node` hay `node_bytes_cum` báo lỗi rõ; P17 vẽ được từ kết quả giả và lượt smoke thật.
   - Kiểm chứng: `make check-task`

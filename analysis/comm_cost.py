@@ -10,6 +10,13 @@ ADR-013; SPEC REQ-05, REQ-10).
 - **Theo node** (ADR-013): tải (gửi + nhận) ở mốc cuối chia cho số round. Ở đường server, phần tử thứ N là
   server ảo; nó được tách riêng để không lẫn vào phân bố của các node dữ liệu.
 - Lượt ghi trước ADR-013 không có các dãy theo node: hàm theo node báo lỗi rõ thay vì vẽ dở.
+- **Thời gian để so số round với thời gian thực** (ADR-015; góp ý buổi 2 của GVHD):
+  - *đo được*: giây tích lũy của các pha train, comm, combine (không tính đánh giá, vốn chỉ là đo lường). Ở
+    runtime inprocess các node chạy lần lượt, nên đây là tổng qua node, không phải thời gian của hệ phân tán;
+  - *ước tính*: mỗi khoảng giữa hai mốc tốn max_i(train_s_per_node) + max_i(byte gửi + nhận của node i) / B.
+    Giả định các node huấn luyện song song, gửi và nhận dùng chung băng thông B, bỏ qua độ trễ và thời gian
+    tổng hợp. Lấy max của tổng trong khoảng thay cho tổng của max từng round: đúng với byte của topology tĩnh
+    (tải mỗi round không đổi), xấp xỉ với thời gian huấn luyện (gần như bằng nhau giữa các round).
 """
 
 from __future__ import annotations
@@ -23,6 +30,9 @@ from analysis.aggregate import AnalysisError, Run
 from dfl.contracts import TimingRecord
 
 PHASES = ("train", "comm", "combine", "eval")
+# Byte mỗi giây của 1 Mbit/s; băng thông tham chiếu của P17 và của cột s@x_est (ADR-015).
+MBIT_BYTES = 1e6 / 8
+REFERENCE_MBIT = 10.0
 
 
 @dataclass(frozen=True)
@@ -110,6 +120,60 @@ def node_seconds_per_round(run: Run) -> tuple[np.ndarray, np.ndarray]:
     train = np.sum([t["train_s_per_node"] for t in timing], axis=0) / rounds
     comm = np.sum([t["comm_s_per_node"] for t in timing], axis=0) / rounds
     return train, comm
+
+
+@dataclass(frozen=True)
+class TimeSeries:
+    """Thời gian của một lượt ở các mốc đánh giá (ADR-015)."""
+
+    steps: np.ndarray
+    rounds: np.ndarray
+    # Giây tích lũy đo được của các pha train, comm, combine.
+    measured: np.ndarray
+    # Giây tích lũy của node huấn luyện chậm nhất trong từng khoảng giữa hai mốc.
+    compute: np.ndarray
+    # Byte (gửi + nhận) của node bận nhất trong từng khoảng, kể cả server ảo; không tích lũy.
+    busiest_bytes: np.ndarray
+
+
+def time_series(run: Run) -> TimeSeries:
+    """Thời gian đo và các thành phần của thời gian ước tính, ở các mốc của rounds.jsonl."""
+    timing = _timing(run)
+    if [t["round"] for t in timing] != [r["round"] for r in run.rounds]:
+        raise AnalysisError(
+            f"lượt {run.run_id}: timing.jsonl không ghi đúng các round của rounds.jsonl, nên không ghép được "
+            "thời gian với accuracy"
+        )
+    if any("train_s_per_node" not in t for t in timing) or any("node_bytes_cum" not in r for r in run.rounds):
+        raise AnalysisError(
+            f"lượt {run.run_id} không có thời gian huấn luyện hay tải byte theo node; lượt được ghi trước "
+            "ADR-013, cần chạy lại ở code_version mới"
+        )
+    loads = np.array([r["node_bytes_cum"] for r in run.rounds], dtype=float)
+    return TimeSeries(
+        steps=np.array([r["local_steps"] for r in run.rounds]),
+        rounds=np.array([r["round"] for r in run.rounds]),
+        measured=np.cumsum([t["train_s"] + t["comm_s"] + t["combine_s"] for t in timing]),
+        compute=np.cumsum([max(t["train_s_per_node"]) for t in timing]),
+        busiest_bytes=np.diff(loads, axis=0, prepend=np.zeros((1, loads.shape[1]))).max(axis=1),
+    )
+
+
+def estimated_seconds(series: TimeSeries, *, mbit: float) -> np.ndarray:
+    """Giây tích lũy của hệ phân tán ước tính ở băng thông `mbit` Mbit/s, tại từng mốc."""
+    if not mbit > 0:
+        raise ValueError(f"băng thông phải > 0, nhận {mbit}")
+    return series.compute + np.cumsum(series.busiest_bytes) / (mbit * MBIT_BYTES)
+
+
+def has_time(run: Run) -> bool:
+    """Lượt có đủ dữ liệu cho time_series (timing.jsonl khớp rounds và các dãy theo node của ADR-013)."""
+    return (
+        bool(run.timing)
+        and [t["round"] for t in run.timing] == [r["round"] for r in run.rounds]
+        and all("train_s_per_node" in t for t in run.timing)
+        and all("node_bytes_cum" in r for r in run.rounds)
+    )
 
 
 def single_runtime(runs: Sequence[Run]) -> str:

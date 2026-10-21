@@ -117,3 +117,19 @@ def test_frame_carries_the_derived_metrics_of_finished_runs(tmp_path: Path) -> N
     assert table.loc["ok", "r90_label"] == "191" and table.loc["ok", "r95_label"] == "280"
     assert table.loc["ok", "auc"] == pytest.approx((0.855 + 0.935 + 0.965) / 3)
     assert table.loc["div", "r95_label"] == "không đạt (phân kỳ)" and pd.isna(table.loc["div", "auc"])
+
+
+def test_frame_has_the_time_to_reach_x_measured_and_estimated_at_10_mbit(tmp_path: Path) -> None:
+    # ADR-015. Mỗi khoảng 5 round: đo 0.4 + 0.1 s (train, combine); ước tính max train 0.1 s + 20,000 byte ở
+    # 10 Mbit/s (1.25e6 byte/s) = 0.116 s. R@95 = 280, nên nội suy 80% của khoảng thứ ba.
+    write_run(tmp_path, "ok", rounds=curve([0.80, 0.91, 0.96, 0.97]))
+    old = write_run(tmp_path, "old", rounds=curve([0.80, 0.91, 0.96, 0.97]))
+    (old / "timing.jsonl").unlink()
+    write_index(tmp_path, "e1", {CODE_VERSION: ["ok", "old"]})
+
+    table = aggregate.frame(aggregate.read_experiment(tmp_path, "e1")).set_index("run_id")
+
+    assert table.loc["ok", "s95_measured"] == pytest.approx(1.4)
+    assert table.loc["ok", "s95_est"] == pytest.approx(0.232 + 0.8 * 0.116)
+    assert table.loc["ok", "s90_est"] == pytest.approx(0.116 * (1 + 0.10 / 0.11))
+    assert pd.isna(table.loc["old", "s95_measured"]) and pd.isna(table.loc["old", "s95_est"])

@@ -103,3 +103,12 @@ def test_final_byte_load_is_the_last_node_bytes_without_the_virtual_server(tmp_p
 
     load = centrality.final_byte_load(run)
     assert load.shape == (5,) and np.all(load == run.rounds[-1]["node_bytes_cum"][:5])
+
+
+def test_js_mean_is_zero_for_identical_nodes_and_grows_with_rare_class_holders(tmp_path: Path) -> None:
+    write_run(tmp_path, "same", cfg=config(num_nodes=5), class_counts=[[10] * 10] * 5)
+    write_e7(tmp_path, "hub", 0, holder=0, acc=[0.9] * 5)
+    by_id = {r.run_id: r for r in runs(tmp_path)}
+
+    assert centrality.js_mean(by_id["same"]) == pytest.approx(0.0)
+    assert 0 < centrality.js_mean(by_id["hub-0"]) < 1
