@@ -810,6 +810,59 @@ T22a, T22b và T09c là code của lưới: phải xong trước T14b (E0a), đ�
   - Phụ thuộc: T30d
   - File: `docs/experiments/E7.md`, `configs/experiments/e7_centrality.yaml`, `tests/unit/test_experiment_e7.py`, `README.md`, `tasks/todo.md`, `tasks/SESSION_LOG.md`
 
+## Góp ý buổi 2 của GVHD (ADR-015; người dùng yêu cầu ngày 2026-10-21: làm hết, liên tục)
+
+> Nguồn: `transcript.md`, `tom_tat_bao_cao_buoi_2.md`. Phần analysis (T31b, T31c) không đổi `code_version`; phần `src/` (T31d, T31e) thì đổi, và nhánh `grid` không nhận. Không chạy lưới; lượt thử chỉ vào `build/`.
+
+- [x] **T31a · ADR-015 và SPEC** — nhánh `binh` · S
+  - Mô tả: ADR-015 (Proposed); sửa SPEC US-4, §1.4, §5.2 (E9), REQ-04 (thời gian), REQ-07 (T7), REQ-10 (P16, P17); thêm dòng vào bảng ADR.
+  - Chấp nhận: lattice, bảng bậc, bậc suy từ message, P16, P17, mô hình thời gian ước tính và E9 có trong SPEC và ADR-015, khớp với nhau.
+  - Kiểm chứng: `make check-task` (chỉ đổi tài liệu)
+  - Phụ thuộc: —
+  - File: `docs/decisions/ADR-015-feedback-2-lattice-hub-leaf-real-time.md`, `docs/decisions/README.md`, `SPEC.md`, `tasks/todo.md`
+
+- [ ] **T31b · Thời gian phân tán ước tính, s@x, P17** — nhánh `binh` · M
+  - Mô tả: `comm_cost.time_series` (thời gian đo của các pha train, comm, combine; thời gian ước tính max train + max byte / B); `convergence.value_at`; cột `s90_*`, `s95_*` trong `aggregate`; P17 (accuracy theo round, theo thời gian ước tính ở 10 Mbit/s, thời gian để đạt 90% theo băng thông).
+  - Chấp nhận: thời gian ước tính đúng trên lượt giả biết trước kết quả (cả đường server); lượt thiếu `train_s_per_node` hay `node_bytes_cum` báo lỗi rõ; P17 vẽ được từ kết quả giả và lượt smoke thật.
+  - Kiểm chứng: `make check-task`
+  - Phụ thuộc: T31a
+  - File: `analysis/comm_cost.py`, `analysis/convergence.py`, `analysis/aggregate.py`, `analysis/plots.py`, test tương ứng
+
+- [ ] **T31c · Bậc từ tải message, P16** — nhánh `binh` · M
+  - Mô tả: `centrality.degrees` dùng `graph_edges`, không có thì `node_messages_cum / (2 · round)` với topology tĩnh; loại bậc hub (≥ 6), giữa (3–5), leaf (1–2); JS của cách chia từ `node_class_counts`; P16 (đường `acc_per_node` theo bước, tô theo loại bậc, đường đậm trung bình mỗi loại).
+  - Chấp nhận: bậc suy từ message trùng bậc từ `graph_edges` trên lượt thật; gossip bị từ chối; P16 vẽ được từ kết quả giả và lượt thật.
+  - Kiểm chứng: `make check-task`
+  - Phụ thuộc: T31b
+  - File: `analysis/centrality.py`, `analysis/plots.py`, test tương ứng
+
+- [ ] **T31d · Topology T7 `lattice`** — nhánh `binh` · S
+  - Mô tả: `topology.lattice(N)`: xuyến a × b = N, bậc 4; `schedule_for`; cấu hình nhận `lattice`.
+  - Chấp nhận: N = 20 cho 4 × 5, 40 cạnh, mọi bậc bằng 4, liên thông, id node r·b + c; N không tách được thành a, b ≥ 3 bị từ chối; lượt smoke N = 9 chạy được và ghi `graph_edges`.
+  - Kiểm chứng: `make check-task`
+  - Phụ thuộc: T31a
+  - File: `src/dfl/network/topology.py`, `src/dfl/config.py`, `src/dfl/sim/run.py`, `configs/base.yaml`, test tương ứng
+
+- [ ] **T31e · `describe` mô tả bậc, ER theo p, BA theo m** — nhánh `binh` · M
+  - Mô tả: mỗi hàng đồ thị tĩnh có bậc TB, min, max, % hub, % leaf; thêm hàng `T6 BA`, `T7 lattice`; bảng ER theo p (tần suất liên thông, xấp xỉ Poisson, bậc, hub, leaf) và BA theo m; in ra màn hình và ghi vào describe.json.
+  - Chấp nhận: ring 100% leaf, lattice bậc 4, FC 100% hub; tần suất liên thông của ER gần xấp xỉ exp(−N(1 − p)^{N−1}); lệnh in đủ ba bảng.
+  - Kiểm chứng: `make check-task`; `python -m dfl describe --config configs/base.yaml --seeds 20 --out build/describe`
+  - Phụ thuộc: T31d
+  - File: `src/dfl/sim/describe.py`, `tests/integration/test_describe.py`
+
+- [ ] **T31f · Demo chia dữ liệu từng bước** — nhánh `binh` · M
+  - Mô tả: `scripts/demo_partition.py`: làm lại từng bước Dirichlet, #C = k, quantity, shards trên nhãn thật (MNIST, CIFAR-10 nếu có), in các bước trung gian, kiểm kết quả trùng partitioner của dự án; bảng ảnh hưởng của α (và Nα) và của k; so giữa dataset.
+  - Chấp nhận: kết quả từng bước trùng từng chỉ số với partitioner; bảng in ra khớp `describe`.
+  - Kiểm chứng: `make check-task`; `python scripts/demo_partition.py --out build/demo_partition`
+  - Phụ thuộc: T31a
+  - File: `scripts/demo_partition.py`, `tests/integration/test_demo_partition.py`
+
+- [ ] **T31g · Thẻ E9, lưới, lượt thử, tài liệu phản hồi góp ý** — nhánh `binh` · M
+  - Mô tả: `docs/experiments/E9.md` (H10), `configs/experiments/e9_topology_shapes.yaml` (30 lượt), test lưới; lượt thử ngắn (≤ 10) vào `build/` để vẽ P16, P17; `docs/report/PHAN_HOI_GOP_Y_BUOI_2.md`: từng góp ý, cách dự án đáp ứng, bằng chứng (lệnh, hình, bảng), thư viện của từng module, thuật ngữ.
+  - Chấp nhận: test lưới xanh; P16, P17 vẽ được từ lượt thử; mọi góp ý trong bản chép lời có câu trả lời và bằng chứng.
+  - Kiểm chứng: `make check-task`; `python -m dfl sweep --experiment configs/experiments/e9_topology_shapes.yaml --dry-run`
+  - Phụ thuộc: T31b–T31f
+  - File: `docs/experiments/E9.md`, `configs/experiments/e9_topology_shapes.yaml`, `tests/unit/test_experiment_e9.py`, `docs/report/PHAN_HOI_GOP_Y_BUOI_2.md`, `README.md`, `tasks/todo.md`, `tasks/SESSION_LOG.md`
+
 ## Mở rộng — chỉ làm sau M4, và phải hỏi trước (SPEC §1.4, QĐ-4)
 
 - [ ] T21 E6 Fashion-MNIST và E5 quy mô N ∈ {10, 50} (E5 chỉ đổi cấu hình)

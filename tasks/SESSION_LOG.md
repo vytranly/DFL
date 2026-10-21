@@ -1072,3 +1072,9 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - Lượt cũ không đổi: smoke và fast chạy ở `a41288e` (trước T30, code_version `eff6fa19…`) và ở code hiện tại (`6f46b8ba…`): `rounds.jsonl` và `summary.json` trùng từng byte ở cả hai profile; run_id đổi như dự kiến (cấu hình chuẩn hóa có thêm `m`, `holders`, `placement`)
 - Lượt thử E7 ở ngân sách fast, seed 0, MNIST thật: node không giữ lớp 5–9 đạt 86.2% khi lớp đó ở hub, 63.0% khi ở biên (hub − edge = +23.2 điểm, 1 seed, không phải kết quả). P14, P15 vẽ được và đọc rõ
 - Còn mở (nhóm quyết): duyệt ADR-014 và thẻ E7 rồi chạy 9 lượt; ghi code_version vào CODE_VERSIONS.md khi chạy
+
+## 2026-10-21 — Phiên #21 (tiếp) — T31a: ADR-015 theo góp ý buổi 2
+- Người dùng đưa bản chép lời và bản tóm tắt buổi báo cáo 2 (góp ý cho repo của Vy, Nghĩa) và yêu cầu làm hết các mục còn thiếu, liên tục, không dừng
+- Đối chiếu: đã đáp ứng tách chi phí, đa tiến trình, FedProx ở α thấp, giữ cả Dirichlet lẫn Pathological; còn thiếu lattice, mô tả hub/leaf của đồ thị random, thời gian thực để đạt ngưỡng, đường hội tụ hub/leaf, demo chia dữ liệu từng bước
+- Đo cho ADR-015 (N = 20, 2,000 đồ thị): ER p = 0.3 có 53% hub, 4% leaf, liên thông 98.4% khi chưa lấy mẫu lại (xấp xỉ Poisson 97.7%); BA m = 2 có 16% hub, 46% leaf; lattice 4×5 xuyến gap 0.276. `safe_p` của nhóm Vy (ln N/N + 0.15) cho đúng 0.30 ở N = 20
+- ADR-015 (Proposed), SPEC (US-4, §1.4, §5.2, REQ-04, REQ-07, REQ-10), T31a–g vào todo
