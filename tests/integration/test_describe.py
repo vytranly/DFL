@@ -12,6 +12,7 @@ import numpy as np
 import pytest
 import torch
 
+from analysis import centrality
 from dfl import cli, seeding
 from dfl.config import PartitionConfig, RunConfig, TopologyConfig, load_config
 from dfl.data import datasets
@@ -281,3 +282,88 @@ def test_the_command_prints_the_topology_table_next_to_kh_3_3(
     printed = capsys.readouterr().out
     assert code == 0 and "T1 ring" in printed and "KH §3.3" in printed
     assert "T3 gossip" in json.loads((tmp_path / "describe.json").read_text(encoding="utf-8"))["topologies"]
+
+
+# Bậc, % hub và % leaf của từng đồ thị; ER theo p và BA theo m (ADR-015; góp ý buổi 2 của GVHD).
+
+
+def test_every_static_row_reports_its_degrees_and_hub_and_leaf_shares(
+    topologies_n20: dict[str, dict[str, object]],
+) -> None:
+    ring, fc, star = topologies_n20["T1 ring"], topologies_n20["T4 FC"], topologies_n20["star"]
+    lattice, ba, er = topologies_n20["T7 lattice"], topologies_n20["T6 BA"], topologies_n20["T2 ER"]
+
+    assert (ring["degree_mean"], ring["hub_share"], ring["leaf_share"]) == (2.0, 0.0, 1.0)
+    assert (fc["degree_mean"], fc["hub_share"], fc["leaf_share"]) == (19.0, 1.0, 0.0)
+    assert (star["degree_max"], star["hub_share"], star["leaf_share"]) == (19, 0.05, 0.95)
+    assert (lattice["shape"], lattice["degree_min"], lattice["degree_max"]) == ("4 × 5", 4, 4)
+    assert (lattice["hub_share"], lattice["leaf_share"]) == (0.0, 0.0)
+    assert (
+        ba["m"] == 2
+        and ba["degree_mean"] == pytest.approx(2 * 2 * 18 / 20)
+        and ba["messages_per_round"] == 72
+    )
+    assert 0.3 < er["hub_share"] < 0.8 and 0 <= er["leaf_share"] < 0.2
+
+
+def test_a_lattice_that_n_cannot_form_is_skipped_with_the_reason() -> None:
+    rows = describe.describe_topologies(RunConfig(num_nodes=8), seeds=2, matchings=10)
+
+    assert "lattice" in rows["T7 lattice"]["skipped"]
+
+
+@pytest.fixture(scope="module")
+def shapes_n20() -> dict[str, object]:
+    return describe.describe_shapes(RunConfig(), samples=400)
+
+
+def test_er_by_p_follows_the_poisson_approximation_of_isolated_nodes(shapes_n20: dict[str, object]) -> None:
+    rows = shapes_n20["er_by_p"]
+
+    assert [row["p"] for row in rows] == list(describe.ER_PROBABILITIES)
+    for row in rows:
+        assert row["connected_share"] == pytest.approx(row["connected_poisson"], abs=0.06)
+    shares = [row["connected_share"] for row in rows]
+    assert shares == sorted(shares) and shapes_n20["connectivity_threshold"] == pytest.approx(
+        math.log(20) / 20
+    )
+
+
+def test_denser_er_has_more_hubs_and_fewer_leaves(shapes_n20: dict[str, object]) -> None:
+    rows = {row["p"]: row for row in shapes_n20["er_by_p"]}
+
+    assert rows[0.1]["leaf_share"] > rows[0.3]["leaf_share"] > rows[0.5]["leaf_share"]
+    assert rows[0.1]["hub_share"] < rows[0.3]["hub_share"] < rows[0.5]["hub_share"]
+    assert rows[0.3]["hub_share"] == pytest.approx(0.53, abs=0.05)
+
+
+def test_ba_by_m_has_fixed_edges_and_many_leaves_when_m_is_one(shapes_n20: dict[str, object]) -> None:
+    rows = {row["m"]: row for row in shapes_n20["ba_by_m"]}
+
+    assert [rows[m]["edges"] for m in (1, 2, 3)] == [19, 36, 51]
+    assert rows[1]["leaf_share"] > 0.7 and rows[2]["degree_mean"] == pytest.approx(3.6)
+
+
+def test_hub_and_leaf_thresholds_are_the_same_in_describe_and_analysis() -> None:
+    assert (describe.HUB_DEGREE, describe.LEAF_DEGREE) == (centrality.HUB_DEGREE, centrality.LEAF_DEGREE)
+
+
+def test_the_command_prints_the_degree_columns_and_the_er_and_ba_tables(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    code = cli.main(
+        [
+            "describe",
+            "--config",
+            str(ROOT / "configs" / "profiles" / "smoke.yaml"),
+            "--seeds",
+            "2",
+            "--out",
+            str(tmp_path),
+        ]
+    )
+
+    printed = capsys.readouterr().out
+    assert code == 0 and "% hub" in printed and "ER theo p" in printed and "BA theo m" in printed
+    report = json.loads((tmp_path / "describe.json").read_text(encoding="utf-8"))
+    assert {"er_by_p", "ba_by_m"} <= set(report["shapes"])

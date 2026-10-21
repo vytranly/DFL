@@ -1098,3 +1098,9 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - `config.lattice_shape(N)`: a là ước lớn nhất của N không vượt √N, cần a ≥ 3 (N = 20 → 4 × 5, 9 → 3 × 3, 8 → không có); RunConfig từ chối N không tách được ngay lúc đọc. `topology.lattice(a, b)`: `grid_2d_graph(periodic=True)` rồi đánh số theo hàng, mọi node bậc 4; `schedule_for`; base.yaml thêm `lattice`
 - Test mới: xuyến 4 × 5 có 40 cạnh, bậc 4, láng giềng của node 0 đúng; 3 × 3; cạnh < 3 bị từ chối; bảng `lattice_shape`; lượt smoke N = 9 ghi 18 cạnh bậc 4 vào manifest và analysis đọc lại bậc (cả từ `graph_edges` lẫn từ tải message)
 - Kiểm chứng: `make check-task` 1031 test xanh, 125 s
+
+## 2026-10-21 — Phiên #21 (tiếp) — T31e: describe mô tả bậc, ER theo p, BA theo m
+- `describe.degree_stats`: bậc TB, min, max, % hub (≥ 6), % leaf (1–2); mọi hàng đồ thị tĩnh có các cột này; thêm hàng `T7 lattice` (bỏ qua kèm lý do khi N không tách được) và `T6 BA` (m của cấu hình hay 2)
+- `describe.describe_shapes` (1,000 đồ thị mỗi dòng, luồng graph như lượt chạy): ER theo p ∈ {0.10 … 0.50} với tần suất liên thông của đồ thị thô, xấp xỉ Poisson exp(−N(1 − p)^{N−1}), bậc và tỉ lệ hub/leaf của đồ thị liên thông, spectral gap TB; BA theo m ∈ {1, 2, 3}. CLI in hai bảng mới và ghi `shapes` vào describe.json
+- Chạy trên MNIST (N = 20, 20 seed, build/describe, 7 s): ER p = 0.3 có 54% hub, 4% leaf, liên thông 98.2% (Poisson 97.7%); BA m = 2 có 17% hub, 46% leaf; lattice bậc 4, gap 0.276; REQ-02 vẫn đạt
+- Kiểm chứng: `make check-task` 1038 test xanh, 129 s

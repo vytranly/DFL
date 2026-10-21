@@ -94,8 +94,10 @@ def _describe(args: argparse.Namespace) -> int:
     labels = datasets.load(config.dataset, root=args.data_root, with_test=False).train.y.numpy()
     report = describe.describe(config, labels, seeds=args.seeds)
     report["topologies"] = describe.describe_topologies(config, seeds=args.seeds)
+    report["shapes"] = describe.describe_shapes(config)
     describe.write(report, args.out)
     print("\n".join(describe.topology_table(report["topologies"], config)))
+    print("\n".join(describe.shape_tables(report["shapes"], config)))
     print(f"đã ghi {args.out / 'describe.json'} và {args.out / 'describe.csv'}")
     if not args.check_req02:
         return 0

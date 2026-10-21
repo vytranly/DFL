@@ -842,7 +842,7 @@ T22a, T22b và T09c là code của lưới: phải xong trước T14b (E0a), đ�
   - Phụ thuộc: T31a
   - File: `src/dfl/network/topology.py`, `src/dfl/config.py`, `src/dfl/sim/run.py`, `configs/base.yaml`, test tương ứng
 
-- [ ] **T31e · `describe` mô tả bậc, ER theo p, BA theo m** — nhánh `binh` · M
+- [x] **T31e · `describe` mô tả bậc, ER theo p, BA theo m** — nhánh `binh` · M
   - Mô tả: mỗi hàng đồ thị tĩnh có bậc TB, min, max, % hub, % leaf; thêm hàng `T6 BA`, `T7 lattice`; bảng ER theo p (tần suất liên thông, xấp xỉ Poisson, bậc, hub, leaf) và BA theo m; in ra màn hình và ghi vào describe.json.
   - Chấp nhận: ring 100% leaf, lattice bậc 4, FC 100% hub; tần suất liên thông của ER gần xấp xỉ exp(−N(1 − p)^{N−1}); lệnh in đủ ba bảng.
   - Kiểm chứng: `make check-task`; `python -m dfl describe --config configs/base.yaml --seeds 20 --out build/describe`
