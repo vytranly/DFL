@@ -107,6 +107,11 @@ def test_a_number_that_pyyaml_reads_as_a_string_is_rejected_with_a_hint(tmp_path
         ("partition:\n  alpha: 0.5\n", "alpha"),
         ("topology:\n  p: 0.3\n", "p"),
         ("topology:\n  kind: erdos_renyi\n  p: 1.5\n", "p"),
+        ("topology:\n  m: 2\n", "m"),
+        ("topology:\n  kind: erdos_renyi\n  m: 2\n", "m"),
+        ("topology:\n  kind: barabasi_albert\n  m: 0\n", "m"),
+        ("topology:\n  kind: barabasi_albert\n  p: 0.3\n", "p"),
+        ("num_nodes: 2\ntopology:\n  kind: barabasi_albert\n", "m"),
         ("eval:\n  split: train\n", "split"),
         ("model: resnet\n", "model"),
         ("model: cnn_niidbench\n", "1×28×28"),
@@ -150,6 +155,11 @@ def test_a_number_that_pyyaml_reads_as_a_string_is_rejected_with_a_hint(tmp_path
         "alpha-without-dirichlet",
         "p-without-er",
         "p-out-of-range",
+        "m-without-ba",
+        "m-on-er",
+        "m-zero",
+        "p-on-ba",
+        "m-not-below-n",
         "bad-split",
         "bad-model",
         "model-dataset-shape-mismatch",
@@ -189,6 +199,12 @@ def test_erdos_renyi_gets_the_default_edge_probability(tmp_path: Path) -> None:
     config = cfg.load_config(write(tmp_path, "er.yaml", "topology:\n  kind: erdos_renyi\n"))
 
     assert config.topology.p == 0.3
+
+
+def test_barabasi_albert_gets_m_two_by_default(tmp_path: Path) -> None:
+    config = cfg.load_config(write(tmp_path, "ba.yaml", "topology:\n  kind: barabasi_albert\n"))
+
+    assert (config.topology.m, config.topology.p) == (2, None)
 
 
 def test_config_is_frozen() -> None:

@@ -128,6 +128,8 @@ def schedule_for(config: RunConfig) -> TopologySchedule | None:
         return topology.local_only(n)
     if kind == "gossip":
         return topology.gossip(n, partial(seeding.numpy_rng, seed, Stream.GOSSIP))
+    if kind == "barabasi_albert":
+        return topology.barabasi_albert(n, config.topology.m, seeding.numpy_rng(seed, Stream.GRAPH))
     # Còn erdos_renyi và er_gossip; config điền p mặc định cho cả hai.
     base = topology.erdos_renyi(n, config.topology.p, seeding.numpy_rng(seed, Stream.GRAPH))
     if kind == "erdos_renyi":

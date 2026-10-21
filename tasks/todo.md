@@ -778,7 +778,7 @@ T22a, T22b và T09c là code của lưới: phải xong trước T14b (E0a), đ�
   - Phụ thuộc: —
   - File: `docs/decisions/ADR-014-e7-barabasi-albert-rare-classes-by-degree.md`, `docs/decisions/README.md`, `SPEC.md`, `tasks/todo.md`
 
-- [ ] **T30b · Topology T6 `barabasi_albert`** — nhánh `binh` · S
+- [x] **T30b · Topology T6 `barabasi_albert`** — nhánh `binh` · S
   - Mô tả: `topology.barabasi_albert(N, m, rng)` lấy seed từ luồng GRAPH; `TopologyConfig.m` (mặc định 2 với BA, null với topology khác); `schedule_for`.
   - Chấp nhận: m(N − m) cạnh, liên thông, gọi lại cùng seed thì cùng đồ thị, khác seed thì khác; m ngoài 1..N−1 bị từ chối; `m` với topology khác bị từ chối; lượt smoke chạy được với BA.
   - Kiểm chứng: `make check-task`

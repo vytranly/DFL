@@ -1046,3 +1046,9 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - Người dùng chọn "làm đầy đủ" E7. Đã hỏi theo Ask first và chốt: K = 2 node giữ lớp 5–9, lưới BA m = 2 × {hub, edge, random} × 3 seed = 9 lượt, chỉ làm code và tiền đăng ký (chưa chạy lưới), commit thẳng lên `binh`
 - ADR-014 (Proposed): topology T6 BA, cách chia `rare_classes`, vị trí theo bậc, `graph_edges` trong manifest, P14, P15, H9 (hub − edge trên accuracy của node không giữ lớp hiếm, tối đa "gợi ý"); SPEC §1.3, §1.4, §5.2, §5.3, REQ-07, REQ-10; thêm T30a–e vào todo
 - Việc tiếp theo: T30b
+
+## 2026-10-21 — Phiên #21 (tiếp) — T30b: topology BA
+- `topology.barabasi_albert(N, m, rng)` (seed từ luồng GRAPH, kiểm 1 ≤ m < N và INV-4); `TopologyConfig.m` (mặc định 2 với BA, null với topology khác; m < N kiểm ở RunConfig); `schedule_for`; base.yaml thêm `m: null`
+- Test mới: số cạnh m(N − m), liên thông, tất định theo seed, hub ≥ 4 lần bậc nhỏ nhất, m ngoài miền; 5 cấu hình sai; T-INV-5 thêm đồ thị BA vào các luồng theo seed
+- Kiểm chứng: `make check-task` 932 test xanh, 79 s
+- Phiên `dfl-5f` báo đang chạy lưới Tier 1 + 2 từ worktree /home/tun/ecaep/dfl-grid (nhánh `grid` tại 2598ba4) và ghi `results/`, `data/` ở repo này; không đụng `results/`

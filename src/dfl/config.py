@@ -37,6 +37,7 @@ TOPOLOGIES = (
     "erdos_renyi",
     "gossip",
     "er_gossip",
+    "barabasi_albert",
     "star",
     "local_only",
     "server",
@@ -44,6 +45,8 @@ TOPOLOGIES = (
 )
 ER_KINDS = ("erdos_renyi", "er_gossip")
 DEFAULT_ER_P = 0.3
+# T6 chỉ cho E7 (ADR-014).
+DEFAULT_BA_M = 2
 MIXINGS = ("metropolis_hastings", "uniform", "size_weighted", "size_corrected")
 # Shape (C, H, W) của ảnh mỗi dataset, và của ảnh mỗi model nhận; model phải khớp dataset (ADR-012). Bảng nằm
 # ở đây vì module này không import torch; tests/unit/test_models.py giữ nó đúng với model thật.
@@ -129,6 +132,7 @@ class PartitionConfig:
 class TopologyConfig:
     kind: str = "ring"
     p: float | None = None
+    m: int | None = None
 
     def __post_init__(self) -> None:
         _one_of(self.kind, TOPOLOGIES, "topology.kind")
@@ -141,6 +145,12 @@ class TopologyConfig:
                 raise ValueError(f"topology.p phải nằm trong (0, 1], nhận {self.p}")
         elif self.p is not None:
             raise ValueError(f"topology.p chỉ dùng với {ER_KINDS}; để null với {self.kind}")
+        if self.kind == "barabasi_albert":
+            if self.m is None:
+                object.__setattr__(self, "m", DEFAULT_BA_M)
+            _at_least(self.m, 1, "topology.m")
+        elif self.m is not None:
+            raise ValueError(f"topology.m chỉ dùng với barabasi_albert; để null với {self.kind}")
 
 
 @dataclass(frozen=True)
@@ -232,6 +242,8 @@ class RunConfig:
                 f"eval.every_steps = {self.eval.every_steps} phải chia hết cho τ = {tau}, "
                 "để mọi mốc rơi đúng cuối một round (ADR-007)"
             )
+        if self.topology.kind == "barabasi_albert" and self.topology.m >= self.num_nodes:
+            raise ValueError(f"topology.m phải nhỏ hơn N = {self.num_nodes}, nhận {self.topology.m}")
         if self.partition.scheme == "label_k" and self.num_nodes < 10:
             raise ValueError(f"#C = k cần N ≥ 10 để mọi nhãn có node sở hữu, nhận N = {self.num_nodes} (G23)")
         if self.deploy == "docker" and self.runtime != "processes":

@@ -19,9 +19,10 @@ partition:
   beta: null
   min_size: 64             # = 2B (G17)
 topology:
-  kind: ring               # ring | fully_connected | erdos_renyi | gossip | er_gossip | star | local_only |
+  kind: ring               # ring | fully_connected | erdos_renyi | gossip | er_gossip | barabasi_albert | star | local_only |
                            # server (B3) | central (B1, cần num_nodes: 1)
   p: null                  # chỉ với erdos_renyi, er_gossip; bỏ trống thì là 0.3
+  m: null                  # chỉ với barabasi_albert (E7, ADR-014); bỏ trống thì là 2
 algorithm:
   tau: 20
   lr: 0.05                 # η chọn ở E0a (ADR-007) rồi điền lại ở T14b

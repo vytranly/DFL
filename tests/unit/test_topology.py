@@ -54,6 +54,39 @@ def test_erdos_renyi_differs_across_seeds() -> None:
     assert sorted(_er(0).edges()) != sorted(_er(1).edges())
 
 
+def _ba(seed: int, n: int = 20, m: int = 2) -> nx.Graph:
+    return topo.barabasi_albert(n, m, seeding.numpy_rng(seed, Stream.GRAPH)).graph_at(0)
+
+
+@pytest.mark.parametrize(("n", "m"), [(20, 2), (20, 1), (10, 4)])
+def test_barabasi_albert_has_m_times_n_minus_m_edges_and_is_connected(n: int, m: int) -> None:
+    schedule = topo.barabasi_albert(n, m, seeding.numpy_rng(0, Stream.GRAPH))
+
+    graph = schedule.graph_at(0)
+
+    assert schedule.is_static and schedule.num_nodes == n
+    assert graph.number_of_edges() == m * (n - m)
+    assert nx.is_connected(graph) and nx.number_of_selfloops(graph) == 0
+
+
+def test_barabasi_albert_is_deterministic_per_seed_and_differs_across_seeds() -> None:
+    assert sorted(_ba(0).edges()) == sorted(_ba(0).edges())
+    assert sorted(_ba(0).edges()) != sorted(_ba(1).edges())
+
+
+def test_barabasi_albert_has_hubs_far_above_its_edge_nodes() -> None:
+    # Lý do có T6 (ADR-014): bậc lệch mạnh, khác ER p = 0.3 cùng N.
+    degrees = sorted((d for _, d in _ba(0).degree()), reverse=True)
+
+    assert degrees[0] >= 4 * degrees[-1]
+
+
+@pytest.mark.parametrize("m", [0, 20, 25])
+def test_barabasi_albert_rejects_m_outside_one_to_n_minus_one(m: int) -> None:
+    with pytest.raises(ValueError, match="m phải"):
+        topo.barabasi_albert(20, m, seeding.numpy_rng(0, Stream.GRAPH))
+
+
 def test_static_schedule_returns_a_frozen_graph() -> None:
     graph = topo.ring(5).graph_at(0)
 

@@ -1,4 +1,4 @@
-"""Lịch topology T0–T4, T3b và W = I cho B2 (module network; KH §3.3; ADR-009; INV-4).
+"""Lịch topology T0–T4, T3b, T6 và W = I cho B2 (module network; KH §3.3; ADR-009, ADR-014; INV-4).
 
 Chỉ phụ thuộc numpy/networkx (contract pure-no-torch), nên không import `seeding`: lịch ngẫu nhiên nhận
 `rng_for(round) -> numpy.random.Generator` do sim dựng từ `seeding.numpy_rng(seed, Stream.GOSSIP, round)`
@@ -17,6 +17,8 @@ networkx.empty_graph:
 https://networkx.org/documentation/networkx-3.7/reference/generated/networkx.generators.classic.empty_graph.html
 networkx.erdos_renyi_graph (seed nhận số nguyên):
 https://networkx.org/documentation/networkx-3.7/reference/generated/networkx.generators.random_graphs.erdos_renyi_graph.html
+networkx.barabasi_albert_graph (bắt đầu từ star_graph(m), nên có m(N − m) cạnh; seed nhận số nguyên):
+https://networkx.org/documentation/networkx-3.7/reference/generated/networkx.generators.random_graphs.barabasi_albert_graph.html
 networkx.is_connected:
 https://networkx.org/documentation/networkx-3.7/reference/algorithms/generated/networkx.algorithms.components.is_connected.html
 networkx.freeze:
@@ -59,7 +61,7 @@ def _matching(num_nodes: int, pairs: list[tuple[int, int]]) -> nx.Graph:
 
 @dataclass(frozen=True)
 class StaticSchedule:
-    """Cùng một đồ thị cho mọi round (T0 star, T1 ring, T2 ER, T4 FC, B2)."""
+    """Cùng một đồ thị cho mọi round (T0 star, T1 ring, T2 ER, T4 FC, T6 BA, B2)."""
 
     graph: nx.Graph
     is_static: bool = field(default=True, init=False)
@@ -153,6 +155,19 @@ def erdos_renyi(num_nodes: int, p: float, rng: np.random.Generator) -> StaticSch
     raise ValueError(
         f"không dựng được ER liên thông sau {ER_MAX_ATTEMPTS:,} lần với N = {num_nodes}, p = {p}"
     )
+
+
+def barabasi_albert(num_nodes: int, m: int, rng: np.random.Generator) -> StaticSchedule:
+    """T6 (E7, ADR-014): gắn ưu tiên, m cạnh mỗi node mới, nên có vài hub bậc cao và nhiều node bậc thấp.
+
+    Seed lấy từ `rng` (luồng Stream.GRAPH) như T2, nên đồ thị tất định theo seed của lượt. Đồ thị BA luôn
+    liên thông; vẫn kiểm để giữ INV-4 ở một chỗ.
+    """
+    if not 1 <= m < num_nodes:
+        raise ValueError(f"m phải nằm trong 1..N−1 = 1..{num_nodes - 1}, nhận {m}")
+    graph = nx.barabasi_albert_graph(num_nodes, m, seed=int(rng.integers(2**31)))
+    _check_connected(graph)
+    return StaticSchedule(nx.freeze(graph))
 
 
 def gossip(num_nodes: int, rng_for: RngForRound) -> GossipSchedule:

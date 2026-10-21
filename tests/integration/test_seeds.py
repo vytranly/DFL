@@ -159,6 +159,7 @@ def test_shards_are_rejected_outside_describe(data: datasets.Datasets) -> None:
 # ------------------------------------------------------------- dây seed của từng luồng (REVIEW-C3-P3.7 P0-2)
 
 GRAPH_P = 0.6
+BA_M = 2
 ROUNDS = range(8)
 
 
@@ -181,8 +182,9 @@ def drawn_by_the_run(seed: int, data: datasets.Datasets) -> dict[str, object]:
     er = assembled(topology=TopologyConfig(kind="erdos_renyi", p=GRAPH_P)).schedule
     gossip = assembled(topology=TopologyConfig(kind="gossip")).schedule
     er_gossip = assembled(topology=TopologyConfig(kind="er_gossip", p=GRAPH_P)).schedule
+    ba = assembled(topology=TopologyConfig(kind="barabasi_albert", m=BA_M)).schedule
     central = assembled(num_nodes=1, topology=TopologyConfig(kind="central"))
-    assert er is not None and gossip is not None and er_gossip is not None
+    assert er is not None and gossip is not None and er_gossip is not None and ba is not None
     nodes = [ring.node(i) for i in range(SMOKE.num_nodes)]
     return {
         "parts": tuple(tuple(part.tolist()) for part in ring.partition.parts),
@@ -190,6 +192,7 @@ def drawn_by_the_run(seed: int, data: datasets.Datasets) -> dict[str, object]:
         "batch": tuple(generator_state(node.generator) for node in nodes),
         "b1_batch": generator_state(central.node(0).generator),
         "graph": edges(er.graph_at(0)),
+        "ba_graph": edges(ba.graph_at(0)),
         "gossip": tuple(edges(gossip.graph_at(t)) for t in ROUNDS),
         "er_gossip": tuple(edges(er_gossip.graph_at(t)) for t in ROUNDS),
     }
@@ -205,6 +208,7 @@ def drawn_from_the_streams(seeds: Mapping[Stream, int], data: datasets.Datasets)
     placed = assign_positions(raw, seeding.numpy_rng(seeds[Stream.PLACEMENT], Stream.PLACEMENT))
     w0 = build_model(SMOKE.model, seeding.torch_generator(seeds[Stream.INIT], Stream.INIT)).state_dict()
     base = topology.erdos_renyi(n, GRAPH_P, seeding.numpy_rng(seeds[Stream.GRAPH], Stream.GRAPH))
+    ba = topology.barabasi_albert(n, BA_M, seeding.numpy_rng(seeds[Stream.GRAPH], Stream.GRAPH))
     gossip = topology.gossip(n, partial(seeding.numpy_rng, seeds[Stream.GOSSIP], Stream.GOSSIP))
     er_gossip = topology.er_gossip(
         base.graph, partial(seeding.numpy_rng, seeds[Stream.GOSSIP_ER], Stream.GOSSIP_ER)
@@ -217,6 +221,7 @@ def drawn_from_the_streams(seeds: Mapping[Stream, int], data: datasets.Datasets)
         ),
         "b1_batch": generator_state(seeding.torch_generator(seeds[Stream.B1_BATCH], Stream.B1_BATCH)),
         "graph": edges(base.graph_at(0)),
+        "ba_graph": edges(ba.graph_at(0)),
         "gossip": tuple(edges(gossip.graph_at(t)) for t in ROUNDS),
         "er_gossip": tuple(edges(er_gossip.graph_at(t)) for t in ROUNDS),
     }
