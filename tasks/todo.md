@@ -444,7 +444,7 @@
 
 ## Tuần 8–9 — Tier 1 (C4)
 
-- [ ] **T14c · E0b: sanity + baseline (43 lượt)** — TV3 · S
+- [ ] **T14c · E0b: sanity + baseline (43 lượt)** — TV3 · S · 2026-10-21: chạy trên nhánh `grid` (`eff6fa19…`, máy i5-12400) sau khi E0a chạy lại; script điều phối `/home/tun/ecaep/dfl-staging/pipeline2.sh`
   - Mô tả: thẻ E0b và `configs/experiments/e0b_sanity.yaml`. Chạy B1, B1-4k, B2, B3, DFedAvg IID × T1–T4, và phép kiểm độ nhạy η/2, 2η. Kiểm SAN-1…3 và SAN-5, rồi ghi kết quả vào thẻ.
   - Chấp nhận:
     - 43 run_id xong. SAN-1…3 và SAN-5 đạt, hoặc làm theo quy trình SPEC §9.3 (dừng, debug, báo nhóm).
@@ -453,7 +453,7 @@
   - Phụ thuộc: T14b
   - File: `docs/experiments/E0b.md`, `configs/experiments/e0b_sanity.yaml`
 
-- [ ] **T17a · E1: ảnh hưởng Non-IID (70 lượt)** — TV3 chạy, TV1 phân tích · S · ∥ T19a, T20a
+- [ ] **T17a · E1: ảnh hưởng Non-IID (70 lượt)** — TV3 chạy, TV1 phân tích · S · ∥ T19a, T20a · thẻ, cấu hình đã commit (`5426121`); H1 tính bằng `analysis/hypotheses.py` (`b317be7`)
   - Mô tả: thẻ E1 và cấu hình. Chạy các ô α = 100 trước để kiểm SAN-4, rồi đủ lưới. Đối chiếu H1 theo phép so sánh chính đã khai báo; vẽ P1, P2, P4.
   - Chấp nhận:
     - 70 run_id xong. SAN-4 và SAN-5 đạt (hoặc làm theo quy trình §9.3) trước khi chạy E2.
@@ -462,7 +462,7 @@
   - Phụ thuộc: T14c, T15c, T16a, T16b
   - File: `docs/experiments/E1.md`, `configs/experiments/e1_noniid.yaml`
 
-- [ ] **T20a · E4a: quantity skew (6 lượt)** — TV3 chạy, TV1 phân tích · S · ∥ T17a, T19a
+- [ ] **T20a · E4a: quantity skew (6 lượt)** — TV3 chạy, TV1 phân tích · S · ∥ T17a, T19a · thẻ, cấu hình đã commit (`5426121`), trước mọi lượt của nhóm
   - Mô tả: P3 β = 0.5 × {ER, FC} × MH × 3 seed.
   - Chấp nhận:
     - 6 run_id xong. Lưới có ≤ 10 lượt, nên không cần duyệt `--dry-run`.
@@ -471,7 +471,7 @@
   - Phụ thuộc: T14c
   - File: `docs/experiments/E4a.md`, `configs/experiments/e4a_quantity.yaml`
 
-- [ ] **T16b · Hình P2–P5** — TV1 · S · ∥ T14c
+- [ ] **T16b · Hình P2–P5** — TV1 · S · ∥ T14c · code và test xong (`979528b`); còn vẽ từ `results/`
   - Mô tả: P2, P3, P4, P5 (KH §3.8), cần cho E1 và E2. Làm trong lúc E0b đang chạy.
   - Chấp nhận:
     - Mỗi hình sinh được từ kết quả mẫu, có đơn vị và bảng màu an toàn, và có mục trong PROVENANCE.
@@ -480,7 +480,7 @@
   - Phụ thuộc: T16a, T15c
   - File: `analysis/plots.py`, `tests/unit/test_plots.py`
 
-- [ ] **T16c · Hình P6, P8, P9 và bảng T1** — TV1 · S · ∥ T17a
+- [ ] **T16c · Hình P6, P8, P9 và bảng T1** — TV1 · S · ∥ T17a · code và test xong (`979528b`); còn vẽ từ `results/`
   - Mô tả: P6, P8, P9 và bảng T1 (KH §3.8). Gossip vẽ riêng theo tốc độ trộn kỳ vọng (P8). Các so sánh thuật toán dùng trục bước cục bộ và trục byte (G10).
   - Chấp nhận:
     - Mỗi hình và bảng T1 sinh được từ kết quả mẫu, có đơn vị và bảng màu an toàn, và có mục trong PROVENANCE.
@@ -489,7 +489,7 @@
   - Phụ thuộc: T16b
   - File: `analysis/plots.py`, `tests/unit/test_plots.py`
 
-- [ ] **T19a · E3a: ba thuật toán (24 lượt)** — TV3 · S · ∥ T17a, T20a
+- [ ] **T19a · E3a: ba thuật toán (24 lượt)** — TV3 · S · ∥ T17a, T20a · thẻ, cấu hình đã commit (`5426121`), trước mọi lượt của nhóm
   - Mô tả: D-PSGD (τ = 1) và DFedProx (μ theo QS-2) × {ring, FC} × {IID, α = 0.1} × 3 seed. So theo bước cục bộ và theo byte (G10); vẽ P9.
   - Chấp nhận:
     - 24 run_id xong; REQ-08 có đủ ba thuật toán.
@@ -498,7 +498,7 @@
   - Phụ thuộc: T14c, T16c
   - File: `docs/experiments/E3a.md`, `configs/experiments/e3a_algorithms.yaml`
 
-- [ ] **T18a · E2: topology × Non-IID (30 lượt)** — TV3 · S
+- [ ] **T18a · E2: topology × Non-IID (30 lượt)** — TV3 · S · thẻ, cấu hình đã commit (`5426121`), trước mọi lượt của nhóm
   - Mô tả: {ER, gossip $K_N$} × {α = 1, α = 0.1, #C = 2} × 5 seed. Kiểm định chính H2 trên 6 mức Dirichlet kèm IID; H3 và một phần H4; RQ2 để khám phá. Vẽ P3, P5, P8.
   - Chấp nhận:
     - 30 run_id xong.
@@ -511,7 +511,7 @@
 
 ## Tuần 10 — Tier 2 (thứ tự ngược với thứ tự cắt: E3b → E1c → E4 → E2b) (C5, M4)
 
-- [ ] **T19b · E3b: tần suất giao tiếp + prox (42 lượt)** — TV3 · S
+- [ ] **T19b · E3b: tần suất giao tiếp + prox (42 lượt)** — TV3 · S · thẻ, cấu hình đã commit (`5426121`), trước mọi lượt của nhóm
   - Mô tả:
     - μ = 0 với τ ∈ {5, 50} × {ring, FC} × {IID, α = 0.1}.
     - μ nhỏ (μ = 0.1 nếu η = 0.05; nói chung tính từ η theo QS-2, ghi ở ADR-007) với τ = 20.
@@ -524,7 +524,7 @@
   - Phụ thuộc: T19a, C4
   - File: `docs/experiments/E3b.md`, `configs/experiments/e3b_tau_mu.yaml`
 
-- [ ] **T17b · E1c: đối chứng lệch mục tiêu (15 lượt)** — TV3 chạy, TV1 phân tích · S · ∥ T19b
+- [ ] **T17b · E1c: đối chứng lệch mục tiêu (15 lượt)** — TV3 chạy, TV1 phân tích · S · ∥ T19b · thẻ, cấu hình đã commit (`5426121`), trước mọi lượt của nhóm
   - Mô tả: B3 (đường server) × α ∈ {100, 1, 0.5, 0.1, 0.05} × 3 seed, để kiểm H6 (G19).
   - Chấp nhận:
     - 15 run_id xong.
@@ -533,7 +533,7 @@
   - Phụ thuộc: T17a, C4
   - File: `docs/experiments/E1c.md`, `configs/experiments/e1c_objective.yaml`
 
-- [ ] **T20b · E4: quantity + trọng số trộn (15 lượt)** — TV3 chạy, TV1 phân tích · S
+- [ ] **T20b · E4: quantity + trọng số trộn (15 lượt)** — TV3 chạy, TV1 phân tích · S · thẻ, cấu hình đã commit (`5426121`), trước mọi lượt của nhóm
   - Mô tả:
     - β = 0.5: ER × {uniform, size-corrected}, và FC × size-weighted qua đường server.
     - α = 0.1: ER × {uniform, size-corrected}.
@@ -545,7 +545,7 @@
   - Phụ thuộc: T20a, T17b, T18a, T11c, C4
   - File: `docs/experiments/E4.md`, `configs/experiments/e4_quantity.yaml`
 
-- [ ] **T18b · E2b: gossip công bằng (9 lượt)** — TV3 · S · ∥ T20b
+- [ ] **T18b · E2b: gossip công bằng (9 lượt)** — TV3 · S · ∥ T20b · thẻ, cấu hình đã commit (`5426121`), trước mọi lượt của nhóm
   - Mô tả: T3b × {IID, α = 0.1, #C = 2} × 3 seed, để kiểm H4.
   - Chấp nhận:
     - 9 run_id xong (≤ 10 lượt).
@@ -573,7 +573,7 @@
 
 ## Tuần 11–12 — Demo, báo cáo, thẩm định (M5, M6)
 
-- [ ] **T26 · Demo trên laptop** — TV1 · M · ∥ T24
+- [ ] **T26 · Demo trên laptop** — TV1 · M · ∥ T24 · profile, lưới, `docs/DEMO.md` xong (`c0ad4a0`); đo trên máy chạy lưới 155 s; còn đo trên laptop thật (QS-8)
   - Mô tả: `configs/profiles/demo.yaml` và `configs/experiments/demo.yaml` chạy 2 lượt, ring và FC ở α = 0.1. Nếu laptop có Docker (QS-8, Q12) thì demo thêm một lượt nhỏ, mỗi node một container (`make check-docker`). `docs/DEMO.md` ghi các bước: cài không dùng file khóa, tải MNIST trước, chạy sweep ra `build/demo`, vẽ hình bằng `--draft`. Đo thời gian trên laptop thật (QS-8).
   - Chấp nhận:
     - ENG-11: cả chạy lẫn vẽ hình xong trong ≤ 5 phút trên laptop, không cần mạng.
@@ -582,7 +582,7 @@
   - Phụ thuộc: T12, T16a
   - File: `configs/profiles/demo.yaml`, `configs/experiments/demo.yaml`, `docs/DEMO.md`
 
-- [ ] **T24 · Báo cáo và khuyến nghị** — TV3 viết chính, cả nhóm cùng viết · M
+- [ ] **T24 · Báo cáo và khuyến nghị** — TV3 viết chính, cả nhóm cùng viết · M · khung `docs/report/` xong (`42202c9`); còn kết quả, khuyến nghị, phụ lục
   - Mô tả: báo cáo tiếng Việt. Có sơ đồ kiến trúc (REQ-11). Khuyến nghị ghi mức bằng chứng: chính khi "ủng hộ", tạm khi "gợi ý" (REQ-13). Có mục hạn chế đủ theo INT-4, phụ lục attempt `failed`/`diverged` (INT-3), và phụ lục các `code_version` bị thay thế (INT-6).
   - Chấp nhận:
     - Mọi nhận định dẫn chiếu hình hay bảng và run ID; mọi hình trong báo cáo có trong PROVENANCE.
@@ -654,7 +654,7 @@ T22a, T22b và T09c là code của lưới: phải xong trước T14b (E0a), đ�
   - Phụ thuộc: T09a, T02b
   - File: `src/dfl/learning/models.py`, `src/dfl/config.py`, `tests/unit/test_models.py`
 
-- [ ] **T27a · E8: thẻ tiền đăng ký + cấu hình** — TV3 · S · ∥ T14c
+- [ ] **T27a · E8: thẻ tiền đăng ký + cấu hình** — TV3 · S · ∥ T14c · thẻ, cấu hình đã commit (`5426121`); người dùng duyệt dry-run 72 lượt ngày 2026-10-21
   - Mô tả: thẻ `docs/experiments/E8.md` ghi H8 và quy tắc kết luận (ADR-011). `configs/experiments/e8_model_complexity.yaml` có lưới {M0, M1, M2, M3} × {T1, T3, T4} × {IID, α = 0.1} × 3 seed = 72 lượt, với N = 8, τ = 20, R theo T13, `runtime: processes`, `deploy: local`; nếu có T22c thì thêm 4 ô {M1, M3} × {T1, T4} × IID, seed 0, với `deploy: docker`. Thẻ được commit trên nhánh `grid` trước khi chạy (EXP-1).
   - Chấp nhận:
     - Thẻ có trước mọi lượt E8 trong lịch sử git.
@@ -672,7 +672,7 @@ T22a, T22b và T09c là code của lưới: phải xong trước T14b (E0a), đ�
   - Phụ thuộc: T27a
   - File: `docs/experiments/E8.md`
 
-- [ ] **T27c · E8: phân tích, hình P10–P11** — TV1 · M · ∥ T18a
+- [ ] **T27c · E8: phân tích, hình P10–P11** — TV1 · M · ∥ T18a · P10, P11 và H8 (`analysis/hypotheses.py`, không tách `analysis/comm_cost.py` riêng) xong code; còn chạy E8
   - Mô tả: `analysis/comm_cost.py` tính byte/round, `comm_s`, tỉ lệ giao tiếp trên tính toán theo số tham số và topology. Hai hình mới: P10 (byte/round và `comm_s` theo số tham số, trục log) và P11 (accuracy theo byte tích lũy). Kết luận H8 ghi vào thẻ.
   - Chấp nhận:
     - P10, P11 sinh bằng một lệnh từ `results/`, mỗi hình một `code_version`.
