@@ -1104,3 +1104,10 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - `describe.describe_shapes` (1,000 đồ thị mỗi dòng, luồng graph như lượt chạy): ER theo p ∈ {0.10 … 0.50} với tần suất liên thông của đồ thị thô, xấp xỉ Poisson exp(−N(1 − p)^{N−1}), bậc và tỉ lệ hub/leaf của đồ thị liên thông, spectral gap TB; BA theo m ∈ {1, 2, 3}. CLI in hai bảng mới và ghi `shapes` vào describe.json
 - Chạy trên MNIST (N = 20, 20 seed, build/describe, 7 s): ER p = 0.3 có 54% hub, 4% leaf, liên thông 98.2% (Poisson 97.7%); BA m = 2 có 17% hub, 46% leaf; lattice bậc 4, gap 0.276; REQ-02 vẫn đạt
 - Kiểm chứng: `make check-task` 1038 test xanh, 129 s
+
+## 2026-10-21 — Phiên #21 (tiếp) — T31f: demo chia dữ liệu từng bước
+- `scripts/demo_partition.py` (chạy `python -m scripts.demo_partition` từ gốc repo để import được `analysis`): làm lại từng bước Dirichlet (xáo, rút Dir_N(α), node đầy không nhận thêm, cắt theo tỉ lệ tích lũy, rút lại khi node < min_size) và #C = k (nhãn của node, chia đều mẫu mỗi nhãn cho các chủ) với đúng thứ tự rút số của partition.py; kiểm trùng từng chỉ số với partitioner
+- Bảng: ảnh hưởng của α (Nα, CV lý thuyết √((N − 1)/(Nα + 1)), JS, số lớp ≥ 5%, % ô rỗng, kích thước), của k, các cách chia khác (quantity, shards, rare_classes), so giữa dataset; hình alpha_effect.png và P7-describe.png
+- Trên MNIST (N = 20, 5 seed, 6 s): α ≥ 10 gần IID (JS ≤ 0.022); α = 0.1 có 53% ô node×lớp rỗng; #C = 2 (JS 0.614) gần α = 0.05 (0.633). Trả lời câu hỏi của GVHD về #C = k: hai node cùng giữ một nhãn nhận số mẫu chênh tối đa 1; ngẫu nhiên là node nào giữ nhãn nào
+- Đang tải CIFAR-10 (`python -m dfl download cifar10`, chậm) để chạy lại phần so giữa dataset
+- Kiểm chứng: `make check-task` 1044 test xanh, 132 s

@@ -849,10 +849,10 @@ T22a, T22b và T09c là code của lưới: phải xong trước T14b (E0a), đ�
   - Phụ thuộc: T31d
   - File: `src/dfl/sim/describe.py`, `tests/integration/test_describe.py`
 
-- [ ] **T31f · Demo chia dữ liệu từng bước** — nhánh `binh` · M
+- [x] **T31f · Demo chia dữ liệu từng bước** — nhánh `binh` · M
   - Mô tả: `scripts/demo_partition.py`: làm lại từng bước Dirichlet, #C = k, quantity, shards trên nhãn thật (MNIST, CIFAR-10 nếu có), in các bước trung gian, kiểm kết quả trùng partitioner của dự án; bảng ảnh hưởng của α (và Nα) và của k; so giữa dataset.
   - Chấp nhận: kết quả từng bước trùng từng chỉ số với partitioner; bảng in ra khớp `describe`.
-  - Kiểm chứng: `make check-task`; `python scripts/demo_partition.py --out build/demo_partition`
+  - Kiểm chứng: `make check-task`; `python -m scripts.demo_partition --out build/demo_partition`
   - Phụ thuộc: T31a
   - File: `scripts/demo_partition.py`, `tests/integration/test_demo_partition.py`
 
