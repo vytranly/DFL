@@ -1059,3 +1059,10 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - Manifest thêm `graph_edges` (đồ thị tĩnh; null với gossip, ER-gossip, server, central, attempt chưa lắp); `Assembly.graph_edges`, `RunSetup` và `ProcessRun` mang nó tới `build_manifest`
 - Test mới: 17 unit (partition, vị trí), 12 cấu hình, 4 manifest, 11 tích hợp E7 (hub/edge trên 3 seed, G9 giữa ba vị trí, cạnh theo topology, manifest của lượt thật), T-INV-5 cho rare_classes, T-INV-13 trên một ô E7 (BA, hub)
 - Kiểm chứng: `make check-task` 976 test xanh, 115 s (vượt ngân sách 90 s vì lưới của phiên `dfl-5f` chạy song song; chỉ cảnh báo); `make check-inv` 88 xanh; e2e 9 xanh
+
+## 2026-10-21 — Phiên #21 (tiếp) — T30d: P14, P15
+- `analysis/centrality.py`: bậc từ `graph_edges` (lỗi rõ khi thiếu), node giữ lớp hiếm từ `node_class_counts`, độ đo H9 (accuracy cuối trung bình của node không giữ lớp hiếm), hiệu hub − edge ghép cặp theo seed, tải byte cuối không có server ảo. Bản sao `RARE_CLASSES` được test tích hợp giữ trùng với `dfl.data.partition`
+- `plots.py`: `select_e7`, P14 (accuracy cuối theo bậc, mỗi vị trí một ô, hai nhóm node khác cả màu lẫn hình dạng) và P15 (đồ thị mạng ở seed chung, cùng bố cục, màu tuần tự một sắc theo accuracy, cỡ theo tải byte, viền đen cho node giữ lớp hiếm); mục FIGURES riêng như đã hẹn với phiên `dfl-5f`
+- Validator của skill dataviz không còn trong thư mục tạm: cặp xanh–cam lấy từ TOPOLOGY_COLORS đã qua validator ở T29c, cộng mã hóa thứ hai bằng hình dạng điểm
+- Vẽ thử trên 6 lượt E7 tổng hợp (N = 12, ở build/e7-draft) và xem hình: sửa cỡ tiêu đề và màu chữ số hiệu node trên node đậm
+- Kiểm chứng: `make check-task` 988 test xanh, 169 s (lưới của `dfl-5f` chạy song song)

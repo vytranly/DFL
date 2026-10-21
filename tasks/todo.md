@@ -796,7 +796,7 @@ T22a, T22b và T09c là code của lưới: phải xong trước T14b (E0a), đ�
   - Phụ thuộc: T30b
   - File: `src/dfl/data/partition.py`, `src/dfl/config.py`, `src/dfl/sim/run.py`, `src/dfl/io/manifest.py`, `src/dfl/contracts.py`, `src/dfl/sim/process_runtime.py`, `configs/base.yaml`, test tương ứng
 
-- [ ] **T30d · Analysis: bậc từ manifest, P14 và P15** — nhánh `binh` · M
+- [x] **T30d · Analysis: bậc từ manifest, P14 và P15** — nhánh `binh` · M
   - Mô tả: `analysis/centrality.py` (bậc, node giữ lớp hiếm, độ đo của H9); `plots.py` vẽ P14 (accuracy cuối theo bậc) và P15 (đồ thị mạng tô màu theo accuracy, cỡ theo tải byte).
   - Chấp nhận: hai hình sinh được từ kết quả giả và từ lượt smoke thật (`--draft`), có đơn vị, bảng màu an toàn và mục trong PROVENANCE; lượt thiếu `graph_edges` báo lỗi rõ.
   - Kiểm chứng: `make check-task`

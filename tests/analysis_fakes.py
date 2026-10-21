@@ -23,11 +23,19 @@ BASE_CONFIG: dict[str, object] = {
     "mixing": "metropolis_hastings",
     "model": "smallcnn",
     "num_nodes": 4,
-    "partition": {"alpha": None, "beta": None, "k": None, "min_size": 64, "scheme": "iid"},
+    "partition": {
+        "alpha": None,
+        "beta": None,
+        "holders": None,
+        "k": None,
+        "min_size": 64,
+        "placement": "random",
+        "scheme": "iid",
+    },
     "runtime": "inprocess",
     "seed": 0,
     "threads": 1,
-    "topology": {"kind": "ring", "p": None},
+    "topology": {"kind": "ring", "m": None, "p": None},
 }
 
 
@@ -116,8 +124,10 @@ def write_run(
     env_match: bool = True,
     machine: str = MACHINE,
     final_eval_split: str | None = None,
-    final_acc: float = 0.9,
+    final_acc: float | list[float] = 0.9,
     timing: list[dict[str, object]] | None = None,
+    graph_edges: list[list[int]] | None = None,
+    class_counts: list[list[int]] | None = None,
 ) -> Path:
     """Một attempt trong `root`/runs/<run_id>/attempt-<k>/; status ok, diverged, failed hay None (bị ngắt)."""
     cfg = cfg if cfg is not None else config()
@@ -143,7 +153,8 @@ def write_run(
         "spectral_gap": 0.5,
         "objective_weights": [1 / n] * n,
         "objective_shift_tv": 0.0,
-        "node_class_counts": [[10] * 10 for _ in range(n)],
+        "node_class_counts": class_counts if class_counts is not None else [[10] * 10 for _ in range(n)],
+        "graph_edges": graph_edges,
     }
     (path / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
     (path / "rounds.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rounds), encoding="utf-8")
@@ -151,6 +162,7 @@ def write_run(
     (path / "timing.jsonl").write_text("".join(json.dumps(t) + "\n" for t in timing), encoding="utf-8")
     last = rounds[-1] if rounds else {"messages_cum": 0, "bytes_cum": 0}
     split = final_eval_split or cfg["eval"]["split"]
+    per_node = list(final_acc) if isinstance(final_acc, list) else [final_acc] * n
     summaries: dict[str, dict[str, object]] = {
         "ok": {
             "status": "ok",
@@ -158,10 +170,10 @@ def write_run(
             "bytes_total": last["bytes_cum"],
             "final_eval_split": split,
             "final_eval_size": 10_000 if split == "test" else 5_000,
-            "final_acc_per_node": [final_acc] * n,
-            "final_acc_local_per_node": [final_acc] * n,
-            "final_f1_macro_per_node": [final_acc] * n,
-            "final_acc_avg_model": final_acc,
+            "final_acc_per_node": per_node,
+            "final_acc_local_per_node": per_node,
+            "final_f1_macro_per_node": per_node,
+            "final_acc_avg_model": sum(per_node) / n,
         },
         "diverged": {
             "status": "diverged",

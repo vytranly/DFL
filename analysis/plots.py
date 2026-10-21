@@ -1,5 +1,5 @@
-"""Vẽ hình từ kết quả: khung chung, P1, P7, P12 và P13 (module analysis; T16a, T29c; SPEC INT-1, INT-2, INT-6,
-REQ-10; KH §3.8; ADR-013).
+"""Vẽ hình từ kết quả: khung chung, P1, P7, P12, P13, P14 và P15 (module analysis; T16a, T29c, T30d; SPEC
+INT-1, INT-2, INT-6, REQ-10; KH §3.8; ADR-013, ADR-014).
 
 - `python -m analysis.plots --results results/ --out figures/` là cách duy nhất sinh hình cho báo cáo
   (INT-1):
@@ -24,6 +24,13 @@ REQ-10; KH §3.8; ADR-013).
     mỗi round của từng pha, cột chồng, trung bình qua seed.
   - P13: phân bố qua node và seed của message, byte và giây (train, comm) mỗi round; server ảo là một điểm có
     nhãn. Cần lượt ghi sau ADR-013.
+- **P14, P15** (E7, ADR-014): lượt `rare_classes`, mỗi vị trí (hub, edge, random) một ô, bậc tính từ
+  `graph_edges` của manifest (analysis/centrality.py). Cần lượt ghi sau ADR-014.
+  - P14: accuracy cuối của từng node × seed theo bậc; node giữ lớp 5–9 khác cả màu lẫn hình dạng điểm. Tiêu đề
+    ô ghi độ đo của H9 (accuracy trung bình của node không giữ lớp hiếm).
+  - P15: đồ thị mạng ở seed nhỏ nhất mà cả ba vị trí đều có; cùng bố cục cho cả ba ô (cùng đồ thị theo G9);
+    màu node là accuracy cuối trên một thang tuần tự một sắc chung cho ba ô, cỡ node là tải byte cuối, node
+    giữ lớp hiếm có viền đậm.
 
 matplotlib (backend Agg không cần màn hình; subplots; Axes.imshow; Figure.savefig):
 https://matplotlib.org/3.11.2/users/explain/figure/backends.html
@@ -32,6 +39,9 @@ https://matplotlib.org/3.11.2/api/_as_gen/matplotlib.axes.Axes.imshow.html
 https://matplotlib.org/3.11.2/api/figure_api.html
 Constrained layout chừa dải dưới cho dòng code_version (ConstrainedLayoutEngine.set(rect=…)):
 https://matplotlib.org/3.11.2/api/layout_engine_api.html
+Figure.colorbar (một thang màu cho nhiều ô): https://matplotlib.org/3.11.2/api/figure_api.html
+networkx.spring_layout (seed cố định thì bố cục cố định):
+https://networkx.org/documentation/networkx-3.7/reference/generated/networkx.drawing.layout.spring_layout.html
 """
 
 from __future__ import annotations
@@ -50,10 +60,11 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+import networkx as nx
 import numpy as np
 from matplotlib.figure import Figure
 
-from analysis import checks, comm_cost, provenance
+from analysis import centrality, checks, comm_cost, provenance
 from analysis.aggregate import AnalysisError, Run, read_experiment, scan
 
 REPO_ROOT = provenance.REPO_ROOT
@@ -426,12 +437,123 @@ def draw_p13(runs: Sequence[Run], *, draft: bool) -> Figure | None:
     return figure
 
 
+def select_e7(runs: Sequence[Run], *, draft: bool) -> list[Run]:
+    """Lượt E7 của P14, P15: cách chia rare_classes với một trong ba vị trí (ADR-014)."""
+    return [
+        r
+        for r in runs
+        if r.config["partition"]["scheme"] == "rare_classes"
+        and centrality.placement(r) in centrality.PLACEMENTS
+    ]
+
+
+# P14: hai nhóm node, khác cả màu lẫn hình dạng điểm (mã hóa thứ hai cho người mù màu). Cặp xanh–cam này kề
+# nhau trong TOPOLOGY_COLORS, đã qua validator của skill dataviz ở T29c.
+HOLDER_STYLE = {"color": OKABE_ITO[5], "marker": "D", "s": 40, "edgecolors": "white", "linewidths": 0.8}
+OTHER_STYLE = {"color": OKABE_ITO[4], "marker": "o", "s": 24, "edgecolors": "white", "linewidths": 0.5}
+# P15: thang tuần tự một sắc, nhạt → đậm theo accuracy.
+ACCURACY_CMAP = "Blues"
+EDGE_COLOR = "#B0B0B0"
+
+
+def _by_placement(runs: Sequence[Run]) -> dict[str, list[Run]]:
+    groups: dict[str, list[Run]] = defaultdict(list)
+    for run in runs:
+        if run.status == "ok":
+            groups[centrality.placement(run)].append(run)
+    return {
+        name: sorted(groups[name], key=lambda r: r.seed) for name in centrality.PLACEMENTS if groups[name]
+    }
+
+
+def draw_p14(runs: Sequence[Run], *, draft: bool) -> Figure | None:
+    """P14: accuracy cuối của từng node theo bậc, mỗi vị trí một ô (ADR-014)."""
+    groups = _by_placement(runs)
+    if not groups:
+        return None
+    figure, axes = _figure(len(groups), 5 * len(groups), sharey=True)
+    for ax, (name, group) in zip(axes[0], groups.items(), strict=True):
+        for i, run in enumerate(group):
+            # Dời ngang theo seed, tất định, để các node cùng bậc của nhiều seed không chồng hẳn lên nhau.
+            x = centrality.degrees(run) + 0.08 * (i - (len(group) - 1) / 2)
+            y = 100 * centrality.final_accuracy(run)
+            held = centrality.holders(run)
+            ax.scatter(x[~held], y[~held], label="không giữ lớp 5–9" if i == 0 else None, **OTHER_STYLE)
+            ax.scatter(x[held], y[held], label="giữ lớp 5–9" if i == 0 else None, zorder=3, **HOLDER_STYLE)
+        measure = 100 * np.mean([centrality.non_holder_accuracy(run) for run in group])
+        ax.set_title(f"{name} · node không giữ lớp 5–9: {measure:.1f}% ({len(group)} seed)", fontsize=9)
+        ax.set_xlabel("bậc của node")
+        ax.grid(alpha=0.3)
+    axes[0][0].set_ylabel("accuracy cuối trên đủ tập test (%)")
+    axes[0][0].legend(fontsize=7)
+    figure.suptitle("P14 · accuracy cuối của từng node theo bậc (E7: lớp 5–9 chỉ ở K node, đặt theo vị trí)")
+    _stamp(figure, [run for group in groups.values() for run in group], draft=draft)
+    return figure
+
+
+def draw_p15(runs: Sequence[Run], *, draft: bool) -> Figure | None:
+    """P15: đồ thị mạng của một seed chung, màu theo accuracy, cỡ theo tải byte (ADR-014)."""
+    groups = _by_placement(runs)
+    if not groups:
+        return None
+    common = set.intersection(*({r.seed for r in group} for group in groups.values()))
+    if not common:
+        raise AnalysisError(f"P15 cần một seed có ở mọi vị trí {list(groups)}; không có seed chung")
+    seed = min(common)
+    chosen = {name: next(r for r in group if r.seed == seed) for name, group in groups.items()}
+    accuracy = {name: 100 * centrality.final_accuracy(run) for name, run in chosen.items()}
+    loads = {name: centrality.final_byte_load(run) for name, run in chosen.items()}
+    low = min(float(a.min()) for a in accuracy.values())
+    high = max(float(a.max()) for a in accuracy.values())
+    heaviest = max(float(load.max()) for load in loads.values()) or 1.0
+    figure, axes = _figure(len(chosen), 5 * len(chosen) + 1)
+    mappable = None
+    for ax, (name, run) in zip(axes[0], chosen.items(), strict=True):
+        degree = centrality.degrees(run)
+        graph = nx.Graph()
+        graph.add_nodes_from(range(len(degree)))
+        graph.add_edges_from(run.manifest["graph_edges"])
+        layout = nx.spring_layout(graph, seed=0)
+        nx.draw_networkx_edges(graph, layout, ax=ax, edge_color=EDGE_COLOR, width=1)
+        xy = np.array([layout[i] for i in range(len(degree))])
+        held = centrality.holders(run)
+        mappable = ax.scatter(
+            xy[:, 0],
+            xy[:, 1],
+            c=accuracy[name],
+            cmap=ACCURACY_CMAP,
+            vmin=low,
+            vmax=high,
+            s=60 + 540 * loads[name] / heaviest,
+            edgecolors=np.where(held, "#000000", "white"),
+            linewidths=np.where(held, 2.5, 0.8),
+            zorder=3,
+        )
+        # Chữ trắng trên nửa đậm của thang màu, chữ đen trên nửa nhạt, để số hiệu node luôn đọc được.
+        middle = (low + high) / 2
+        for i, (x, y) in enumerate(xy):
+            ink = "white" if accuracy[name][i] > middle else "black"
+            ax.annotate(str(i), (x, y), fontsize=6, ha="center", va="center", color=ink, zorder=4)
+        held_degrees = sorted(degree[held].tolist())
+        ax.set_title(f"{name} · seed {seed} · bậc của node giữ lớp 5–9: {held_degrees}", fontsize=9)
+        ax.set_axis_off()
+    figure.colorbar(mappable, ax=list(axes[0]), label="accuracy cuối (%)", shrink=0.8)
+    figure.suptitle(
+        f"P15 · đồ thị mạng ở seed {seed}: màu = accuracy cuối, cỡ = tải byte cuối, "
+        "viền đen = node giữ lớp 5–9"
+    )
+    _stamp(figure, list(chosen.values()), draft=draft)
+    return figure
+
+
 # Tên hình → (nhóm thí nghiệm cấp dữ liệu khi không có --draft, hàm chọn lượt, hàm vẽ).
 FIGURES: dict[str, tuple[tuple[str, ...], Callable[..., list[Run]], Callable[..., Figure | None]]] = {
     "P1": (("e1_noniid", "e0b_sanity"), select_p1, draw_p1),
     "P7": (("e1_noniid",), select_p7, draw_p7),
     "P12": (("e1_noniid", "e2_topology", "e0b_sanity"), select_comm, draw_p12),
     "P13": (("e1_noniid", "e2_topology", "e0b_sanity"), select_comm, draw_p13),
+    "P14": (("e7_centrality",), select_e7, draw_p14),
+    "P15": (("e7_centrality",), select_e7, draw_p15),
 }
 
 

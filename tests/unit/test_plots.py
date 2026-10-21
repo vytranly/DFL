@@ -3,6 +3,7 @@ PROVENANCE, dữ liệu của P1 và P7 (T16a; SPEC INT-1, INT-2, INT-6, REQ-10)
 cây: kiểm "analysis/ bẩn" bằng cách thay hàm kiểm, và thư mục results/ của repo được thay bằng thư mục tạm.
 """
 
+import dataclasses
 import json
 import shutil
 from pathlib import Path
@@ -223,3 +224,91 @@ def test_a_draft_draws_p12_and_p13_with_their_provenance(tmp_path: Path) -> None
     for name in ("P12", "P13"):
         assert (tmp_path / "out" / f"{name}.png").stat().st_size > 0
         assert record["figures"][name]["run_ids"] == ["ring-0", "ring-1"]
+
+
+# ------------------------------------------------------------------------------------------- E7: P14, P15
+
+E7_EDGES = [[0, 1], [0, 2], [0, 3], [0, 4], [1, 2], [2, 3]]
+
+
+def e7_runs(root: Path, *, with_ring: bool = False) -> list[aggregate.Run]:
+    """Ba vị trí × 2 seed trên cùng đồ thị 5 node; node giữ lớp hiếm là hub (0), lá (4) hay node 2."""
+    holder = {"hub": 0, "edge": 4, "random": 2}
+    for placement, node in holder.items():
+        for seed in (0, 1):
+            cfg = config(
+                seed=seed,
+                num_nodes=5,
+                topology={"kind": "barabasi_albert", "m": 2, "p": None},
+                partition={
+                    "alpha": None,
+                    "beta": None,
+                    "holders": 1,
+                    "k": None,
+                    "min_size": 64,
+                    "placement": placement,
+                    "scheme": "rare_classes",
+                },
+            )
+            counts = [[10] * 10 if i == node else [10] * 5 + [0] * 5 for i in range(5)]
+            write_run(
+                root,
+                f"{placement}-{seed}",
+                cfg=cfg,
+                rounds=curve([0.5, 0.8], nodes=5),
+                graph_edges=E7_EDGES,
+                class_counts=counts,
+                final_acc=[0.6 + 0.05 * i for i in range(5)],
+            )
+    if with_ring:
+        write_run(root, "ring-0", cfg=config())
+    return [a.finished for a in aggregate.scan(root) if a.finished is not None]
+
+
+def test_e7_figures_take_only_rare_class_runs(tmp_path: Path) -> None:
+    runs = plots.select_e7(e7_runs(tmp_path, with_ring=True), draft=False)
+
+    assert len(runs) == 6 and {r.config["partition"]["scheme"] for r in runs} == {"rare_classes"}
+
+
+def test_p14_has_one_panel_per_placement_with_degree_and_accuracy_axes(tmp_path: Path) -> None:
+    runs = plots.select_e7(e7_runs(tmp_path), draft=False)
+
+    figure = plots.draw_p14(runs, draft=False)
+
+    panels = [ax for ax in figure.axes if ax.get_xlabel()]
+    assert [ax.get_title().split(" · ")[0] for ax in panels] == ["hub", "edge", "random"]
+    assert {ax.get_xlabel() for ax in panels} == {"bậc của node"}
+    assert panels[0].get_ylabel() == "accuracy cuối trên đủ tập test (%)"
+    legend = {t.get_text() for t in panels[0].get_legend().get_texts()}
+    assert legend == {"giữ lớp 5–9", "không giữ lớp 5–9"}
+
+
+def test_p15_draws_seed_0_of_each_placement_with_an_accuracy_colorbar(tmp_path: Path) -> None:
+    runs = plots.select_e7(e7_runs(tmp_path), draft=False)
+
+    figure = plots.draw_p15(runs, draft=False)
+
+    titles = [ax.get_title() for ax in figure.axes if ax.get_title()]
+    assert [t.split(" · ")[0] for t in titles] == ["hub", "edge", "random"]
+    assert any(ax.get_ylabel() == "accuracy cuối (%)" for ax in figure.axes)
+    assert "seed 0" in figure.get_suptitle()
+
+
+def test_e7_figures_refuse_runs_without_the_graph(tmp_path: Path) -> None:
+    runs = plots.select_e7(e7_runs(tmp_path), draft=False)
+    broken = [dataclasses.replace(runs[0], manifest={**runs[0].manifest, "graph_edges": None}), *runs[1:]]
+
+    with pytest.raises(AnalysisError, match="graph_edges"):
+        plots.draw_p14(broken, draft=False)
+
+
+def test_a_draft_draws_p14_and_p15_with_their_provenance(tmp_path: Path) -> None:
+    e7_runs(tmp_path)
+
+    assert plots.main(["--results", str(tmp_path), "--out", str(tmp_path / "out"), "--draft"]) == 0
+
+    record = json.loads((tmp_path / "out" / "PROVENANCE.json").read_text())
+    for name in ("P14", "P15"):
+        assert (tmp_path / "out" / f"{name}.png").stat().st_size > 0
+        assert len(record["figures"][name]["run_ids"]) == 6
