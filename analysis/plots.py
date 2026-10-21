@@ -51,10 +51,12 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 from matplotlib.figure import Figure
 
-from analysis import checks, comm_cost, provenance
+from analysis import checks, comm_cost, hypotheses, provenance, stats
 from analysis.aggregate import AnalysisError, Run, read_experiment, scan
+from analysis.convergence import Reach, bytes_at, median_reach, oscillation, run_reach
 
 REPO_ROOT = provenance.REPO_ROOT
 RESULTS_ROOT = REPO_ROOT / "results"
@@ -83,15 +85,23 @@ def _kind(run: Run) -> str:
     return run.config["topology"]["kind"]
 
 
+def _keep_common(runs: Sequence[Run]) -> list[Run]:
+    """Chỉ giữ η và model phổ biến nhất: lượt độ nhạy η/2, 2η của E0b, hay lượt E8 trong một thư mục --draft,
+    không lọt vào hình của lưới lõi."""
+    kept = list(runs)
+    for value in (lambda r: r.config["algorithm"]["lr"], lambda r: r.config["model"]):
+        if kept:
+            common = Counter(value(r) for r in kept).most_common(1)[0][0]
+            kept = [r for r in kept if value(r) == common]
+    return kept
+
+
 def select_p1(runs: Sequence[Run], *, draft: bool) -> list[Run]:
     """Lượt DFL của learning curve; ở --draft nhận mọi τ của profile."""
     dfl = [r for r in runs if _kind(r) not in BASELINE_KINDS and r.config["algorithm"]["mu"] == 0]
     if not draft:
         dfl = [r for r in dfl if r.config["algorithm"]["tau"] == 20]
-    if not dfl:
-        return []
-    common = Counter(r.config["algorithm"]["lr"] for r in dfl).most_common(1)[0][0]
-    return [r for r in dfl if r.config["algorithm"]["lr"] == common]
+    return _keep_common(dfl)
 
 
 def select_comm(runs: Sequence[Run], *, draft: bool) -> list[Run]:
@@ -99,14 +109,11 @@ def select_comm(runs: Sequence[Run], *, draft: bool) -> list[Run]:
     sent = [r for r in runs if _kind(r) not in ("central", "local_only") and r.config["algorithm"]["mu"] == 0]
     if not draft:
         sent = [r for r in sent if r.config["algorithm"]["tau"] == 20]
-    if not sent:
-        return []
-    common = Counter(r.config["algorithm"]["lr"] for r in sent).most_common(1)[0][0]
-    return [r for r in sent if r.config["algorithm"]["lr"] == common]
+    return _keep_common(sent)
 
 
 def select_p7(runs: Sequence[Run], *, draft: bool) -> list[Run]:
-    return [r for r in runs if _kind(r) not in ("central",)]
+    return _keep_common([r for r in runs if _kind(r) not in ("central",)])
 
 
 def learning_curves(
@@ -426,13 +433,601 @@ def draw_p13(runs: Sequence[Run], *, draft: bool) -> Figure | None:
     return figure
 
 
+# ---------------------------------------------------------------- P2–P6, P8–P11 và bảng T1 (T16b, T16c, T27c)
+
+TOPOLOGY_ORDER = ("ring", "erdos_renyi", "gossip", "er_gossip", "fully_connected", "server", "star")
+LEVEL_ORDER = ("IID", "α = 100", "α = 1", "α = 0.5", "α = 0.1", "α = 0.05", "#C = 2", "#C = 1", "β = 0.5")
+CORE = ("e0b_sanity", "e1_noniid", "e2_topology")
+
+
+def topology_color(kind: str) -> str:
+    """Màu cố định theo topology, cùng màu ở mọi hình P2–P6, P8, P9 (TOPOLOGY_COLORS đã qua validator)."""
+    if kind not in TOPOLOGY_ORDER:
+        return OKABE_ITO[7]
+    return TOPOLOGY_COLORS[TOPOLOGY_ORDER.index(kind) % len(TOPOLOGY_COLORS)]
+
+
+def _order(kind: str) -> int:
+    return TOPOLOGY_ORDER.index(kind) if kind in TOPOLOGY_ORDER else len(TOPOLOGY_ORDER)
+
+
+def _level_order(name: str) -> int:
+    return LEVEL_ORDER.index(name) if name in LEVEL_ORDER else len(LEVEL_ORDER)
+
+
+def _groups(runs: Sequence[Run], key: Callable[[Run], Any]) -> dict[Any, list[Run]]:
+    groups: dict[Any, list[Run]] = defaultdict(list)
+    for run in runs:
+        if run.status == "ok":
+            groups[key(run)].append(run)
+    return dict(groups)
+
+
+def final_acc(run: Run) -> float:
+    values = run.summary["final_acc_per_node"]
+    return sum(values) / len(values)
+
+
+def _mean_half(values: Sequence[float]) -> tuple[float, float]:
+    """Trung bình và nửa độ rộng CI 95% (t) qua seed; một seed thì nửa độ rộng 0."""
+    if len(values) < 2:
+        return float(np.mean(values)), 0.0
+    estimate = stats.mean_ci(values)
+    return estimate.mean, estimate.high - estimate.mean
+
+
+def _every(run: Run) -> int:
+    return run.config["eval"]["every_steps"] or run.config["algorithm"]["tau"]
+
+
+def reach95(run: Run) -> Reach:
+    return run_reach(run, 0.95, every=_every(run))
+
+
+def bytes95(run: Run) -> float:
+    steps = [float(r["local_steps"]) for r in run.rounds]
+    return bytes_at(steps, [float(r["bytes_cum"]) for r in run.rounds], reach95(run))
+
+
+def _mean_series(group: Sequence[Run], field: str) -> tuple[np.ndarray, np.ndarray]:
+    steps = np.array([r["local_steps"] for r in group[0].rounds], dtype=float)
+    return steps, np.mean([[float(r[field]) for r in run.rounds] for run in group], axis=0)
+
+
+def select_core(runs: Sequence[Run], *, draft: bool) -> list[Run]:
+    """Lượt DFedAvg của lưới lõi (như P1): τ = 20, μ = 0, MH, η chung; ở --draft nhận mọi τ."""
+    return [r for r in select_p1(runs, draft=draft) if r.config["mixing"] == "metropolis_hastings"]
+
+
+def draw_p2(runs: Sequence[Run], *, draft: bool) -> Figure | None:
+    """P2: accuracy cuối (trung bình ± CI 95%, kèm điểm từng seed) theo JS đo được; mỗi đường một topology."""
+    groups = _groups(runs, lambda r: (_kind(r), level(r)))
+    if not groups:
+        return None
+    figure, axes = _figure(1, 9)
+    ax = axes[0][0]
+    labelled: set[str] = set()
+    for rank, kind in enumerate(sorted({k for k, _ in groups}, key=_order)):
+        color = topology_color(kind)
+        width = max(1.2, 3.0 - 0.5 * rank)  # đường vẽ trước dày hơn, nên vẫn lộ viền khi trùng đường sau
+        for schemes, marker, style, scale in (
+            (("iid", "dirichlet"), "o", "-", "Dirichlet"),
+            (("iid", "label_k"), "s", ":", "#C"),
+        ):
+            points = []
+            for name in sorted({n for k, n in groups if k == kind}, key=_level_order):
+                group = groups[(kind, name)]
+                if group[0].config["partition"]["scheme"] not in schemes:
+                    continue
+                xs = [hypotheses.js_mean(r.manifest["node_class_counts"]) for r in group]
+                ys = [100 * final_acc(r) for r in group]
+                ax.scatter(xs, ys, s=10, color=color, alpha=0.35, marker=marker)
+                mean, half = _mean_half(ys)
+                points.append((float(np.mean(xs)), mean, half, name))
+            if len(points) < 2 and scale == "#C":
+                continue
+            if points:
+                x, y, h, names = zip(*points, strict=True)
+                ax.errorbar(
+                    x,
+                    y,
+                    yerr=h,
+                    color=color,
+                    marker=marker,
+                    linestyle=style,
+                    linewidth=width,
+                    capsize=3,
+                    label=f"{kind} · {scale}",
+                )
+                for xi, yi, name in zip(x, y, names, strict=True):
+                    if name not in labelled:
+                        ax.annotate(name, (xi, yi), textcoords="offset points", xytext=(4, 6), fontsize=7)
+                        labelled.add(name)
+    ax.set_xlabel("JS đo được của partition (bit)")
+    ax.set_ylabel("accuracy cuối trên đủ tập test (%)")
+    ax.grid(alpha=0.3)
+    ax.legend(fontsize=7)
+    ax.set_title("trung bình ± CI 95% qua seed; điểm nhạt là từng seed")
+    figure.suptitle("P2 · accuracy cuối theo mức Non-IID")
+    _stamp(figure, runs, draft=draft)
+    return figure
+
+
+def _heatmap(
+    ax: Any, matrix: np.ndarray, rows: Sequence[str], cols: Sequence[str], text: Callable[[float], str]
+) -> Any:
+    image = ax.imshow(np.ma.masked_invalid(matrix), aspect="auto", cmap="viridis")
+    finite = matrix[np.isfinite(matrix)]
+    low, high = (finite.min(), finite.max()) if finite.size else (0.0, 0.0)
+    ax.set_xticks(range(len(cols)), cols, rotation=30)
+    ax.set_yticks(range(len(rows)), rows)
+    for i in range(len(rows)):
+        for j in range(len(cols)):
+            value = matrix[i, j]
+            if math.isnan(value):
+                continue
+            # viridis sáng dần về phía vàng: nửa trên của thang dùng chữ đen.
+            bright = high > low and (value - low) / (high - low) > 0.5
+            ax.text(
+                j, i, text(value), ha="center", va="center", fontsize=7, color="black" if bright else "white"
+            )
+    return image
+
+
+def draw_p3(runs: Sequence[Run], *, draft: bool) -> Figure | None:
+    """P3: heatmap topology × mức Non-IID của (a) accuracy cuối, (b) trung vị R@95 theo bước (H2)."""
+    groups = _groups(runs, lambda r: (_kind(r), level(r)))
+    if not groups:
+        return None
+    kinds = sorted({k for k, _ in groups}, key=_order)
+    names = sorted({n for _, n in groups}, key=_level_order)
+    acc = np.full((len(kinds), len(names)), np.nan)
+    r95 = np.full((len(kinds), len(names)), np.nan)
+    unreached = np.zeros((len(kinds), len(names)), dtype=bool)
+    for (kind, name), group in groups.items():
+        i, j = kinds.index(kind), names.index(name)
+        acc[i, j] = 100 * float(np.mean([final_acc(r) for r in group]))
+        step = float(np.median([reach95(r).step for r in group]))
+        unreached[i, j] = math.isinf(step)
+        r95[i, j] = step
+    figure, axes = _figure(2, 14)
+    image = _heatmap(axes[0][0], acc, kinds, names, lambda v: f"{v:.1f}")
+    figure.colorbar(image, ax=axes[0][0], label="accuracy cuối (%)")
+    finite = np.where(unreached, np.nan, r95)
+    image = _heatmap(axes[0][1], finite, kinds, names, lambda v: f"{v:.0f}")
+    for i, j in zip(*np.nonzero(unreached), strict=True):
+        axes[0][1].text(j, i, "> ngân\nsách", ha="center", va="center", fontsize=6)
+    figure.colorbar(image, ax=axes[0][1], label="trung vị R@95 (bước cục bộ)")
+    axes[0][0].set_title("(a) accuracy cuối, trung bình qua seed")
+    axes[0][1].set_title("(b) R@95, trung vị qua seed")
+    figure.suptitle("P3 · topology × mức Non-IID")
+    _stamp(figure, runs, draft=draft)
+    return figure
+
+
+P4_LEVELS = ("IID", "α = 1", "α = 0.1", "#C = 2")
+
+
+def draw_p4(runs: Sequence[Run], *, draft: bool) -> Figure | None:
+    """P4: phân bố qua node (và seed) của Acc_i và Acc^loc_i ở đánh giá cuối, theo topology × mức."""
+    groups = _groups(runs, lambda r: (_kind(r), level(r)))
+    keys = sorted((k for k in groups if k[1] in P4_LEVELS), key=lambda k: (_level_order(k[1]), _order(k[0])))
+    if not keys:
+        return None
+    figure, axes = _figure(2, max(10, 0.9 * len(keys) + 4), sharey=True)
+    positions = np.arange(len(keys))
+    for ax, field, title in (
+        (axes[0][0], "final_acc_per_node", "(a) Acc_i trên tập test chung"),
+        (axes[0][1], "final_acc_local_per_node", "(b) Acc^loc_i theo phân bố nhãn của node"),
+    ):
+        data = [np.concatenate([100 * np.asarray(r.summary[field]) for r in groups[k]]) for k in keys]
+        _node_boxes(ax, data, positions, [topology_color(k[0]) for k in keys], 0.6)
+        ax.set_xticks(positions, [f"{k[0]}\n{k[1]}" for k in keys], rotation=90, fontsize=7)
+        ax.set_title(title)
+        ax.grid(alpha=0.3, axis="y")
+    axes[0][0].set_ylabel("accuracy của node (%)")
+    figure.suptitle("P4 · phương sai giữa node (mỗi điểm là một node × seed)")
+    _stamp(figure, runs, draft=draft)
+    return figure
+
+
+def draw_p5(runs: Sequence[Run], *, draft: bool) -> Figure | None:
+    """P5: drift trước tổng hợp và consensus distance theo bước, theo topology, IID so với α = 0.1 (H3)."""
+    groups = _groups(runs, lambda r: (_kind(r), level(r)))
+    keys = sorted((k for k in groups if k[1] in ("IID", "α = 0.1")), key=lambda k: (_order(k[0]), k[1]))
+    if not keys:
+        return None
+    figure, axes = _figure(2, 14, sharey=True)
+    for ax, field, title in (
+        (axes[0][0], "drift_pre_combine", "(a) drift Ξ½ trước tổng hợp"),
+        (axes[0][1], "consensus_distance", "(b) consensus distance Ξ sau tổng hợp"),
+    ):
+        for kind, name in keys:
+            steps, values = _mean_series(groups[(kind, name)], field)
+            style = "--" if name == "IID" else "-"
+            ax.plot(
+                steps,
+                np.maximum(values, 1e-12),
+                color=topology_color(kind),
+                linestyle=style,
+                label=f"{kind} · {name}",
+            )
+        ax.set_yscale("log")
+        ax.set_xlabel("bước cục bộ")
+        ax.set_title(title)
+        ax.grid(alpha=0.3)
+    axes[0][0].set_ylabel("khoảng cách RMS tới trung bình (chuẩn L2 của tham số)")
+    axes[0][1].legend(fontsize=7)
+    figure.suptitle("P5 · drift và consensus distance (trung bình qua seed; nét đứt: IID, liền: α = 0.1)")
+    _stamp(figure, runs, draft=draft)
+    return figure
+
+
+def select_p6(runs: Sequence[Run], *, draft: bool) -> list[Run]:
+    """P6, P9: lượt DFL với MH và η chung ở α = 0.1 (ở --draft: mọi mức), mọi τ và μ."""
+    kept = [
+        r
+        for r in runs
+        if _kind(r) not in BASELINE_KINDS
+        and r.config["mixing"] == "metropolis_hastings"
+        and (draft or level(r) == "α = 0.1")
+    ]
+    return _keep_common(kept)
+
+
+def _config_label(run: Run) -> str:
+    algorithm = run.config["algorithm"]
+    return f"τ = {algorithm['tau']}, μ = {algorithm['mu']:g}"
+
+
+def _bytes95_label(group: Sequence[Run]) -> str:
+    values = [bytes95(r) for r in group]
+    reached = sum(math.isfinite(v) for v in values)
+    middle = float(np.median(values))
+    shown = "> ngân sách" if math.isinf(middle) else f"{middle / MB:.0f} MB"
+    return f"bytes@95 {shown}, {reached}/{len(values)} đạt"
+
+
+def _accuracy_vs_bytes(ax: Any, group: Sequence[Run], **style: Any) -> None:
+    _, acc = _mean_series(group, "acc_mean")
+    _, cost = _mean_series(group, "bytes_cum")
+    ax.plot(cost / MB, 100 * acc, **style)
+
+
+def draw_p6(runs: Sequence[Run], *, draft: bool) -> Figure | None:
+    """P6: accuracy theo byte tích lũy (trục log), (a) theo topology ở τ = 20, (b) theo τ trên ring và FC."""
+    by_topology = _groups(
+        [r for r in runs if r.config["algorithm"]["mu"] == 0],
+        lambda r: (_kind(r), r.config["algorithm"]["tau"]),
+    )
+    if not by_topology:
+        return None
+    figure, axes = _figure(2, 15, sharey=True)
+    taus = sorted({tau for _, tau in by_topology})
+    reference = 20 if 20 in taus else taus[0]
+    for (kind, tau), group in sorted(by_topology.items(), key=lambda item: (_order(item[0][0]), item[0][1])):
+        label = f"{kind} ({_bytes95_label(group)})"
+        if tau == reference:
+            _accuracy_vs_bytes(axes[0][0], group, color=topology_color(kind), label=label)
+        if kind in ("ring", "fully_connected"):
+            style = LINESTYLES[taus.index(tau) % len(LINESTYLES)]
+            _accuracy_vs_bytes(
+                axes[0][1],
+                group,
+                color=topology_color(kind),
+                linestyle=style,
+                label=f"{kind}, τ = {tau} ({_bytes95_label(group)})",
+            )
+    for ax, title in ((axes[0][0], f"(a) topology, τ = {reference}"), (axes[0][1], "(b) τ trên ring và FC")):
+        ax.set_xscale("log")
+        ax.set_xlabel("byte tích lũy của cả mạng (MB, trục log)")
+        ax.set_title(title)
+        ax.grid(alpha=0.3)
+        ax.legend(fontsize=6)
+    axes[0][0].set_ylabel("accuracy trung bình qua node (%)")
+    figure.suptitle("P6 · accuracy theo chi phí giao tiếp (trung bình qua seed; DFedAvg, μ = 0)")
+    _stamp(figure, runs, draft=draft)
+    return figure
+
+
+def expected_gossip_rate(num_nodes: int) -> float:
+    """Tốc độ trộn kỳ vọng của gossip trên K_N, 1 − √λ₂(E[W]) (ADR-009); 0.312 với N = 20."""
+    lam = 0.5 - 1 / (2 * (num_nodes - 1)) if num_nodes % 2 == 0 else 0.5
+    return 1 - math.sqrt(lam)
+
+
+def draw_p8(runs: Sequence[Run], *, draft: bool) -> Figure | None:
+    """P8: mức suy giảm ghép cặp (IID − α = 0.1) theo spectral gap của từng lượt; gossip vẽ riêng (RQ2)."""
+    groups = _groups(runs, lambda r: (_kind(r), level(r), r.seed))
+    pairs = [
+        (kind, seed, groups[(kind, "IID", seed)][0], groups[(kind, "α = 0.1", seed)][0])
+        for kind, name, seed in groups
+        if name == "IID" and (kind, "α = 0.1", seed) in groups
+    ]
+    if not pairs:
+        return None
+    figure, axes = _figure(2, 13, sharey=True, gridspec_kw={"width_ratios": [3, 1]})
+    static, dynamic = axes[0]
+    for kind in sorted({p[0] for p in pairs}, key=_order):
+        points = [
+            (skewed.manifest["spectral_gap"], 100 * (final_acc(iid) - final_acc(skewed)))
+            for k, _, iid, skewed in pairs
+            if k == kind
+        ]
+        if points[0][0] is None:
+            xs = [TOPOLOGY_ORDER.index(kind)] * len(points)
+            dynamic.scatter(xs, [y for _, y in points], color=topology_color(kind), label=kind)
+            continue
+        static.scatter([x for x, _ in points], [y for _, y in points], color=topology_color(kind), label=kind)
+    static.set_xscale("log")
+    static.set_xlabel("spectral gap của đồ thị của lượt (trục log)")
+    static.set_ylabel("mức suy giảm: Acc IID − Acc α = 0.1 (điểm %)")
+    static.set_title("(a) topology tĩnh, mỗi điểm một seed")
+    dynamic_kinds = sorted({p[0] for p in pairs if p[3].manifest["spectral_gap"] is None}, key=_order)
+    n = pairs[0][3].config["num_nodes"]
+    dynamic.set_xticks(
+        [TOPOLOGY_ORDER.index(k) for k in dynamic_kinds],
+        [
+            f"{k}\n(tốc độ trộn kỳ vọng {expected_gossip_rate(n):.3f})" if k == "gossip" else k
+            for k in dynamic_kinds
+        ],
+        fontsize=7,
+    )
+    dynamic.set_title("(b) gossip: không có spectral gap cố định")
+    for ax in (static, dynamic):
+        ax.grid(alpha=0.3)
+        if ax.get_legend_handles_labels()[0]:
+            ax.legend(fontsize=7)
+    figure.suptitle(
+        "P8 · suy giảm do Non-IID theo spectral gap (chỉ mô tả: ba cụm giá trị, lẫn với bậc và byte)"
+    )
+    _stamp(figure, runs, draft=draft)
+    return figure
+
+
+def draw_p9(runs: Sequence[Run], *, draft: bool) -> Figure | None:
+    """P9: quét τ và μ trên ring và FC: accuracy theo bước cục bộ (hàng trên) và theo byte (hàng dưới)."""
+    groups = _groups(
+        [r for r in runs if _kind(r) in ("ring", "fully_connected")], lambda r: (_kind(r), _config_label(r))
+    )
+    if not groups:
+        return None
+    configs = sorted({c for _, c in groups}, key=lambda c: [float(v.split("= ")[1]) for v in c.split(", ")])
+    figure, axes = plt.subplots(2, 2, figsize=(14, 8), squeeze=False, layout="constrained", sharey=True)
+    figure.get_layout_engine().set(rect=CONTENT_RECT)
+    for col, kind in enumerate(("ring", "fully_connected")):
+        for i, config_name in enumerate(configs):
+            group = groups.get((kind, config_name))
+            if not group:
+                continue
+            color = TOPOLOGY_COLORS[i % len(TOPOLOGY_COLORS)]
+            steps, acc = _mean_series(group, "acc_mean")
+            axes[0][col].plot(steps, 100 * acc, color=color, label=f"{config_name} ({len(group)} seed)")
+            _accuracy_vs_bytes(axes[1][col], group, color=color, label=config_name)
+        axes[0][col].set_title(kind)
+        axes[0][col].set_xlabel("bước cục bộ")
+        axes[1][col].set_xscale("log")
+        axes[1][col].set_xlabel("byte tích lũy của cả mạng (MB, trục log)")
+        if axes[0][col].get_legend_handles_labels()[0]:
+            axes[0][col].legend(fontsize=7)
+    for ax in axes.flat:
+        ax.grid(alpha=0.3)
+    for row in axes:
+        row[0].set_ylabel("accuracy trung bình qua node (%)")
+    figure.suptitle("P9 · quét τ và μ ở cùng τ·R (trung bình qua seed)")
+    _stamp(figure, runs, draft=draft)
+    return figure
+
+
+def select_e8(runs: Sequence[Run], *, draft: bool) -> list[Run]:
+    """P10, P11: lượt E8 (process runtime) của thang model."""
+    return [r for r in runs if r.config["runtime"] == "processes" and r.config["model"] in hypotheses.PARAMS]
+
+
+def _per_round(run: Run, field: str) -> float:
+    previous, values = 0, []
+    for record in run.timing:
+        values.append(float(record[field]) / (int(record["round"]) - previous))
+        previous = int(record["round"])
+    return float(np.median(values))
+
+
+def draw_p10(runs: Sequence[Run], *, draft: bool) -> Figure | None:
+    """P10: byte mỗi round, thời gian giao tiếp và tỉ lệ giao tiếp trên tính toán theo số tham số (H8)."""
+    groups = _groups([r for r in runs if r.timing], lambda r: (_kind(r), r.config["model"]))
+    if not groups:
+        return None
+    figure, axes = _figure(3, 17)
+    kinds = sorted({k for k, _ in groups}, key=_order)
+    for rank, kind in enumerate(kinds):
+        models = sorted((m for k, m in groups if k == kind), key=hypotheses.PARAMS.__getitem__)
+        params = [hypotheses.PARAMS[m] for m in models]
+        per_round = [
+            np.mean([r.rounds[-1]["bytes_cum"] / r.rounds[-1]["round"] for r in groups[(kind, m)]])
+            for m in models
+        ]
+        comm = [np.mean([_per_round(r, "comm_s") for r in groups[(kind, m)]]) for m in models]
+        train = [np.mean([_per_round(r, "train_s") for r in groups[(kind, m)]]) for m in models]
+        style = {
+            "color": topology_color(kind),
+            "marker": "o",
+            "label": kind,
+            "linestyle": LINESTYLES[rank % len(LINESTYLES)],
+            "linewidth": max(1.2, 3.0 - 0.6 * rank),
+        }
+        axes[0][0].plot(params, np.asarray(per_round) / MB, **style)
+        axes[0][1].plot(params, comm, **style)
+        axes[0][1].plot(params, train, color=topology_color(kind), marker="x", linestyle=":")
+        axes[0][2].plot(params, np.asarray(comm) / (np.asarray(comm) + np.asarray(train)), **style)
+    for ax, ylabel, title in (
+        (axes[0][0], "byte mỗi round của cả mạng (MB)", "(a) byte (tất định)"),
+        (
+            axes[0][1],
+            "giây mỗi round (trung vị qua mốc)",
+            "(b) comm (tròn) và train (×), lớn nhất qua node",
+        ),
+        (axes[0][2], "comm / (comm + train)", "(c) tỉ lệ giao tiếp trên tính toán"),
+    ):
+        ax.set_xscale("log")
+        ax.set_xlabel("số tham số của model (trục log)")
+        ax.set_ylabel(ylabel)
+        ax.set_title(title)
+        ax.grid(alpha=0.3)
+    axes[0][0].set_yscale("log")
+    axes[0][1].set_yscale("log")
+    axes[0][0].legend(fontsize=7)
+    figure.suptitle(
+        f"P10 · chi phí giao tiếp theo độ phức tạp model (runtime processes, {_runtime_note(runs)})"
+    )
+    _stamp(figure, runs, draft=draft)
+    return figure
+
+
+def _runtime_note(runs: Sequence[Run]) -> str:
+    return f"N = {runs[0].config['num_nodes']}, một máy, loopback"
+
+
+def draw_p11(runs: Sequence[Run], *, draft: bool) -> Figure | None:
+    """P11: accuracy theo byte tích lũy, mỗi đường một model; mỗi ô một topology (E8)."""
+    groups = _groups(runs, lambda r: (_kind(r), r.config["model"], level(r)))
+    if not groups:
+        return None
+    kinds = sorted({k for k, _, _ in groups}, key=_order)
+    figure, axes = _figure(len(kinds), 5 * len(kinds) + 1, sharey=True)
+    models = sorted({m for _, m, _ in groups}, key=hypotheses.PARAMS.__getitem__)
+    for ax, kind in zip(axes[0], kinds, strict=True):
+        for i, model in enumerate(models):
+            for name, style in (("IID", "-"), ("α = 0.1", "--")):
+                group = groups.get((kind, model, name))
+                if group:
+                    label = f"{model} ({hypotheses.PARAMS[model]:,} tham số)" if name == "IID" else None
+                    _accuracy_vs_bytes(
+                        ax,
+                        group,
+                        color=TOPOLOGY_COLORS[i % len(TOPOLOGY_COLORS)],
+                        linestyle=style,
+                        label=label,
+                    )
+        ax.set_xscale("log")
+        ax.set_xlabel("byte tích lũy của cả mạng (MB, trục log)")
+        ax.set_title(kind)
+        ax.grid(alpha=0.3)
+    axes[0][0].set_ylabel("accuracy trung bình qua node (%)")
+    axes[0][0].legend(fontsize=7)
+    figure.suptitle(
+        "P11 · accuracy theo byte, mỗi đường một model (liền: IID, đứt: α = 0.1; η không chọn lại theo model)"
+    )
+    _stamp(figure, runs, draft=draft)
+    return figure
+
+
+def select_t1(runs: Sequence[Run], *, draft: bool) -> list[Run]:
+    """Bảng T1: mọi ô chính (trừ B1 một node, vốn không cùng N); chỉ lượt η chung."""
+    return _keep_common([r for r in runs if _kind(r) != "central"])
+
+
+def _summary_mean(runs: Sequence[Run], field: str, reduce: Callable[..., Any] = np.mean) -> float:
+    """100 × trung bình qua lượt của `reduce` (trung bình, hay std ddof = 0) của một dãy theo node."""
+    return 100 * float(np.mean([reduce(r.summary[field]) for r in runs]))
+
+
+def table_t1(runs: Sequence[Run]) -> pd.DataFrame:
+    """T1: acc, acc^loc, macro-F1, R@95 (trung vị, k/n), bytes@95, độ dao động, std giữa node cho mọi ô."""
+
+    def key(run: Run) -> tuple[Any, ...]:
+        a = run.config["algorithm"]
+        return (_kind(run), level(run), a["tau"], a["mu"], run.config["mixing"])
+
+    cells: dict[tuple[Any, ...], list[Run]] = defaultdict(list)
+    for run in runs:
+        cells[key(run)].append(run)
+    rows = []
+    for (kind, name, tau, mu, mixing), group in sorted(
+        cells.items(), key=lambda item: (_order(item[0][0]), _level_order(item[0][1]), item[0][2:])
+    ):
+        ok = [r for r in group if r.status == "ok"]
+        row: dict[str, Any] = {
+            "topology": kind,
+            "mức": name,
+            "τ": tau,
+            "μ": mu,
+            "trộn": mixing,
+            "seed": len(group),
+            "phân kỳ": len(group) - len(ok),
+        }
+        if ok:
+            acc = [100 * final_acc(r) for r in ok]
+            mean, half = _mean_half(acc)
+            reaches = [reach95(r) for r in ok]
+            middle, label = median_reach(reaches)
+            costs = [bytes95(r) for r in ok]
+            swings = [
+                oscillation(np.array([x["acc_per_node"] for x in r.rounds])) for r in ok if len(r.rounds) >= 3
+            ]
+            row |= {
+                "acc (%)": f"{mean:.2f} ± {half:.2f}",
+                "acc^loc (%)": f"{_summary_mean(ok, 'final_acc_local_per_node'):.2f}",
+                "macro-F1 (%)": f"{_summary_mean(ok, 'final_f1_macro_per_node'):.2f}",
+                "R@95 (bước)": ("> ngân sách" if math.isinf(middle) else f"{middle:.0f}") + f" ({label})",
+                "bytes@95 (MB)": "> ngân sách"
+                if math.isinf(np.median(costs))
+                else f"{np.median(costs) / MB:.0f}",
+                "độ dao động": f"{np.mean(swings):.4f}" if swings else "",
+                "std giữa node (%)": f"{_summary_mean(ok, 'final_acc_per_node', np.std):.2f}",
+            }
+        rows.append(row)
+    return pd.DataFrame(rows)
+
+
+# Bảng → (nhóm thí nghiệm, hàm chọn lượt, hàm lập bảng); ghi ra <tên>.csv và <tên>.md.
+TABLES: dict[str, tuple[tuple[str, ...], Callable[..., list[Run]], Callable[..., pd.DataFrame]]] = {
+    "T1": (
+        (
+            "e0b_sanity",
+            "e1_noniid",
+            "e2_topology",
+            "e3a_algorithms",
+            "e4a_quantity",
+            "e1c_objective",
+            "e2b_gossip",
+            "e3b_tau_mu",
+            "e4_quantity",
+        ),
+        select_t1,
+        table_t1,
+    ),
+}
+# Trục được phép khác giữa các lượt của một hình (INT-2): E8 đổi model.
+FIGURE_AXES: dict[str, tuple[str, ...]] = {"P10": ("model",), "P11": ("model",)}
+
+
 # Tên hình → (nhóm thí nghiệm cấp dữ liệu khi không có --draft, hàm chọn lượt, hàm vẽ).
 FIGURES: dict[str, tuple[tuple[str, ...], Callable[..., list[Run]], Callable[..., Figure | None]]] = {
     "P1": (("e1_noniid", "e0b_sanity"), select_p1, draw_p1),
     "P7": (("e1_noniid",), select_p7, draw_p7),
     "P12": (("e1_noniid", "e2_topology", "e0b_sanity"), select_comm, draw_p12),
     "P13": (("e1_noniid", "e2_topology", "e0b_sanity"), select_comm, draw_p13),
+    "P2": (CORE, select_core, draw_p2),
+    "P3": (CORE, select_core, draw_p3),
+    "P4": (CORE, select_core, draw_p4),
+    "P5": (CORE, select_core, draw_p5),
+    "P6": (("e1_noniid", "e2_topology", "e3a_algorithms", "e3b_tau_mu"), select_p6, draw_p6),
+    "P8": (CORE, select_core, draw_p8),
+    "P9": (("e1_noniid", "e3a_algorithms", "e3b_tau_mu"), select_p6, draw_p9),
+    "P10": (("e8_model_complexity",), select_e8, draw_p10),
+    "P11": (("e8_model_complexity",), select_e8, draw_p11),
 }
+
+
+def _markdown(table: pd.DataFrame) -> str:
+    """Bảng Markdown tự viết (DataFrame.to_markdown cần gói tabulate, không có trong requirements.lock)."""
+    header = "| " + " | ".join(str(c) for c in table.columns) + " |"
+    rule = "|" + "|".join("---" for _ in table.columns) + "|"
+    body = [
+        "| " + " | ".join("" if pd.isna(v) else str(v) for v in row) + " |"
+        for row in table.itertuples(index=False)
+    ]
+    return "\n".join([header, rule, *body]) + "\n"
 
 
 def _inside(path: Path, root: Path) -> bool:
@@ -496,7 +1091,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             # --draft chỉ nới lượt bẩn, lịch đánh giá riêng và INT-6 (INT-1); biến cố định và một code_version
             # mỗi hình vẫn được kiểm.
             version = checks.single_code_version(runs)
-            checks.check_fixed(runs)
+            checks.check_fixed(runs, axes=FIGURE_AXES.get(name, ()))
             if not args.draft:
                 checks.check_clean(runs, draft=False)
                 checks.check_documented({version}, LEDGER)
@@ -512,6 +1107,22 @@ def main(argv: Sequence[str] | None = None) -> int:
             "run_ids": sorted(r.run_id for r in runs),
         }
         print(f"đã vẽ {args.out / f'{name}.png'}")
+    for name, (experiments, select, tabulate) in TABLES.items():
+        runs = select(_runs_of(args.results, experiments, draft=args.draft), draft=args.draft)
+        if not runs:
+            print(f"bỏ qua {name}: chưa đủ dữ liệu")
+            continue
+        version = checks.single_code_version(runs)
+        checks.check_fixed(runs)
+        if not args.draft:
+            checks.check_clean(runs, draft=False)
+            checks.check_documented({version}, LEDGER)
+        table = tabulate(runs)
+        args.out.mkdir(parents=True, exist_ok=True)
+        table.to_csv(args.out / f"{name}.csv", index=False)
+        (args.out / f"{name}.md").write_text(_markdown(table), encoding="utf-8")
+        entries[name] = {"code_version": version, "run_ids": sorted(r.run_id for r in runs)}
+        print(f"đã lập {args.out / f'{name}.csv'}")
     if entries or (args.out / "PROVENANCE.json").exists():
         args.out.mkdir(parents=True, exist_ok=True)
         provenance.update(args.out / "PROVENANCE.json", command=command, draft=args.draft, figures=entries)

@@ -19,12 +19,19 @@ ANALYSIS = Path(__file__).resolve().parents[2] / "analysis"
 
 def two_topologies(root: Path) -> list[aggregate.Run]:
     for seed in (0, 1):
-        write_run(root, f"ring-iid-{seed}", cfg=config(seed=seed), rounds=curve([0.5 + 0.1 * seed, 0.8]))
+        # Hai mốc (100, 200 bước) nên ngân sách 200 bước: lưới mốc hợp lệ (ADR-007), để R@95 của P3 tính được.
+        write_run(
+            root,
+            f"ring-iid-{seed}",
+            cfg=config(seed=seed, local_steps=200),
+            rounds=curve([0.5 + 0.1 * seed, 0.8]),
+        )
         write_run(
             root,
             f"fc-a01-{seed}",
             cfg=config(
                 seed=seed,
+                local_steps=200,
                 topology__kind="fully_connected",
                 partition__scheme="dirichlet",
                 partition__alpha=0.1,
