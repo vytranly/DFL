@@ -154,3 +154,15 @@ def test_e4_varies_mixing_weights_on_er_and_size_weights_on_the_server_path() ->
         ("erdos_renyi", "size_corrected", "a0.1"): 3,
         ("server", "size_weighted", "b0.5"): 3,
     }
+
+
+def test_demo_runs_ring_and_fc_at_alpha_01_on_a_short_budget() -> None:
+    cells = configs("demo")
+
+    assert sorted((c.topology.kind, level(c), seed) for c, seed in cells) == [
+        ("fully_connected", "a0.1", 0),
+        ("ring", "a0.1", 0),
+    ]
+    assert {(c.num_nodes, c.local_steps, c.algorithm.lr, c.eval.split) for c, _ in cells} == {
+        (20, 400, ETA, "test")
+    }
