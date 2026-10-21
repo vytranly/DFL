@@ -53,3 +53,6 @@ def test_centrality_reads_a_real_e7_run_and_agrees_with_the_partitioner(tmp_path
     assert degree.sum() == 2 * 2 * (8 - 2) and held.sum() == 2
     assert degree[held].min() >= degree[~held].max()
     assert 0 <= centrality.non_holder_accuracy(entry.finished) <= 1
+    # ADR-015: lượt ghi trước ADR-014 không có graph_edges; bậc suy từ tải message phải trùng bậc thật.
+    old = dataclasses.replace(entry.finished, manifest={**entry.finished.manifest, "graph_edges": None})
+    assert centrality.degrees(old).tolist() == degree.tolist()

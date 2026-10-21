@@ -8,7 +8,7 @@ import pytest
 
 from analysis import aggregate, centrality
 from analysis.aggregate import AnalysisError
-from tests.analysis_fakes import config, write_run
+from tests.analysis_fakes import config, round_record, write_run
 
 # Đồ thị 5 node: node 0 là hub (bậc 4), node 4 là lá (bậc 1).
 EDGES = [[0, 1], [0, 2], [0, 3], [0, 4], [1, 2], [2, 3]]
@@ -112,3 +112,34 @@ def test_js_mean_is_zero_for_identical_nodes_and_grows_with_rare_class_holders(t
 
     assert centrality.js_mean(by_id["same"]) == pytest.approx(0.0)
     assert 0 < centrality.js_mean(by_id["hub-0"]) < 1
+
+
+# ------------------------------------------------------------------ bậc suy từ tải message (ADR-015)
+
+
+def test_static_runs_without_graph_edges_get_their_degree_from_the_message_load(tmp_path: Path) -> None:
+    # Ring N = 4: mỗi round mỗi node gửi 2 và nhận 2 message; fake ghi 160 message sau 20 round, 80 mỗi node.
+    write_run(tmp_path, "ring", cfg=config())
+
+    (run,) = runs(tmp_path)
+
+    assert run.manifest["graph_edges"] is None
+    assert centrality.degrees(run).tolist() == [2, 2, 2, 2]
+
+
+def test_a_message_load_that_is_not_a_whole_degree_is_refused(tmp_path: Path) -> None:
+    rounds = [round_record(100, 20, [0.5] * 4, node_messages_cum=[20, 20, 21, 20])]
+    write_run(tmp_path, "odd", cfg=config(), rounds=rounds)
+
+    (run,) = runs(tmp_path)
+
+    with pytest.raises(AnalysisError, match="bậc"):
+        centrality.degrees(run)
+
+
+@pytest.mark.parametrize(
+    ("degree", "kind"),
+    [(1, "leaf"), (2, "leaf"), (3, "giữa"), (5, "giữa"), (6, "hub"), (19, "hub")],
+)
+def test_degree_classes_follow_the_hub_and_leaf_definitions_of_the_review(degree: int, kind: str) -> None:
+    assert centrality.degree_class(degree) == kind

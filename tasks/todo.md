@@ -828,7 +828,7 @@ T22a, T22b và T09c là code của lưới: phải xong trước T14b (E0a), đ�
   - Phụ thuộc: T31a
   - File: `analysis/comm_cost.py`, `analysis/convergence.py`, `analysis/aggregate.py`, `analysis/plots.py`, test tương ứng
 
-- [ ] **T31c · Bậc từ tải message, P16** — nhánh `binh` · M
+- [x] **T31c · Bậc từ tải message, P16** — nhánh `binh` · M
   - Mô tả: `centrality.degrees` dùng `graph_edges`, không có thì `node_messages_cum / (2 · round)` với topology tĩnh; loại bậc hub (≥ 6), giữa (3–5), leaf (1–2); JS của cách chia từ `node_class_counts`; P16 (đường `acc_per_node` theo bước, tô theo loại bậc, đường đậm trung bình mỗi loại).
   - Chấp nhận: bậc suy từ message trùng bậc từ `graph_edges` trên lượt thật; gossip bị từ chối; P16 vẽ được từ kết quả giả và lượt thật.
   - Kiểm chứng: `make check-task`

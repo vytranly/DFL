@@ -1085,3 +1085,11 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - `centrality.js_mean` (trùng từng chữ số với `dfl.data.heterogeneity` trên cách chia thật); `plots.pick_level`; P17: (a) accuracy theo round, (b) theo thời gian ước tính ở 10 Mbit/s, (c) thời gian để đạt 90% theo băng thông 1–1,000 Mbit/s (log-log); topology không đạt ghi trên ô
 - Vẽ thử trên 8 lượt tổng hợp (ring, FC, ER, gossip × 2 seed, build/t31b): FC ít round nhất nhưng chậm nhất theo thời gian ước tính ở 10 Mbit/s; khoảng cách hẹp lại khi băng thông tăng (đúng lập luận của GVHD)
 - Kiểm chứng: `make check-task` 1003 test xanh, 121 s (lưới của nhánh `grid` chạy song song)
+
+## 2026-10-21 — Phiên #21 (tiếp) — T31c: bậc từ tải message, P16
+- `centrality.degrees`: dùng `graph_edges`, không có thì deg(i) = `node_messages_cum`[i] / (2 · round) với topology tĩnh (kiểm bậc nguyên); gossip vẫn bị từ chối. `degree_class`: hub (≥ 6), giữa (3–5), leaf (1–2) theo định nghĩa của GVHD; `centrality.edges` cho P15 (vẽ cạnh nên vẫn cần `graph_edges`)
+- P16: cột là topology tĩnh sắp theo bậc trung bình, hàng là mức ít lệch nhất và lệch nhất (theo JS) trong các mức có nhiều topology nhất; đường mảnh mỗi node × seed, đường đậm trung bình mỗi loại bậc. Hình riêng P16-E9, P17-E9 cho E9 (khác `code_version`), bỏ qua ở --draft vì trùng
+- P14 nay vẽ được cả lượt không có `graph_edges` (bậc từ tải message); test cũ sửa theo
+- Test tích hợp: trên lượt BA thật, bậc suy từ tải message trùng bậc từ `graph_edges`
+- Vẽ thử trên 8 lượt tổng hợp (ring, ER, BA, FC × IID, α = 0.1; build/t31c): hub lên nhanh nhất, leaf chậm nhất ở BA và ER; chuyển chú giải sang loc="best" vì đè đường ở hàng α = 0.1
+- Kiểm chứng: `make check-task` 1014 test xanh, 125 s

@@ -1,4 +1,4 @@
-"""Vẽ hình từ kết quả: khung chung, P1, P7, P12–P15 và P17 (module analysis; T16a, T29c, T30d, T31b; SPEC
+"""Vẽ hình từ kết quả: khung chung, P1, P7, P12–P17 (module analysis; T16a, T29c, T30d, T31b, T31c; SPEC
 INT-1, INT-2, INT-6, REQ-10; KH §3.8; ADR-013, ADR-014, ADR-015).
 
 - `python -m analysis.plots --results results/ --out figures/` là cách duy nhất sinh hình cho báo cáo
@@ -31,6 +31,13 @@ INT-1, INT-2, INT-6, REQ-10; KH §3.8; ADR-013, ADR-014, ADR-015).
   - P15: đồ thị mạng ở seed nhỏ nhất mà cả ba vị trí đều có; cùng bố cục cho cả ba ô (cùng đồ thị theo G9);
     màu node là accuracy cuối trên một thang tuần tự một sắc chung cho ba ô, cỡ node là tải byte cuối, node
     giữ lớp hiếm có viền đậm.
+- **P16** (ADR-015; góp ý buổi 2: theo dõi từng node, so đường hội tụ của hub với leaf): lượt DFL như P1
+  trên topology tĩnh; cột là topology, sắp theo bậc trung bình; hàng là tối đa hai mức dữ liệu (trong các mức
+  có nhiều topology nhất: ít lệch nhất và lệch nhất theo JS). Đường mảnh là `acc_per_node` của một node ở một
+  seed, tô theo loại bậc (hub ≥ 6, giữa 3–5, leaf 1–2); đường đậm là trung bình của mỗi loại, kiểu nét riêng.
+  Bậc lấy từ `graph_edges`, hay suy từ tải message với lượt ghi trước ADR-014.
+- **P16-E9, P17-E9:** cùng hình, lấy từ E9 (lattice, BA); `code_version` khác lưới lõi nên là hình riêng
+  (INT-2).
 - **P17** (ADR-015; góp ý buổi 2: so số round với thời gian thực): lượt như P12, ở một mức dữ liệu (mức có
   nhiều topology nhất, hòa thì mức lệch hơn theo JS); (a) accuracy theo round, (b) accuracy theo thời gian
   phân tán ước tính ở 10 Mbit/s, (c) thời gian ước tính để đạt 90% (trung vị qua seed) theo băng thông
@@ -516,7 +523,7 @@ def draw_p15(runs: Sequence[Run], *, draft: bool) -> Figure | None:
         degree = centrality.degrees(run)
         graph = nx.Graph()
         graph.add_nodes_from(range(len(degree)))
-        graph.add_edges_from(run.manifest["graph_edges"])
+        graph.add_edges_from(centrality.edges(run))
         layout = nx.spring_layout(graph, seed=0)
         nx.draw_networkx_edges(graph, layout, ax=ax, edge_color=EDGE_COLOR, width=1)
         xy = np.array([layout[i] for i in range(len(degree))])
@@ -547,6 +554,90 @@ def draw_p15(runs: Sequence[Run], *, draft: bool) -> Figure | None:
         "viền đen = node giữ lớp 5–9"
     )
     _stamp(figure, list(chosen.values()), draft=draft)
+    return figure
+
+
+# P16: màu và kiểu nét của ba loại bậc (mã hóa thứ hai); ba màu Okabe–Ito, phân biệt được khi mù màu.
+DEGREE_STYLE = {"hub": (OKABE_ITO[5], "-"), "giữa": (OKABE_ITO[2], "--"), "leaf": (OKABE_ITO[4], ":")}
+DEGREE_LABELS = {"hub": "hub, bậc ≥ 6", "giữa": "giữa, bậc 3–5", "leaf": "leaf, bậc 1–2"}
+
+
+def select_p16(runs: Sequence[Run], *, draft: bool) -> list[Run]:
+    """Lượt DFL của P1 trên topology tĩnh (gossip không có bậc cố định)."""
+    return [r for r in select_p1(runs, draft=draft) if _kind(r) in centrality.STATIC_KINDS]
+
+
+def p16_levels(runs: Sequence[Run]) -> list[str]:
+    """Trong các mức có nhiều topology nhất: mức ít lệch nhất và mức lệch nhất theo JS (một mức nếu chỉ có
+    một)."""
+    topologies: dict[str, set[str]] = defaultdict(set)
+    js: dict[str, list[float]] = defaultdict(list)
+    for run in runs:
+        topologies[level(run)].add(topology_label(run))
+        js[level(run)].append(centrality.js_mean(run))
+    widest = max(len(names) for names in topologies.values())
+    ordered = sorted(
+        (n for n in topologies if len(topologies[n]) == widest), key=lambda n: (np.mean(js[n]), n)
+    )
+    return ordered if len(ordered) <= 2 else [ordered[0], ordered[-1]]
+
+
+def draw_p16(runs: Sequence[Run], *, draft: bool) -> Figure | None:
+    """P16: accuracy của từng node theo bước, tô theo hub/giữa/leaf; mỗi ô một topology × một mức."""
+    ok = [r for r in runs if r.status == "ok"]
+    if not ok:
+        return None
+    levels = p16_levels(ok)
+    shown = [r for r in ok if level(r) in levels]
+    mean_degree: dict[str, list[float]] = defaultdict(list)
+    for run in shown:
+        mean_degree[topology_label(run)].append(float(centrality.degrees(run).mean()))
+    topologies = sorted(mean_degree, key=lambda name: (np.mean(mean_degree[name]), name))
+    figure, axes = plt.subplots(
+        len(levels),
+        len(topologies),
+        figsize=(4 * len(topologies), 3.4 * len(levels)),
+        squeeze=False,
+        sharey=True,
+        layout="constrained",
+    )
+    figure.get_layout_engine().set(rect=CONTENT_RECT)
+    for row, name in enumerate(levels):
+        for col, topology in enumerate(topologies):
+            ax = axes[row][col]
+            ax.set_title(f"{topology} · {name}", fontsize=9)
+            group = [r for r in shown if level(r) == name and topology_label(r) == topology]
+            curves: dict[str, list[np.ndarray]] = defaultdict(list)
+            steps: list[int] = []
+            for run in group:
+                steps = [int(r["local_steps"]) for r in run.rounds]
+                accuracy = 100 * np.array([r["acc_per_node"] for r in run.rounds])
+                for node, degree in enumerate(centrality.degrees(run)):
+                    kind = centrality.degree_class(int(degree))
+                    ax.plot(steps, accuracy[:, node], color=DEGREE_STYLE[kind][0], alpha=0.25, linewidth=0.7)
+                    curves[kind].append(accuracy[:, node])
+            for kind in centrality.DEGREE_CLASSES:
+                if curves[kind]:
+                    color, style = DEGREE_STYLE[kind]
+                    label = f"{DEGREE_LABELS[kind]} ({len(curves[kind])} node·seed)"
+                    ax.plot(
+                        steps,
+                        np.mean(curves[kind], axis=0),
+                        color=color,
+                        linestyle=style,
+                        linewidth=2.5,
+                        label=label,
+                    )
+            if group:
+                ax.legend(fontsize=7, loc="best")
+            ax.grid(alpha=0.3)
+            if row == len(levels) - 1:
+                ax.set_xlabel("bước cục bộ")
+        axes[row][0].set_ylabel("accuracy của node (%)")
+    figure.suptitle(
+        "P16 · đường hội tụ của từng node (mảnh: một node ở một seed; đậm: trung bình theo loại bậc)"
+    )
+    _stamp(figure, shown, draft=draft)
     return figure
 
 
@@ -645,8 +736,13 @@ FIGURES: dict[str, tuple[tuple[str, ...], Callable[..., list[Run]], Callable[...
     "P13": (("e1_noniid", "e2_topology", "e0b_sanity"), select_comm, draw_p13),
     "P14": (("e7_centrality",), select_e7, draw_p14),
     "P15": (("e7_centrality",), select_e7, draw_p15),
+    "P16": (("e1_noniid", "e2_topology"), select_p16, draw_p16),
     "P17": (("e1_noniid", "e2_topology", "e0b_sanity"), select_comm, draw_p17),
+    "P16-E9": (("e9_topology_shapes",), select_p16, draw_p16),
+    "P17-E9": (("e9_topology_shapes",), select_comm, draw_p17),
 }
+# Ở --draft mọi hình đọc cùng một thư mục, nên bản -E9 trùng hệt bản gốc: bỏ qua.
+DRAFT_DUPLICATES = frozenset({"P16-E9", "P17-E9"})
 
 
 def _inside(path: Path, root: Path) -> bool:
@@ -705,6 +801,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     command = "python -m analysis.plots " + " ".join(shlex.quote(a) for a in (argv or sys.argv[1:]))
     entries: dict[str, dict[str, Any]] = {}
     for name, (experiments, select, draw) in FIGURES.items():
+        if args.draft and name in DRAFT_DUPLICATES:
+            continue
         runs = select(_runs_of(args.results, experiments, draft=args.draft), draft=args.draft)
         if runs:
             # --draft chỉ nới lượt bẩn, lịch đánh giá riêng và INT-6 (INT-1); biến cố định và một code_version

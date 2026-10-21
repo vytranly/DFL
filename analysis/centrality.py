@@ -5,6 +5,9 @@
   hình.
 - Node giữ lớp hiếm là node có mẫu của lớp 5–9 theo `node_class_counts` của manifest, nên không phụ thuộc quy
   tắc vị trí của `src/`.
+- Lượt không có `graph_edges` (ghi trước ADR-014, ví dụ lưới lõi) vẫn có bậc nếu topology tĩnh: mỗi round
+  node i gửi và nhận đúng deg(i) message, nên deg(i) = `node_messages_cum`[i] / (2 · round) (ADR-015).
+- Loại bậc theo định nghĩa của GVHD (góp ý buổi 2): hub là node có từ 6 kết nối, leaf là node có 1–2 kết nối.
 - H9 (thẻ docs/experiments/E7.md): độ đo là trung bình `final_acc_per_node` (đủ tập test) của node không giữ
   lớp hiếm; phép so sánh chính là hiệu hub − edge ghép cặp theo seed (cùng partition, đồ thị, w⁰; G9).
 """
@@ -22,6 +25,12 @@ from analysis.aggregate import AnalysisError, Run
 # tests/integration/test_analysis_smoke.py giữ hai nơi trùng nhau.
 RARE_CLASSES = (5, 6, 7, 8, 9)
 PLACEMENTS = ("hub", "edge", "random")
+# Topology có đồ thị cố định qua mọi round, nên tải message cho đúng bậc.
+STATIC_KINDS = ("ring", "lattice", "erdos_renyi", "barabasi_albert", "fully_connected", "star")
+# Phải trùng HUB_DEGREE, LEAF_DEGREE của dfl.sim.describe (test tích hợp giữ hai nơi trùng nhau).
+HUB_DEGREE = 6
+LEAF_DEGREE = 2
+DEGREE_CLASSES = ("hub", "giữa", "leaf")
 
 
 def placement(run: Run) -> str:
@@ -29,18 +38,48 @@ def placement(run: Run) -> str:
 
 
 def degrees(run: Run) -> np.ndarray:
-    """Bậc của từng node theo `graph_edges`; báo lỗi khi lượt không có đồ thị tĩnh hay ghi trước ADR-014."""
+    """Bậc của từng node theo `graph_edges`, hay suy từ tải message khi lượt ghi trước ADR-014; báo lỗi khi đồ
+    thị đổi mỗi round (gossip) hay lượt không có cả hai."""
     edges = run.manifest.get("graph_edges")
     if edges is None:
-        raise AnalysisError(
-            f"lượt {run.run_id} không có graph_edges (đồ thị đổi mỗi round, đường server, hay lượt ghi trước "
-            "ADR-014), nên không tính được bậc"
-        )
+        return _degrees_from_messages(run)
     result = np.zeros(int(run.config["num_nodes"]), dtype=int)
     for u, v in edges:
         result[u] += 1
         result[v] += 1
     return result
+
+
+def _degrees_from_messages(run: Run) -> np.ndarray:
+    """deg(i) = node_messages_cum[i] / (2 · round) ở mốc cuối, chỉ với topology tĩnh (ADR-015)."""
+    last = run.rounds[-1] if run.rounds else {}
+    if run.config["topology"]["kind"] not in STATIC_KINDS or "node_messages_cum" not in last:
+        raise AnalysisError(
+            f"lượt {run.run_id} không có graph_edges (đồ thị đổi mỗi round, đường server, hay lượt ghi trước "
+            "ADR-014, không có tải message theo node), nên không tính được bậc"
+        )
+    n = int(run.config["num_nodes"])
+    degree = np.array(last["node_messages_cum"][:n], dtype=float) / (2 * int(last["round"]))
+    if not np.allclose(degree, np.round(degree)):
+        raise AnalysisError(f"lượt {run.run_id}: tải message không cho bậc nguyên ({degree.tolist()})")
+    return np.round(degree).astype(int)
+
+
+def edges(run: Run) -> list[list[int]]:
+    """Cạnh của đồ thị tĩnh từ manifest (P15 vẽ cạnh, nên không suy được từ tải message)."""
+    graph = run.manifest.get("graph_edges")
+    if graph is None:
+        raise AnalysisError(
+            f"lượt {run.run_id} không có graph_edges (ghi trước ADR-014), nên không vẽ được mạng"
+        )
+    return [list(edge) for edge in graph]
+
+
+def degree_class(degree: int) -> str:
+    """hub (bậc ≥ 6), leaf (bậc 1–2) hay giữa (3–5), theo định nghĩa của GVHD."""
+    if degree >= HUB_DEGREE:
+        return "hub"
+    return "leaf" if 1 <= degree <= LEAF_DEGREE else "giữa"
 
 
 def holders(run: Run) -> np.ndarray:

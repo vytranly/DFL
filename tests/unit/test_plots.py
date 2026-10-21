@@ -295,12 +295,19 @@ def test_p15_draws_seed_0_of_each_placement_with_an_accuracy_colorbar(tmp_path: 
     assert "seed 0" in figure.get_suptitle()
 
 
-def test_e7_figures_refuse_runs_without_the_graph(tmp_path: Path) -> None:
+def test_p15_refuses_runs_without_the_graph_while_p14_falls_back_to_the_message_load(tmp_path: Path) -> None:
+    # P14 chỉ cần bậc (ADR-015 suy được từ tải message); P15 vẽ cạnh nên cần graph_edges.
     runs = plots.select_e7(e7_runs(tmp_path), draft=False)
-    broken = [dataclasses.replace(runs[0], manifest={**runs[0].manifest, "graph_edges": None}), *runs[1:]]
+    degree = [4, 2, 3, 2, 1]  # bậc của E7_EDGES; mỗi round node gửi và nhận 2·bậc message
+    first = runs[0]
+    rounds = [{**r, "node_messages_cum": [2 * d * r["round"] for d in degree]} for r in first.rounds]
+    old = dataclasses.replace(first, manifest={**first.manifest, "graph_edges": None}, rounds=rounds)
+    broken = [old, *runs[1:]]
 
+    assert plots.centrality.degrees(old).tolist() == degree
+    assert plots.draw_p14(broken, draft=False) is not None
     with pytest.raises(AnalysisError, match="graph_edges"):
-        plots.draw_p14(broken, draft=False)
+        plots.draw_p15(broken, draft=False)
 
 
 def test_a_draft_draws_p14_and_p15_with_their_provenance(tmp_path: Path) -> None:
@@ -378,3 +385,79 @@ def test_a_draft_draws_p17_with_its_provenance(tmp_path: Path) -> None:
     record = json.loads((tmp_path / "out" / "PROVENANCE.json").read_text())
     assert (tmp_path / "out" / "P17.png").stat().st_size > 0
     assert len(record["figures"]["P17"]["run_ids"]) == 5
+
+
+# --------------------------------------------------------------- P16: đường hội tụ theo node (ADR-015)
+
+
+def rounds_with_degree(degree: int) -> list[dict[str, object]]:
+    """Bốn mốc (τ = 20) với tải message của topology tĩnh mà mọi node có bậc `degree`: 2·bậc mỗi round."""
+    return [
+        round_record(step, 20, [v] * 4, node_messages_cum=[2 * degree * (step // 20)] * 4)
+        for step, v in zip((100, 200, 300, 400), (0.5, 0.7, 0.8, 0.85), strict=True)
+    ]
+
+
+def shape_runs(root: Path) -> list[aggregate.Run]:
+    """Ring và FC (bậc suy từ message) cùng một đồ thị có hub và leaf (graph_edges), ở IID và α = 0.1."""
+    star_edges = [[0, 1], [0, 2], [0, 3]]
+    levels = {"iid": {}, "a01": {"partition__scheme": "dirichlet", "partition__alpha": 0.1}}
+    for tag, extra in levels.items():
+        counts = [[10] * 10] * 4 if tag == "iid" else [[40, 0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 40] + [0] * 8] * 2
+        for seed in (0, 1):
+            write_run(root, f"ring-{tag}-{seed}", cfg=config(seed=seed, **extra), class_counts=counts)
+            write_run(
+                root,
+                f"fc-{tag}-{seed}",
+                cfg=config(seed=seed, topology__kind="fully_connected", **extra),
+                rounds=rounds_with_degree(3),
+                class_counts=counts,
+            )
+            write_run(
+                root,
+                f"ba-{tag}-{seed}",
+                cfg=config(seed=seed, topology={"kind": "barabasi_albert", "m": 1, "p": None}, **extra),
+                class_counts=counts,
+                graph_edges=star_edges,
+            )
+    write_run(root, "gossip-0", cfg=config(topology__kind="gossip"))
+    return [a.finished for a in aggregate.scan(root) if a.finished is not None]
+
+
+def test_p16_takes_static_topologies_only(tmp_path: Path) -> None:
+    runs = plots.select_p16(shape_runs(tmp_path), draft=False)
+
+    assert {plots.topology_label(r) for r in runs} == {"ring", "fully_connected", "barabasi_albert"}
+
+
+def test_p16_has_a_row_per_level_and_a_column_per_topology_sorted_by_mean_degree(tmp_path: Path) -> None:
+    runs = plots.select_p16(shape_runs(tmp_path), draft=False)
+
+    figure = plots.draw_p16(runs, draft=False)
+
+    titles = [ax.get_title() for ax in figure.axes]
+    # BA hình sao 4 node: bậc TB 1.5 < ring 2 < FC 3; hàng IID (JS 0) trước α = 0.1.
+    assert titles == [
+        "barabasi_albert · IID",
+        "ring · IID",
+        "fully_connected · IID",
+        "barabasi_albert · α = 0.1",
+        "ring · α = 0.1",
+        "fully_connected · α = 0.1",
+    ]
+    legend = {t.get_text() for t in figure.axes[0].get_legend().get_texts()}
+    assert legend == {"leaf, bậc 1–2 (6 node·seed)", "giữa, bậc 3–5 (2 node·seed)"}
+    assert (
+        figure.axes[3].get_xlabel() == "bước cục bộ"
+        and figure.axes[0].get_ylabel() == "accuracy của node (%)"
+    )
+
+
+def test_a_draft_draws_p16_with_its_provenance(tmp_path: Path) -> None:
+    shape_runs(tmp_path)
+
+    assert plots.main(["--results", str(tmp_path), "--out", str(tmp_path / "out"), "--draft"]) == 0
+
+    record = json.loads((tmp_path / "out" / "PROVENANCE.json").read_text())
+    assert (tmp_path / "out" / "P16.png").stat().st_size > 0
+    assert len(record["figures"]["P16"]["run_ids"]) == 12
