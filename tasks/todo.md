@@ -856,7 +856,7 @@ T22a, T22b và T09c là code của lưới: phải xong trước T14b (E0a), đ�
   - Phụ thuộc: T31a
   - File: `scripts/demo_partition.py`, `tests/integration/test_demo_partition.py`
 
-- [ ] **T31g · Thẻ E9, lưới, lượt thử, tài liệu phản hồi góp ý** — nhánh `binh` · M
+- [x] **T31g · Thẻ E9, lưới, lượt thử, tài liệu phản hồi góp ý** — nhánh `binh` · M
   - Mô tả: `docs/experiments/E9.md` (H10), `configs/experiments/e9_topology_shapes.yaml` (30 lượt), test lưới; lượt thử ngắn (≤ 10) vào `build/` để vẽ P16, P17; `docs/report/PHAN_HOI_GOP_Y_BUOI_2.md`: từng góp ý, cách dự án đáp ứng, bằng chứng (lệnh, hình, bảng), thư viện của từng module, thuật ngữ.
   - Chấp nhận: test lưới xanh; P16, P17 vẽ được từ lượt thử; mọi góp ý trong bản chép lời có câu trả lời và bằng chứng.
   - Kiểm chứng: `make check-task`; `python -m dfl sweep --experiment configs/experiments/e9_topology_shapes.yaml --dry-run`

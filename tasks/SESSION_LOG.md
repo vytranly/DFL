@@ -1111,3 +1111,11 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - Trên MNIST (N = 20, 5 seed, 6 s): α ≥ 10 gần IID (JS ≤ 0.022); α = 0.1 có 53% ô node×lớp rỗng; #C = 2 (JS 0.614) gần α = 0.05 (0.633). Trả lời câu hỏi của GVHD về #C = k: hai node cùng giữ một nhãn nhận số mẫu chênh tối đa 1; ngẫu nhiên là node nào giữ nhãn nào
 - Đang tải CIFAR-10 (`python -m dfl download cifar10`, chậm) để chạy lại phần so giữa dataset
 - Kiểm chứng: `make check-task` 1044 test xanh, 132 s
+
+## 2026-10-21 — Phiên #21 (tiếp) — T31g: E9, lượt thử, phản hồi góp ý
+- `docs/experiments/E9.md` (H10: ở BA m = 2, α = 0.1, accuracy cuối của hub cao hơn leaf trong cùng lượt; tối đa "gợi ý"); `configs/experiments/e9_topology_shapes.yaml` (30 lượt; dry-run 30/30); `tests/unit/test_experiment_e9.py`; `centrality.hub_minus_leaf` (độ đo của H10). Đồ thị BA seed 0, 1, 2 có 3, 3, 4 hub và 11, 12, 11 leaf
+- Lượt thử (MNIST, α = 0.1, ngân sách fast, seed 0, build/t31g, 5 lượt): FC cần 156 bước để đạt 90%, lattice 344, nhưng ở 10 Mbit/s lattice đạt 90% sau 43.5 s, FC sau 89.6 s; FC nhanh hơn lattice từ khoảng 380 Mbit/s. Giao tiếp chiếm hơn 90% thời gian ước tính ở 10 Mbit/s. P16: hub > giữa > leaf ở BA và ER (hub − leaf +4.8 và +4.4 điểm, 1 seed); ring trải 82.4–95.7% giữa các node
+- Kiểm: ER và BA seed 0 có cùng tổng thời gian ước tính vì node bận nhất của cả hai có bậc 10 (373.8 MB), không phải lỗi
+- `docs/report/PHAN_HOI_GOP_Y_BUOI_2.md`: từng góp ý của bản chép lời, trạng thái, bằng chứng, ý cho slide, thư viện theo module, việc còn mở; README thêm trạng thái và lệnh demo
+- Gọn lại sau khi tự soát: P17 hiện chú giải theo số đường topology đã vẽ; `aggregate._seconds_at` tính chuỗi ước tính một lần
+- Kiểm chứng: `make check-task` 1049 test xanh, 128 s

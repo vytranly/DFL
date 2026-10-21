@@ -1,0 +1,18 @@
+# E9: topology trung gian và không đồng nhất (ADR-015; thẻ docs/experiments/E9.md). 30 lượt.
+# Theo góp ý buổi 2 của GVHD: thêm lattice (đồng nhất, bậc 4) giữa ring (bậc 2) và FC (bậc 19), và so đường hội tụ
+# của hub (bậc ≥ 6) với leaf (bậc 1–2) trên đồ thị không đồng nhất (BA m = 2: khoảng 16% hub, 46% leaf; ER p = 0.3:
+# khoảng 54% hub, 4% leaf). {ring, lattice, ER, BA, FC} × {IID, α = 0.1} × seed {0, 1, 2}.
+# η = 0.1 lấy từ E0a (ADR-007), ghi ở đây như E0b vì base.yaml phải trùng mặc định của RunConfig.
+experiment: e9_topology_shapes
+profile: ../profiles/full.yaml
+blocks:
+  - seeds: [0, 1, 2]
+    set: {algorithm: {lr: 0.1}}
+    grid:
+      topology:
+        - {kind: ring}
+        - {kind: lattice}
+        - {kind: erdos_renyi}
+        - {kind: barabasi_albert, m: 2}
+        - {kind: fully_connected}
+      partition: [{scheme: iid}, {scheme: dirichlet, alpha: 0.1}]

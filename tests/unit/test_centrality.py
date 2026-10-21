@@ -143,3 +143,23 @@ def test_a_message_load_that_is_not_a_whole_degree_is_refused(tmp_path: Path) ->
 )
 def test_degree_classes_follow_the_hub_and_leaf_definitions_of_the_review(degree: int, kind: str) -> None:
     assert centrality.degree_class(degree) == kind
+
+
+def test_hub_minus_leaf_compares_the_final_accuracy_of_hubs_and_leaves_in_one_run(tmp_path: Path) -> None:
+    # H10 (E9, ADR-015): hình sao 8 node, hub (bậc 7) và 7 leaf (bậc 1).
+    star = [[0, i] for i in range(1, 8)]
+    cfg = config(num_nodes=8, topology={"kind": "barabasi_albert", "m": 1, "p": None})
+    acc = [0.9, 0.5, 0.6, 0.7, 0.5, 0.6, 0.7, 0.6]
+    write_run(tmp_path, "star", cfg=cfg, graph_edges=star, final_acc=acc)
+
+    (run,) = runs(tmp_path)
+
+    assert centrality.hub_minus_leaf(run) == pytest.approx(0.9 - 0.6)
+
+
+def test_hub_minus_leaf_is_undefined_without_both_kinds_of_node(tmp_path: Path) -> None:
+    write_run(tmp_path, "ring", cfg=config())
+
+    (run,) = runs(tmp_path)
+
+    assert centrality.hub_minus_leaf(run) is None

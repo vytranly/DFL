@@ -669,6 +669,7 @@ def draw_p17(runs: Sequence[Run], *, draft: bool) -> Figure | None:
     figure, axes = _figure(3, 16)
     rounds_ax, time_ax, bandwidth_ax = axes[0]
     unreached = []
+    reached_any = False
     for i, (name, group) in enumerate(groups.items()):
         series = [comm_cost.time_series(run) for run in group]
         accuracy = 100 * np.mean([[r["acc_mean"] for r in run.rounds] for run in group], axis=0)
@@ -694,6 +695,7 @@ def draw_p17(runs: Sequence[Run], *, draft: bool) -> Figure | None:
         median = np.median(seconds, axis=0)
         if np.all(np.isfinite(median)):
             bandwidth_ax.plot(BANDWIDTHS_MBIT, median, label=label, **style)
+            reached_any = True
         else:
             unreached.append(name)
     rounds_ax.set_xlabel("round")
@@ -705,7 +707,7 @@ def draw_p17(runs: Sequence[Run], *, draft: bool) -> Figure | None:
     bandwidth_ax.set_yscale("log")
     bandwidth_ax.set_xlabel("băng thông B (Mbit/s)")
     bandwidth_ax.set_ylabel(f"thời gian ước tính để đạt {100 * P17_TARGET:.0f}% (s)")
-    if bandwidth_ax.lines[1:]:
+    if reached_any:
         bandwidth_ax.legend(fontsize=7)
     if unreached:
         bandwidth_ax.text(

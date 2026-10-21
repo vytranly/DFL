@@ -230,11 +230,11 @@ def _seconds_at(run: Run, steps: list[int], reaches: dict[str, Any]) -> dict[str
 
     columns: dict[str, float | None] = {}
     series = comm_cost.time_series(run) if comm_cost.has_time(run) else None
+    estimated = None if series is None else comm_cost.estimated_seconds(series, mbit=comm_cost.REFERENCE_MBIT)
     for x, reached in reaches.items():
-        if series is None or not reached.reached:
+        if series is None or estimated is None or not reached.reached:
             columns[f"s{x}_measured"] = columns[f"s{x}_est"] = None
             continue
-        estimated = comm_cost.estimated_seconds(series, mbit=comm_cost.REFERENCE_MBIT)
         columns[f"s{x}_measured"] = convergence.value_at(steps, series.measured, reached)
         columns[f"s{x}_est"] = convergence.value_at(steps, estimated, reached)
     return columns

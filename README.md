@@ -7,6 +7,7 @@ Mô phỏng Decentralized Federated Learning (không server) trên MNIST để �
 > - Chưa có: `analysis/` (R@x, AUC, hình, bảng; T15, T16), thẻ và kết quả thí nghiệm (từ E0a).
 > - CIFAR-10 (2026-10-15, [ADR-012](docs/decisions/ADR-012-cifar10-binary-niidbench-cnn-crop-flip.md), Proposed): có code tải và đọc dữ liệu, CNN của NIID-Bench, augmentation crop + flip, profile `smoke_cifar10` và `cifar10_fast`. Chưa có thí nghiệm: η, lưới, ngân sách và ngưỡng sanity của CIFAR-10 chưa quyết, và thí nghiệm vẫn chỉ làm sau M4.
 > - E7 (2026-10-21, [ADR-014](docs/decisions/ADR-014-e7-barabasi-albert-rare-classes-by-degree.md), Proposed): topology `barabasi_albert`, cách chia `rare_classes` (lớp 5–9 chỉ ở K node) với `partition.placement: hub | edge | random`, manifest ghi `graph_edges`, hình P14 (accuracy theo bậc) và P15 (đồ thị mạng tô màu theo accuracy). Lưới 9 lượt đã tiền đăng ký ([docs/experiments/E7.md](docs/experiments/E7.md)) nhưng chưa chạy, chờ nhóm duyệt.
+> - Góp ý buổi 2 của GVHD (2026-10-21, [ADR-015](docs/decisions/ADR-015-feedback-2-lattice-hub-leaf-real-time.md), Proposed): topology `lattice` (xuyến bậc 4), `describe` mô tả % hub và % leaf, demo chia dữ liệu từng bước, P16 (đường hội tụ theo node, hub so với leaf), P17 và thời gian để đạt ngưỡng (thời gian phân tán ước tính theo băng thông). Lưới E9 (30 lượt) đã tiền đăng ký, chưa chạy. Phản hồi từng góp ý: [docs/report/PHAN_HOI_GOP_Y_BUOI_2.md](docs/report/PHAN_HOI_GOP_Y_BUOI_2.md).
 > - Tiến độ từng task: [tasks/todo.md](tasks/todo.md).
 
 ## Cài đặt (CPU)
@@ -41,7 +42,8 @@ Hoặc chạy `make venv`, tức đúng các lệnh cài đặt ở trên. Mọi
 | `python -m dfl run --config configs/profiles/fast.yaml --out build/fast` | Một lượt fast trên MNIST (N = 20). Thêm `--runtime processes` để mỗi node chạy trong một tiến trình riêng (ADR-010) |
 | `python -m dfl run --config configs/profiles/smoke_cifar10.yaml --out build/smoke-cifar10` | Một lượt smoke của đường CIFAR-10 trên dữ liệu tổng hợp 3×32×32, không cần tải CIFAR-10 (ADR-012) |
 | `python -m dfl run --config configs/profiles/cifar10_fast.yaml --out build/cifar10-fast` | Một lượt fast trên CIFAR-10 (N = 20, 1,000 bước, CNN của NIID-Bench, crop + flip). η = 0.05 chỉ là giá trị giữ chỗ, nên đây là lượt để phát triển và đo, không phải kết quả |
-| `python -m dfl describe --config configs/base.yaml --seeds 20 --out build/describe --check-req02` | Thống kê Non-IID của mọi cách chia qua 20 seed, so JS với bảng KH §3.2 (REQ-02) |
+| `python -m dfl describe --config configs/base.yaml --seeds 20 --out build/describe --check-req02` | Thống kê Non-IID của mọi cách chia qua 20 seed, so JS với bảng KH §3.2 (REQ-02); bảng topology có bậc, % hub (bậc ≥ 6), % leaf (bậc 1–2), cùng bảng ER theo p và BA theo m (ADR-015) |
+| `python -m scripts.demo_partition --out build/demo_partition` | Demo chia dữ liệu từng bước (Dirichlet, #C = k) trên nhãn thật, kiểm trùng partitioner; bảng ảnh hưởng của α, k, các cách chia khác, so giữa dataset (ADR-015) |
 | `python -m dfl sweep --experiment configs/experiments/<nhóm>.yaml --dry-run` | Lập kế hoạch một nhóm thí nghiệm; bỏ `--dry-run` (thêm `--workers <n>` nếu cần) để chạy |
 
 ## Commit

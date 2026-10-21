@@ -118,6 +118,16 @@ def non_holder_accuracy(run: Run) -> float:
     return float(final_accuracy(run)[~holders(run)].mean())
 
 
+def hub_minus_leaf(run: Run) -> float | None:
+    """Độ đo của H10 (E9, ADR-015): accuracy cuối trung bình của hub (bậc ≥ 6) trừ của leaf (bậc 1–2) trong
+    cùng một lượt; None khi lượt thiếu một trong hai loại node."""
+    kinds = np.array([degree_class(int(d)) for d in degrees(run)])
+    accuracy = final_accuracy(run)
+    if not ((kinds == "hub").any() and (kinds == "leaf").any()):
+        return None
+    return float(accuracy[kinds == "hub"].mean() - accuracy[kinds == "leaf"].mean())
+
+
 def hub_minus_edge(runs: Sequence[Run]) -> dict[int, float]:
     """Seed → độ đo H9 của ô hub trừ ô edge, chỉ với seed có đủ cả hai ô `ok`."""
     by_seed: dict[int, dict[str, float]] = defaultdict(dict)
