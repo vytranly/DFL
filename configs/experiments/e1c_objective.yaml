@@ -1,0 +1,15 @@
+# E1c: đối chứng lệch mục tiêu (H6; G19), thẻ docs/experiments/E1c.md. 15 lượt.
+# B3 (FedAvg đúng: trọng số n_k/n qua đường server, server ảo chỉ số N) × α ∈ {100, 1, 0.5, 0.1, 0.05}
+# × seed {0, 1, 2}; so với FC + MH (trọng số 1/N) của E1. DFedAvg τ = 20, η chung 0.1.
+experiment: e1c_objective
+profile: ../profiles/full.yaml
+blocks:
+  - seeds: [0, 1, 2]
+    set: {topology: {kind: server}, mixing: size_weighted, algorithm: {lr: 0.1}}
+    grid:
+      partition:
+        - {scheme: dirichlet, alpha: 100.0}
+        - {scheme: dirichlet, alpha: 1.0}
+        - {scheme: dirichlet, alpha: 0.5}
+        - {scheme: dirichlet, alpha: 0.1}
+        - {scheme: dirichlet, alpha: 0.05}

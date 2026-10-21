@@ -1,0 +1,10 @@
+# E2b: gossip công bằng (H4; ADR-009), thẻ docs/experiments/E2b.md. 9 lượt.
+# T3b (maximal matching ngẫu nhiên trên cạnh của đồ thị ER p = 0.3, mỗi round) × {IID, α = 0.1, #C = 2}
+# × seed {0, 1, 2}; DFedAvg τ = 20, η chung 0.1.
+experiment: e2b_gossip
+profile: ../profiles/full.yaml
+blocks:
+  - seeds: [0, 1, 2]
+    set: {topology: {kind: er_gossip}, algorithm: {lr: 0.1}}
+    grid:
+      partition: [{scheme: iid}, {scheme: dirichlet, alpha: 0.1}, {scheme: label_k, k: 2}]

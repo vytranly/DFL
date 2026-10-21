@@ -1046,3 +1046,11 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - Người dùng chọn "làm đầy đủ" E7. Đã hỏi theo Ask first và chốt: K = 2 node giữ lớp 5–9, lưới BA m = 2 × {hub, edge, random} × 3 seed = 9 lượt, chỉ làm code và tiền đăng ký (chưa chạy lưới), commit thẳng lên `binh`
 - ADR-014 (Proposed): topology T6 BA, cách chia `rare_classes`, vị trí theo bậc, `graph_edges` trong manifest, P14, P15, H9 (hub − edge trên accuracy của node không giữ lớp hiếm, tối đa "gợi ý"); SPEC §1.3, §1.4, §5.2, §5.3, REQ-07, REQ-10; thêm T30a–e vào todo
 - Việc tiếp theo: T30b
+
+## 2026-10-21 — Phiên #21 — Chạy toàn bộ lưới: chuẩn bị (nhánh `grid`)
+- Người dùng: "duyệt hết làm tất cả đi docker để sau cùng". Duyệt gồm: Gate G1 (trạng thái Accepted của ADR do nhóm tự ghi, như phiên #19), đưa ADR-013 vào lưới, mọi `--dry-run`, chạy Tier 1 + 2 trên máy này, sửa ghi chú μ ở SPEC
+- Máy: i5-12400, 6 nhân, 12 luồng, RAM khoảng 3 GB trống (máy dùng chung), nên 4 worker (mỗi lượt khoảng 710 MB). `code_version` mới `eff6fa19…` (ADR-013); E0a chạy lại từ đầu (EXP-2, ADR-007)
+- Nhánh `grid` tạo tại `2598ba4`; phiên E7 (dfl-a1) làm T30 trên `binh` và không đưa src/ của T30 vào `grid` (đã thống nhất qua tin nhắn). Lưới chạy từ worktree tách rời `/home/tun/ecaep/dfl-run`; soạn và commit ở `/home/tun/ecaep/dfl-grid`. Sweep chạy bằng `setsid nohup`, log ở `/home/tun/ecaep/dfl-staging/logs/`
+- Sự cố: phiên trước kết thúc làm sweep E0a dừng; 4 attempt bị ngắt (không có summary.json) được sweep tự chạy lại thành attempt mới (ENG-9), không xóa
+- Tiền đăng ký E1, E2, E3a, E4a, E8 (Tier 1) và E1c, E2b, E3b, E4 (Tier 2): thẻ, cấu hình, `tests/unit/test_experiment_grids.py` (18 test). Phép so sánh chính của H1, H3–H8 do phiên này cụ thể hóa (chỉ H2 có sẵn ở ADR-007); nhóm nên soát lại các thẻ
+- SPEC: E3a, E3b ghi rõ μ danh nghĩa và μ thật (0.5, 0.05) theo QS-2; không phải mâu thuẫn như phiên trước đã nói
