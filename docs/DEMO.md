@@ -28,4 +28,4 @@ Hình nên mở khi trình bày: `build/demo/figures/P1.png` (learning curve rin
 
 | Máy | Ngày | Sweep 2 lượt | Vẽ hình | Ghi chú |
 |---|---|---|---|---|
-| i5-12400, 6 nhân (máy chạy lưới, đang chạy 4 lượt lưới song song) | 2026-10-21 | (điền sau khi đo) | (điền sau khi đo) | Không phải laptop demo; laptop thật phải đo lại (QS-8) |
+| i5-12400, 6 nhân (máy chạy lưới, đang chạy 4 lượt lưới song song) | 2026-10-21 | 150 s | 5 s | Tổng 2.6 phút ≤ 5 phút (ENG-11). FC đạt khoảng 96%, ring khoảng 73% ở 400 bước. Không phải laptop demo; laptop thật phải đo lại (QS-8) |
