@@ -734,6 +734,39 @@ T22a, T22b và T09c là code của lưới: phải xong trước T14b (E0a), đ�
 
 - [x] **Review T28** (persona `code-reviewer`, 2026-10-15): APPROVE, không có lỗi critical hay important; 5 phát hiện nhỏ đã sửa: R1 `augmentation` phải khớp dataset (d3d8f7c), R2 giải nén lại file CIFAR-10 sai cỡ (d18fd39), R3 và R4 ghim thứ tự file train và tensor MNIST đã chuẩn hóa (e90393f), R5 ghi điểm lệch về cách đệm so với NIID-Bench (f11172d)
 
+## Chi phí giao tiếp theo loại và theo node (ADR-013; người dùng yêu cầu ngày 2026-10-21)
+
+> Code mới chỉ vào nhánh `binh`; nhánh `grid` giữ `code_version` của lưới cho tới khi nhóm quyết đưa ADR-013 vào lưới (ADR-013, Consequences).
+
+- [x] **T29a · ADR-013 và SPEC** — nhánh `binh` · S
+  - Mô tả: ADR-013 (Proposed); sửa SPEC §5.3 (`rounds.jsonl`, `timing.jsonl`), REQ-05, REQ-10; thêm dòng vào bảng ADR.
+  - Chấp nhận: các trường mới, định nghĩa tải và hai hình P12, P13 có trong SPEC và ADR-013, khớp với nhau.
+  - Kiểm chứng: `make check-task` (chỉ đổi tài liệu)
+  - Phụ thuộc: —
+  - File: `docs/decisions/ADR-013-comm-cost-by-type-and-node.md`, `docs/decisions/README.md`, `SPEC.md`
+
+- [ ] **T29b · Tải và thời gian theo node ở hai runtime** — nhánh `binh` · M
+  - Mô tả:
+    - `CommCounters` thêm `node_messages_cum`, `node_bytes_cum`; `CommLedger` đếm message theo node; `TorchDistTransport` đếm message nhận.
+    - `RoundRecord` thêm hai dãy đó. `TimingRecord` thêm `train_s_per_node`, `comm_s_per_node`.
+    - Process runtime gom tải message của từng node, gửi thời gian của từng node lên observer, và bỏ thời gian chờ gửi, nhận khỏi `combine_s` (S5).
+  - Chấp nhận:
+    - `max(node_bytes_cum) == max_node_bytes_cum` và `sum(node_messages_cum) == 2 × messages_cum`, trên ring, FC, gossip và đường server (có server ảo).
+    - T-INV-13 vẫn xanh: `rounds.jsonl` của process runtime, kể cả hai trường mới, trùng từng byte với bản in-process.
+    - `timing.jsonl` có hai dãy N phần tử không âm; ở inprocess, `comm_s_per_node` bằng 0 và tổng `train_s_per_node` bằng `train_s`.
+  - Kiểm chứng: `make check-task`; `make check-inv`
+  - Phụ thuộc: T29a
+  - File: `src/dfl/contracts.py`, `src/dfl/network/transport.py`, `src/dfl/sim/torchdist.py`, `src/dfl/sim/process_runtime.py`, `src/dfl/sim/run.py` (cùng `observer.py` và test)
+
+- [ ] **T29c · Analysis: đọc `timing.jsonl`, hình P12 và P13** — nhánh `binh` · M
+  - Mô tả: `aggregate.Run` có thêm `timing`; `analysis/comm_cost.py` tính chuỗi message, byte và thời gian theo pha của lượt, cùng tải và thời gian theo node; `plots.py` vẽ P12 và P13 (ADR-013).
+  - Chấp nhận:
+    - Lượt cũ không có `timing.jsonl` vẫn đọc được. P12, P13 báo lỗi rõ khi lượt thiếu trường của ADR-013, và khi trộn hai runtime.
+    - Cả hai hình sinh được từ kết quả giả và từ lượt smoke thật (`--draft`), có đơn vị, bảng màu Okabe–Ito và mục trong PROVENANCE.
+  - Kiểm chứng: `make check-task`; `pytest -q tests/unit/test_comm_cost.py tests/unit/test_plots.py -k "p12 or p13"`
+  - Phụ thuộc: T29b, T16a
+  - File: `analysis/aggregate.py`, `analysis/comm_cost.py`, `analysis/plots.py`, `tests/unit/test_comm_cost.py`, `tests/unit/test_plots.py`
+
 ## Mở rộng — chỉ làm sau M4, và phải hỏi trước (SPEC §1.4, QĐ-4)
 
 - [ ] T21 E6 Fashion-MNIST và E5 quy mô N ∈ {10, 50} (E5 chỉ đổi cấu hình)

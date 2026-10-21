@@ -1018,3 +1018,10 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - Người dùng duyệt cách đưa η = 0.1 vào E0b: ghi `algorithm.lr` trong YAML thí nghiệm, không đổi base.yaml hay src/
 - Lỗi thật tìm ra khi soạn E0b: `analysis.sanity._cell` gom lượt bằng `{seed: run}`, nên ô FC-IID (SAN-2) và ring-IID (SAN-4) có thể lấy nhầm lượt độ nhạy η/2, 2η ở seed 0 (cùng ô, khác η), tùy thứ tự run_id. Sửa: SAN-2 lấy FC-IID ở η của B1-4k, SAN-4 lấy IID ở η của ô α = 100; ô còn hai lượt cùng seed thì báo AnalysisError. 3 test tái hiện (đỏ trên code cũ khi lượt độ nhạy xếp sau). Chỉ đổi analysis/, code_version của lưới giữ nguyên
 
+
+## 2026-10-21 — Phiên #20 — T29a: ADR-013 chi phí giao tiếp theo loại và theo node
+- Người dùng hỏi có đo chi phí giao tiếp theo thời gian thực, theo từng node và vẽ theo loại chi phí không. Trả lời: thời gian chỉ khác 0 ở process runtime; số theo node có lúc chạy nhưng không được ghi ra file; chưa có hình nào về chi phí giao tiếp
+- Người dùng chọn phương án B (đổi schema, "làm luôn"): ADR-013 (Proposed), SPEC §5.3, REQ-05, REQ-10; thêm T29a–c vào todo
+- Đánh số hình P12, P13 vì P10, P11 đã thuộc E8 (T27c)
+- Còn mở (nhóm quyết): có đưa ADR-013 vào nhánh `grid` trước E0b không (đổi `code_version` của Tier 1)
+- Việc tiếp theo: T29b

@@ -16,6 +16,7 @@ Tách từ bản tóm tắt ở `docs/KE_HOACH_DE_TAI_2.md` §10 (P1.6), cập n
 | [ADR-010](ADR-010-multiprocess-node-runtime.md) | Mỗi node một tiến trình (tiến trình cục bộ hoặc container Docker) qua gloo; bộ mô phỏng một tiến trình giữ lại và phải trùng từng bit | Proposed | Q1 (đã trả lời), Q10, Q12, Q13 |
 | [ADR-011](ADR-011-model-complexity-ladder.md) | Thang bốn model (7,850 → 1,663,370 tham số) cho E8; SmallCNN vẫn là model lõi | Proposed | Q1 (đã trả lời), Q11 |
 | [ADR-012](ADR-012-cifar10-binary-niidbench-cnn-crop-flip.md) | CIFAR-10 đọc từ bản binary bằng numpy; CNN NIID-Bench 62,006 tham số; augmentation crop + flip lấy từ luồng batch của node | Proposed | Yêu cầu ngày 2026-10-15 (Ask first); bổ sung ADR-003, ADR-004 |
+| [ADR-013](ADR-013-comm-cost-by-type-and-node.md) | Ghi tải message, tải byte và thời gian của từng node; P12, P13 vẽ chi phí giao tiếp theo loại và theo node | Proposed | Yêu cầu ngày 2026-10-21; bổ sung ADR-008, ADR-010 |
 
 Q1–Q13, A1–A6, QĐ-1…5: [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md). QS-1…8: `SPEC.md` §11.2.
 
