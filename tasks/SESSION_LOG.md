@@ -1066,3 +1066,9 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - Validator của skill dataviz không còn trong thư mục tạm: cặp xanh–cam lấy từ TOPOLOGY_COLORS đã qua validator ở T29c, cộng mã hóa thứ hai bằng hình dạng điểm
 - Vẽ thử trên 6 lượt E7 tổng hợp (N = 12, ở build/e7-draft) và xem hình: sửa cỡ tiêu đề và màu chữ số hiệu node trên node đậm
 - Kiểm chứng: `make check-task` 988 test xanh, 169 s (lưới của `dfl-5f` chạy song song)
+
+## 2026-10-21 — Phiên #21 (tiếp) — T30e: thẻ E7, lưới, lượt thử
+- `docs/experiments/E7.md` (H9, phép so sánh chính hub − edge ghép cặp theo seed, tối đa "gợi ý", ngân sách 2.9 giờ-lõi, code_version `6f46b8ba…`); `configs/experiments/e7_centrality.yaml` (9 lượt; dry-run 9/9 sẽ chạy); `tests/unit/test_experiment_e7.py` (4 test); README thêm dòng E7
+- Lượt cũ không đổi: smoke và fast chạy ở `a41288e` (trước T30, code_version `eff6fa19…`) và ở code hiện tại (`6f46b8ba…`): `rounds.jsonl` và `summary.json` trùng từng byte ở cả hai profile; run_id đổi như dự kiến (cấu hình chuẩn hóa có thêm `m`, `holders`, `placement`)
+- Lượt thử E7 ở ngân sách fast, seed 0, MNIST thật: node không giữ lớp 5–9 đạt 86.2% khi lớp đó ở hub, 63.0% khi ở biên (hub − edge = +23.2 điểm, 1 seed, không phải kết quả). P14, P15 vẽ được và đọc rõ
+- Còn mở (nhóm quyết): duyệt ADR-014 và thẻ E7 rồi chạy 9 lượt; ghi code_version vào CODE_VERSIONS.md khi chạy

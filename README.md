@@ -6,6 +6,7 @@ Mô phỏng Decentralized Federated Learning (không server) trên MNIST để �
 > - Chạy được: `python -m dfl run` (một lượt, ghi đủ 4 file kết quả, mọi node trong một tiến trình hay mỗi node một tiến trình), `describe` (thống kê Non-IID của các cách chia, kiểm REQ-02) và `sweep` (một nhóm thí nghiệm).
 > - Chưa có: `analysis/` (R@x, AUC, hình, bảng; T15, T16), thẻ và kết quả thí nghiệm (từ E0a).
 > - CIFAR-10 (2026-10-15, [ADR-012](docs/decisions/ADR-012-cifar10-binary-niidbench-cnn-crop-flip.md), Proposed): có code tải và đọc dữ liệu, CNN của NIID-Bench, augmentation crop + flip, profile `smoke_cifar10` và `cifar10_fast`. Chưa có thí nghiệm: η, lưới, ngân sách và ngưỡng sanity của CIFAR-10 chưa quyết, và thí nghiệm vẫn chỉ làm sau M4.
+> - E7 (2026-10-21, [ADR-014](docs/decisions/ADR-014-e7-barabasi-albert-rare-classes-by-degree.md), Proposed): topology `barabasi_albert`, cách chia `rare_classes` (lớp 5–9 chỉ ở K node) với `partition.placement: hub | edge | random`, manifest ghi `graph_edges`, hình P14 (accuracy theo bậc) và P15 (đồ thị mạng tô màu theo accuracy). Lưới 9 lượt đã tiền đăng ký ([docs/experiments/E7.md](docs/experiments/E7.md)) nhưng chưa chạy, chờ nhóm duyệt.
 > - Tiến độ từng task: [tasks/todo.md](tasks/todo.md).
 
 ## Cài đặt (CPU)

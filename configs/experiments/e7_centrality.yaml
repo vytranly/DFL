@@ -1,0 +1,15 @@
+# E7: vị trí dữ liệu theo bậc (ADR-014; thẻ docs/experiments/E7.md). 9 lượt.
+# Đồ thị Barabási–Albert m = 2, N = 20; lớp 0–4 chia đều cho mọi node, lớp 5–9 chỉ cho K = 2 node, đặt ở hai node
+# bậc cao nhất (hub), thấp nhất (edge) hay theo hoán vị ngẫu nhiên (random, đối chứng); seed {0, 1, 2}.
+# Cùng seed thì ba ô có cùng partition, cùng đồ thị và cùng w⁰ (G9), nên hiệu hub − edge ghép cặp theo seed.
+# η = 0.1 lấy từ E0a (ADR-007), ghi ở đây như E0b vì base.yaml phải trùng mặc định của RunConfig.
+experiment: e7_centrality
+profile: ../profiles/full.yaml
+blocks:
+  - seeds: [0, 1, 2]
+    set:
+      topology: {kind: barabasi_albert, m: 2}
+      partition: {scheme: rare_classes, holders: 2}
+      algorithm: {lr: 0.1}
+    grid:
+      partition: [{placement: hub}, {placement: edge}, {placement: random}]

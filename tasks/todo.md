@@ -803,7 +803,7 @@ T22a, T22b và T09c là code của lưới: phải xong trước T14b (E0a), đ�
   - Phụ thuộc: T30c
   - File: `analysis/centrality.py`, `analysis/plots.py`, `tests/unit/test_centrality.py`, `tests/unit/test_plots.py`
 
-- [ ] **T30e · Thẻ E7, lưới, lượt thử** — nhánh `binh` · S
+- [x] **T30e · Thẻ E7, lưới, lượt thử** — nhánh `binh` · S
   - Mô tả: `docs/experiments/E7.md` (H9, phép so sánh chính, ngân sách), `configs/experiments/e7_centrality.yaml` (9 lượt), test lưới; chạy thử một ô E7 ngắn vào `build/`; `cmp` `rounds.jsonl` của smoke và fast giữa trước và sau T30b–d.
   - Chấp nhận: test lưới xanh (9 lượt đúng ô và seed); lượt thử xong và vẽ được P14, P15; `rounds.jsonl` của lượt cũ trùng từng byte.
   - Kiểm chứng: `make check-task`; `python -m dfl sweep --experiment configs/experiments/e7_centrality.yaml --dry-run`
