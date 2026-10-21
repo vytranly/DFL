@@ -45,7 +45,7 @@ import numpy as np
 import torch
 
 from dfl import seeding
-from dfl.config import SYNTHETIC_DATASETS, PartitionConfig, RunConfig
+from dfl.config import SYNTHETIC_DATASETS, PartitionConfig, RunConfig, lattice_shape
 from dfl.contracts import (
     CommCounters,
     EvalResult,
@@ -134,6 +134,10 @@ def schedule_for(config: RunConfig) -> TopologySchedule | None:
         return topology.gossip(n, partial(seeding.numpy_rng, seed, Stream.GOSSIP))
     if kind == "barabasi_albert":
         return topology.barabasi_albert(n, config.topology.m, seeding.numpy_rng(seed, Stream.GRAPH))
+    if kind == "lattice":
+        shape = lattice_shape(n)
+        assert shape is not None  # RunConfig đã từ chối N không tách được
+        return topology.lattice(*shape)
     # Còn erdos_renyi và er_gossip; config điền p mặc định cho cả hai.
     base = topology.erdos_renyi(n, config.topology.p, seeding.numpy_rng(seed, Stream.GRAPH))
     if kind == "erdos_renyi":

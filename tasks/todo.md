@@ -835,7 +835,7 @@ T22a, T22b và T09c là code của lưới: phải xong trước T14b (E0a), đ�
   - Phụ thuộc: T31b
   - File: `analysis/centrality.py`, `analysis/plots.py`, test tương ứng
 
-- [ ] **T31d · Topology T7 `lattice`** — nhánh `binh` · S
+- [x] **T31d · Topology T7 `lattice`** — nhánh `binh` · S
   - Mô tả: `topology.lattice(N)`: xuyến a × b = N, bậc 4; `schedule_for`; cấu hình nhận `lattice`.
   - Chấp nhận: N = 20 cho 4 × 5, 40 cạnh, mọi bậc bằng 4, liên thông, id node r·b + c; N không tách được thành a, b ≥ 3 bị từ chối; lượt smoke N = 9 chạy được và ghi `graph_edges`.
   - Kiểm chứng: `make check-task`

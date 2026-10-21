@@ -1,4 +1,5 @@
-"""Lịch topology T0–T4, T3b, T6 và W = I cho B2 (module network; KH §3.3; ADR-009, ADR-014; INV-4).
+"""Lịch topology T0–T4, T3b, T6, T7 và W = I cho B2 (module network; KH §3.3; ADR-009, ADR-014, ADR-015;
+INV-4).
 
 Chỉ phụ thuộc numpy/networkx (contract pure-no-torch), nên không import `seeding`: lịch ngẫu nhiên nhận
 `rng_for(round) -> numpy.random.Generator` do sim dựng từ `seeding.numpy_rng(seed, Stream.GOSSIP, round)`
@@ -19,6 +20,10 @@ networkx.erdos_renyi_graph (seed nhận số nguyên):
 https://networkx.org/documentation/networkx-3.7/reference/generated/networkx.generators.random_graphs.erdos_renyi_graph.html
 networkx.barabasi_albert_graph (bắt đầu từ star_graph(m), nên có m(N − m) cạnh; seed nhận số nguyên):
 https://networkx.org/documentation/networkx-3.7/reference/generated/networkx.generators.random_graphs.barabasi_albert_graph.html
+networkx.grid_2d_graph (periodic=True nối hai đầu mỗi chiều thành xuyến):
+https://networkx.org/documentation/networkx-3.7/reference/generated/networkx.generators.lattice.grid_2d_graph.html
+networkx.convert_node_labels_to_integers (ordering="sorted": node (r, c) theo thứ tự hàng):
+https://networkx.org/documentation/networkx-3.7/reference/generated/networkx.relabel.convert_node_labels_to_integers.html
 networkx.is_connected:
 https://networkx.org/documentation/networkx-3.7/reference/algorithms/generated/networkx.algorithms.components.is_connected.html
 networkx.freeze:
@@ -61,7 +66,7 @@ def _matching(num_nodes: int, pairs: list[tuple[int, int]]) -> nx.Graph:
 
 @dataclass(frozen=True)
 class StaticSchedule:
-    """Cùng một đồ thị cho mọi round (T0 star, T1 ring, T2 ER, T4 FC, T6 BA, B2)."""
+    """Cùng một đồ thị cho mọi round (T0 star, T1 ring, T2 ER, T4 FC, T6 BA, T7 lattice, B2)."""
 
     graph: nx.Graph
     is_static: bool = field(default=True, init=False)
@@ -166,6 +171,18 @@ def barabasi_albert(num_nodes: int, m: int, rng: np.random.Generator) -> StaticS
     if not 1 <= m < num_nodes:
         raise ValueError(f"m phải nằm trong 1..N−1 = 1..{num_nodes - 1}, nhận {m}")
     graph = nx.barabasi_albert_graph(num_nodes, m, seed=int(rng.integers(2**31)))
+    _check_connected(graph)
+    return StaticSchedule(nx.freeze(graph))
+
+
+def lattice(rows: int, cols: int) -> StaticSchedule:
+    """T7 (ADR-015): lưới rows × cols hai đầu nối vòng (xuyến), mọi node đúng 4 kết nối; node (r, c) có id
+    r·cols + c. Nằm giữa ring (bậc 2) và FC (bậc N − 1); không có ngẫu nhiên. Cần cạnh ≥ 3, vì cạnh 2 nối vòng
+    tạo cạnh trùng."""
+    if min(rows, cols) < 3:
+        raise ValueError(f"lattice cần mỗi cạnh ≥ 3 để mọi node có bậc 4, nhận {rows} × {cols}")
+    torus = nx.grid_2d_graph(rows, cols, periodic=True)
+    graph = nx.convert_node_labels_to_integers(torus, ordering="sorted")
     _check_connected(graph)
     return StaticSchedule(nx.freeze(graph))
 

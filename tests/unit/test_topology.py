@@ -87,6 +87,31 @@ def test_barabasi_albert_rejects_m_outside_one_to_n_minus_one(m: int) -> None:
         topo.barabasi_albert(20, m, seeding.numpy_rng(0, Stream.GRAPH))
 
 
+def test_lattice_is_a_torus_where_every_node_has_four_neighbours() -> None:
+    schedule = topo.lattice(4, 5)
+
+    graph = schedule.graph_at(0)
+
+    assert schedule.is_static and schedule.num_nodes == 20
+    assert graph.number_of_edges() == 40 and {d for _, d in graph.degree()} == {4}
+    assert nx.is_connected(graph)
+    # Node (r, c) có id r·5 + c; node 0 nối với (0, 1), (0, 4), (1, 0), (3, 0).
+    assert set(graph.neighbors(0)) == {1, 4, 5, 15}
+
+
+def test_a_three_by_three_lattice_still_has_degree_four() -> None:
+    graph = topo.lattice(3, 3).graph_at(0)
+
+    assert graph.number_of_edges() == 18 and {d for _, d in graph.degree()} == {4}
+
+
+@pytest.mark.parametrize(("rows", "cols"), [(2, 5), (5, 2), (1, 20)])
+def test_a_lattice_side_shorter_than_three_is_refused(rows: int, cols: int) -> None:
+    # Cạnh 2 nối vòng thì trùng cạnh, bậc chỉ còn 3: không còn là lưới bậc 4.
+    with pytest.raises(ValueError, match="lattice"):
+        topo.lattice(rows, cols)
+
+
 def test_static_schedule_returns_a_frozen_graph() -> None:
     graph = topo.ring(5).graph_at(0)
 

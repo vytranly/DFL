@@ -41,6 +41,7 @@ TOPOLOGIES = (
     "gossip",
     "er_gossip",
     "barabasi_albert",
+    "lattice",
     "star",
     "local_only",
     "server",
@@ -50,6 +51,8 @@ ER_KINDS = ("erdos_renyi", "er_gossip")
 DEFAULT_ER_P = 0.3
 # T6 chỉ cho E7 (ADR-014).
 DEFAULT_BA_M = 2
+# Cạnh ngắn nhất của lattice (T7, ADR-015): với cạnh 2, nối vòng tạo cạnh trùng nên bậc chỉ còn 3.
+LATTICE_MIN_SIDE = 3
 MIXINGS = ("metropolis_hastings", "uniform", "size_weighted", "size_corrected")
 # Shape (C, H, W) của ảnh mỗi dataset, và của ảnh mỗi model nhận; model phải khớp dataset (ADR-012). Bảng nằm
 # ở đây vì module này không import torch; tests/unit/test_models.py giữ nó đúng với model thật.
@@ -106,6 +109,16 @@ def _shape_text(shape: tuple[int, ...]) -> str:
 def _positive(value: float, where: str) -> None:
     if not (math.isfinite(value) and value > 0):
         raise ValueError(f"{where} phải hữu hạn và > 0, nhận {value}")
+
+
+def lattice_shape(num_nodes: int) -> tuple[int, int] | None:
+    """Kích thước (a, b) của lattice T7: a là ước lớn nhất của N không vượt √N, cần a ≥ 3; None nếu không có.
+
+    Đặt ở đây (không ở dfl.network) để cấu hình sai bị từ chối ngay lúc đọc, và để topology, describe dùng
+    chung một quy tắc (ADR-015).
+    """
+    sides = [a for a in range(LATTICE_MIN_SIDE, math.isqrt(num_nodes) + 1) if num_nodes % a == 0]
+    return (sides[-1], num_nodes // sides[-1]) if sides else None
 
 
 @dataclass(frozen=True)
@@ -262,6 +275,11 @@ class RunConfig:
             raise ValueError(
                 f"eval.every_steps = {self.eval.every_steps} phải chia hết cho τ = {tau}, "
                 "để mọi mốc rơi đúng cuối một round (ADR-007)"
+            )
+        if self.topology.kind == "lattice" and lattice_shape(self.num_nodes) is None:
+            raise ValueError(
+                f"lattice cần N = a × b với {LATTICE_MIN_SIDE} ≤ a ≤ b (xuyến bậc 4, ADR-015), nhận N = "
+                f"{self.num_nodes}"
             )
         if self.topology.kind == "barabasi_albert" and self.topology.m >= self.num_nodes:
             raise ValueError(f"topology.m phải nhỏ hơn N = {self.num_nodes}, nhận {self.topology.m}")

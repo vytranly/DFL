@@ -112,6 +112,8 @@ def test_a_number_that_pyyaml_reads_as_a_string_is_rejected_with_a_hint(tmp_path
         ("topology:\n  kind: barabasi_albert\n  m: 0\n", "m"),
         ("topology:\n  kind: barabasi_albert\n  p: 0.3\n", "p"),
         ("num_nodes: 2\ntopology:\n  kind: barabasi_albert\n", "m"),
+        ("num_nodes: 8\ntopology:\n  kind: lattice\n", "lattice"),
+        ("num_nodes: 7\ntopology:\n  kind: lattice\n", "lattice"),
         ("partition:\n  scheme: rare_classes\n", "holders"),
         ("partition:\n  holders: 2\n", "holders"),
         ("partition:\n  scheme: rare_classes\n  holders: 0\n", "holders"),
@@ -167,6 +169,8 @@ def test_a_number_that_pyyaml_reads_as_a_string_is_rejected_with_a_hint(tmp_path
         "m-zero",
         "p-on-ba",
         "m-not-below-n",
+        "lattice-two-rows",
+        "lattice-prime",
         "rare-needs-holders",
         "holders-without-rare",
         "holders-zero",
@@ -236,6 +240,22 @@ def test_hub_placement_is_accepted_on_ba_and_er(tmp_path: Path) -> None:
         config = cfg.load_config(write(tmp_path, f"{kind}.yaml", f"{rare}topology:\n  kind: {kind}\n"))
 
         assert config.partition.placement == "hub"
+
+
+@pytest.mark.parametrize(
+    ("num_nodes", "shape"),
+    [(20, (4, 5)), (9, (3, 3)), (12, (3, 4)), (16, (4, 4)), (18, (3, 6)), (8, None), (7, None), (4, None)],
+)
+def test_lattice_shape_is_the_squarest_split_with_both_sides_at_least_three(
+    num_nodes: int, shape: tuple[int, int] | None
+) -> None:
+    assert cfg.lattice_shape(num_nodes) == shape
+
+
+def test_lattice_is_accepted_without_parameters(tmp_path: Path) -> None:
+    config = cfg.load_config(write(tmp_path, "lattice.yaml", "topology:\n  kind: lattice\n"))
+
+    assert (config.topology.kind, config.topology.p, config.topology.m) == ("lattice", None, None)
 
 
 def test_config_is_frozen() -> None:
