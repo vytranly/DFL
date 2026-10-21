@@ -50,3 +50,13 @@
   - Ở FC-IID τ = 1, η = 0.05 (0.9894) hơn η = 0.1 (0.9884) 0.1 điểm %, trong ngưỡng hòa 0.2 điểm %, nên η chung được coi là tốt nhất cho τ = 1.
   - Ring-#C2 thấp hơn hẳn (0.79 ở η tốt nhất), đúng kỳ vọng của ô Non-IID khó nhất; đây là ô quyết định η theo quy tắc trường hợp xấu nhất.
 - **ADR-007:** η, μ, η của B1 đã ghi vào mục Decision; nhóm duyệt diff ngày 2026-10-16.
+
+## Chạy lại ở code_version `eff6fa19…` (đăng ký trước khi chạy, 2026-10-21)
+
+- **Lý do:** người dùng duyệt đưa ADR-013 (ghi tải message, tải byte và thời gian của từng node; `4dece43`) vào lưới, và chạy toàn bộ Tier 1 + 2 trên máy `12th Gen Intel(R) Core(TM) i5-12400 (flags c7483486fdc8)` thay cho máy chủ. `code_version` đổi từ `00fe7f19…` sang `eff6fa19…`, mà SPEC EXP-2 đòi mọi lượt Tier 1 cùng một `code_version`, nên E0a chạy lại từ đầu (ADR-007: "mọi nhóm chạy lại dưới code_version mới, bắt đầu từ E0a"). Đây không phải sửa lỗi: smoke trước và sau ADR-013 cho cùng `rounds.jsonl` khi bỏ hai trường mới.
+- **Không đổi gì khác:** cùng lưới 24 lượt (`configs/experiments/e0a_lr.yaml`), cùng seed 100, cùng tập validation, cùng quy tắc chọn ở trên.
+- **Nếu kết quả chọn khác lần trước** (η chung, η của B1, η tốt nhất của τ = 1 hay τ = 50): giá trị mới thay giá trị cũ, ADR-007 ghi cả hai cùng lý do (ADR-007, mục "Chọn lr"), và cấu hình các nhóm sau dùng giá trị mới.
+- **Lệnh** (từ worktree `/home/tun/ecaep/dfl-grid`, nhánh `grid`; `data/`, `results/` là symlink tới repo chính):
+  - `PYTHONPATH=src python -m dfl sweep --experiment configs/experiments/e0a_lr.yaml --dry-run` (24 lượt; người dùng duyệt mọi lưới ngày 2026-10-21)
+  - `PYTHONPATH=src python -m dfl sweep --experiment configs/experiments/e0a_lr.yaml --workers 4` (6 nhân, khoảng 3 GB RAM trống vì máy dùng chung với trình duyệt và các phiên khác)
+  - `python -m analysis.select_lr --results results/ --experiment e0a_lr`
