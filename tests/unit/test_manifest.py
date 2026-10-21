@@ -306,6 +306,7 @@ def build(config: cfg.RunConfig, **overrides: object) -> ManifestRecord:
         "objective_weights": [1 / n] * n,
         "objective_shift_tv": 0.0,
         "node_class_counts": [[1] * 10] * n,
+        "graph_edges": [[i, (i + 1) % n] if i + 1 < n else [0, n - 1] for i in range(n)],
         **overrides,
     }
     return mf.build_manifest(config, **arguments)
@@ -331,14 +332,33 @@ def test_manifest_has_every_field_and_records_the_canonical_config() -> None:
         ({"node_class_counts": [[1] * 10]}, "node_class_counts"),
         ({"node_class_counts": [[1] * 9] * 20}, "node_class_counts"),
         ({"attempt": 0}, "attempt"),
+        ({"graph_edges": [[1, 0]]}, "graph_edges"),
+        ({"graph_edges": [[0, 20]]}, "graph_edges"),
+        ({"graph_edges": [[0, 1, 2]]}, "graph_edges"),
     ],
-    ids=["weights-length", "counts-rows", "counts-columns", "attempt-zero"],
+    ids=[
+        "weights-length",
+        "counts-rows",
+        "counts-columns",
+        "attempt-zero",
+        "edge-not-ordered",
+        "edge-out-of-range",
+        "edge-not-a-pair",
+    ],
 )
 def test_manifest_rejects_per_node_fields_of_the_wrong_shape(
     overrides: dict[str, object], message: str
 ) -> None:
     with pytest.raises(ValueError, match=message):
         build(cfg.RunConfig(), **overrides)
+
+
+def test_manifest_keeps_the_edges_sorted_and_none_for_graphs_that_change_each_round() -> None:
+    record = build(cfg.RunConfig(), graph_edges=[[2, 3], [0, 1]])
+    dynamic = build(cfg.RunConfig(), graph_edges=None)
+
+    assert record["graph_edges"] == [[0, 1], [2, 3]]
+    assert dynamic["graph_edges"] is None
 
 
 def test_current_provenance_describes_this_checkout_and_environment() -> None:
@@ -386,4 +406,5 @@ def test_a_run_that_failed_before_assembly_gets_a_manifest_with_empty_assembly_f
         [],
         None,
     )
+    assert record["graph_edges"] is None
     assert (record["partition_retries"], record["objective_shift_tv"], record["attempt"]) == (0, 0.0, 2)

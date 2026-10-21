@@ -13,10 +13,13 @@ threads: 1                 # số luồng mỗi lượt, hằng số của cả 
 runtime: inprocess         # processes: mỗi node một tiến trình (ADR-010)
 deploy: local              # docker: tùy chọn, chỉ với runtime processes (Q12)
 partition:
-  scheme: iid              # iid | dirichlet (alpha) | label_k (k) | quantity (beta) | shards
+  scheme: iid              # iid | dirichlet (alpha) | label_k (k) | quantity (beta) | shards |
+                           # rare_classes (holders)
   alpha: null
   k: null
   beta: null
+  holders: null            # chỉ với rare_classes (E7, ADR-014): số node giữ lớp 5–9
+  placement: random        # random | hub | edge; hub, edge chỉ với rare_classes trên barabasi_albert, erdos_renyi
   min_size: 64             # = 2B (G17)
 topology:
   kind: ring               # ring | fully_connected | erdos_renyi | gossip | er_gossip | barabasi_albert | star | local_only |

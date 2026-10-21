@@ -253,6 +253,7 @@ class ProcessRun:
         self.heterogeneity = assembly.heterogeneity
         self.objective_weights = assembly.objective_weights
         self.spectral_gap = assembly.spectral_gap
+        self.graph_edges = assembly.graph_edges
         self._data_root = Path(data_root).resolve()
         self._code_version = code_version
         self._root = Path(root).resolve()

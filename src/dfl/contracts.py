@@ -447,6 +447,9 @@ class ManifestRecord(TypedDict):
     objective_shift_tv: float
     # N × 10: số mẫu mỗi lớp của từng node.
     node_class_counts: list[list[int]]
+    # Cạnh [u, v] (u < v, sắp tăng) của đồ thị tĩnh, để analysis tính bậc mà không import dfl.network; None
+    # với gossip, ER-gossip, đường server, central và attempt chưa lắp xong (ADR-014).
+    graph_edges: list[list[int]] | None
 
 
 class ExperimentVersion(TypedDict):

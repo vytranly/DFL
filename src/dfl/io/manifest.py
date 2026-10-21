@@ -255,6 +255,7 @@ def _record(
     objective_weights: Sequence[float],
     objective_shift_tv: float,
     node_class_counts: Sequence[Sequence[int]],
+    graph_edges: Sequence[Sequence[int]] | None,
 ) -> ManifestRecord:
     if attempt < 1:
         raise ValueError(f"attempt đếm từ 1, nhận {attempt}")
@@ -277,6 +278,7 @@ def _record(
         "objective_weights": [float(w) for w in objective_weights],
         "objective_shift_tv": objective_shift_tv,
         "node_class_counts": [[int(c) for c in row] for row in node_class_counts],
+        "graph_edges": None if graph_edges is None else sorted([int(u), int(v)] for u, v in graph_edges),
     }
 
 
@@ -292,9 +294,13 @@ def build_manifest(
     objective_weights: Sequence[float],
     objective_shift_tv: float,
     node_class_counts: Sequence[Sequence[int]],
+    graph_edges: Sequence[Sequence[int]] | None,
 ) -> ManifestRecord:
-    """ManifestRecord của attempt `attempt` (đếm từ 1); các dãy theo node phải có đúng N phần tử."""
+    """ManifestRecord của attempt `attempt` (đếm từ 1); các dãy theo node phải có đúng N phần tử, và mỗi cạnh
+    của `graph_edges` là [u, v] với 0 ≤ u < v < N."""
     n = config.num_nodes
+    if graph_edges is not None and any(len(e) != 2 or not 0 <= e[0] < e[1] < n for e in graph_edges):
+        raise ValueError(f"graph_edges phải là các cặp [u, v] với 0 ≤ u < v < N = {n}")
     if len(objective_weights) != n:
         raise ValueError(f"objective_weights cần {n} phần tử (N), nhận {len(objective_weights)}")
     if len(node_class_counts) != n or any(len(row) != NUM_CLASSES for row in node_class_counts):
@@ -310,6 +316,7 @@ def build_manifest(
         objective_weights=objective_weights,
         objective_shift_tv=objective_shift_tv,
         node_class_counts=node_class_counts,
+        graph_edges=graph_edges,
     )
 
 
@@ -324,7 +331,8 @@ def unassembled_manifest(
     """Manifest của attempt hỏng trước khi lắp xong lượt chạy, ví dụ vượt 1,000 lần lấy mẫu lại (REQ-02).
 
     Các trường chỉ có sau khi lắp (partition_retries, spectral_gap, objective_weights, objective_shift_tv,
-    node_class_counts) để trống: 0, None, [], 0.0, []. Lý do hỏng nằm ở SummaryFailed của attempt.
+    node_class_counts, graph_edges) để trống: 0, None, [], 0.0, [], None. Lý do hỏng nằm ở SummaryFailed của
+    attempt.
     """
     return _record(
         config,
@@ -337,4 +345,5 @@ def unassembled_manifest(
         objective_weights=[],
         objective_shift_tv=0.0,
         node_class_counts=[],
+        graph_edges=None,
     )

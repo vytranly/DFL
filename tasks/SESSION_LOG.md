@@ -1052,3 +1052,10 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - Test mới: số cạnh m(N − m), liên thông, tất định theo seed, hub ≥ 4 lần bậc nhỏ nhất, m ngoài miền; 5 cấu hình sai; T-INV-5 thêm đồ thị BA vào các luồng theo seed
 - Kiểm chứng: `make check-task` 932 test xanh, 79 s
 - Phiên `dfl-5f` báo đang chạy lưới Tier 1 + 2 từ worktree /home/tun/ecaep/dfl-grid (nhánh `grid` tại 2598ba4) và ghi `results/`, `data/` ở repo này; không đụng `results/`
+
+## 2026-10-21 — Phiên #21 (tiếp) — T30c: `rare_classes`, vị trí theo bậc, `graph_edges`
+- `RareClassPartitioner(holders)`: lớp 0–4 chia đều cho N phần, lớp 5–9 chia đều cho K phần đầu, hai hoán vị của luồng partition, không lấy mẫu lại. `assign_by_degree`: một hoán vị của luồng placement phá hòa bậc; K phần đầu vào K node bậc cao nhất (hub) hay thấp nhất (edge)
+- `PartitionConfig.holders`, `placement` (random | hub | edge); hub/edge chỉ với rare_classes trên BA hay ER; holders < N. `assemble` dựng lịch trước vị trí (hai luồng riêng nên lượt cũ không đổi)
+- Manifest thêm `graph_edges` (đồ thị tĩnh; null với gossip, ER-gossip, server, central, attempt chưa lắp); `Assembly.graph_edges`, `RunSetup` và `ProcessRun` mang nó tới `build_manifest`
+- Test mới: 17 unit (partition, vị trí), 12 cấu hình, 4 manifest, 11 tích hợp E7 (hub/edge trên 3 seed, G9 giữa ba vị trí, cạnh theo topology, manifest của lượt thật), T-INV-5 cho rare_classes, T-INV-13 trên một ô E7 (BA, hub)
+- Kiểm chứng: `make check-task` 976 test xanh, 115 s (vượt ngân sách 90 s vì lưới của phiên `dfl-5f` chạy song song; chỉ cảnh báo); `make check-inv` 88 xanh; e2e 9 xanh

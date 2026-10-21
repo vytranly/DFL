@@ -112,6 +112,13 @@ def test_a_number_that_pyyaml_reads_as_a_string_is_rejected_with_a_hint(tmp_path
         ("topology:\n  kind: barabasi_albert\n  m: 0\n", "m"),
         ("topology:\n  kind: barabasi_albert\n  p: 0.3\n", "p"),
         ("num_nodes: 2\ntopology:\n  kind: barabasi_albert\n", "m"),
+        ("partition:\n  scheme: rare_classes\n", "holders"),
+        ("partition:\n  holders: 2\n", "holders"),
+        ("partition:\n  scheme: rare_classes\n  holders: 0\n", "holders"),
+        ("partition:\n  scheme: rare_classes\n  holders: 20\n", "holders"),
+        ("partition:\n  placement: center\n", "placement"),
+        ("partition:\n  placement: hub\n", "rare_classes"),
+        ("partition:\n  scheme: rare_classes\n  holders: 2\n  placement: edge\n", "barabasi_albert"),
         ("eval:\n  split: train\n", "split"),
         ("model: resnet\n", "model"),
         ("model: cnn_niidbench\n", "1×28×28"),
@@ -160,6 +167,13 @@ def test_a_number_that_pyyaml_reads_as_a_string_is_rejected_with_a_hint(tmp_path
         "m-zero",
         "p-on-ba",
         "m-not-below-n",
+        "rare-needs-holders",
+        "holders-without-rare",
+        "holders-zero",
+        "holders-not-below-n",
+        "bad-placement",
+        "hub-needs-rare-classes",
+        "edge-needs-ba-or-er",
         "bad-split",
         "bad-model",
         "model-dataset-shape-mismatch",
@@ -205,6 +219,23 @@ def test_barabasi_albert_gets_m_two_by_default(tmp_path: Path) -> None:
     config = cfg.load_config(write(tmp_path, "ba.yaml", "topology:\n  kind: barabasi_albert\n"))
 
     assert (config.topology.m, config.topology.p) == (2, None)
+
+
+def test_placement_defaults_to_the_random_permutation(tmp_path: Path) -> None:
+    config = cfg.load_config(
+        write(tmp_path, "rare.yaml", "partition:\n  scheme: rare_classes\n  holders: 2\n")
+    )
+
+    assert (config.partition.holders, config.partition.placement) == (2, "random")
+
+
+def test_hub_placement_is_accepted_on_ba_and_er(tmp_path: Path) -> None:
+    rare = "partition:\n  scheme: rare_classes\n  holders: 2\n  placement: hub\n"
+
+    for kind in ("barabasi_albert", "erdos_renyi"):
+        config = cfg.load_config(write(tmp_path, f"{kind}.yaml", f"{rare}topology:\n  kind: {kind}\n"))
+
+        assert config.partition.placement == "hub"
 
 
 def test_config_is_frozen() -> None:

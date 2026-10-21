@@ -134,6 +134,7 @@ SCHEMES = {
     "dirichlet": PartitionConfig(scheme="dirichlet", alpha=0.5),
     "quantity": PartitionConfig(scheme="quantity", beta=2.0),
     "label-k": PartitionConfig(scheme="label_k", k=2),
+    "rare-classes": PartitionConfig(scheme="rare_classes", holders=1),
 }
 
 

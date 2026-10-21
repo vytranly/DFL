@@ -92,6 +92,7 @@ RECORD_KEYS = {
         "objective_weights",
         "objective_shift_tv",
         "node_class_counts",
+        "graph_edges",
     },
     # results/experiments/<exp>.json, do sweep ghi (T12; SPEC §5.3).
     "ExperimentIndex": {"experiment", "versions"},

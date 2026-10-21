@@ -70,6 +70,8 @@ from dfl.data.partition import (
     IIDPartitioner,
     LabelKPartitioner,
     QuantityPartitioner,
+    RareClassPartitioner,
+    assign_by_degree,
     assign_positions,
 )
 from dfl.io.manifest import (
@@ -110,6 +112,8 @@ def partitioner(config: PartitionConfig) -> Partitioner:
         return LabelKPartitioner(config.k, config.min_size)
     if config.scheme == "quantity":
         return QuantityPartitioner(config.beta, config.min_size)
+    if config.scheme == "rare_classes":
+        return RareClassPartitioner(config.holders, config.min_size)
     raise ValueError("P2' (shards) chỉ dùng trong describe, không chạy trong một lượt (SPEC QS-11)")
 
 
@@ -253,6 +257,14 @@ class Assembly:
     loss_scales: np.ndarray
     spectral_gap: float | None
 
+    @property
+    def graph_edges(self) -> list[list[int]] | None:
+        """Cạnh [u, v] (u < v, sắp tăng) của đồ thị tĩnh cho manifest; None khi đồ thị đổi mỗi round, với
+        đường server và central (ADR-014)."""
+        if self.schedule is None or not self.schedule.is_static or self.config.topology.kind == "central":
+            return None
+        return sorted([min(u, v), max(u, v)] for u, v in self.schedule.graph_at(0).edges)
+
     def node(self, i: int) -> Node:
         """Node i: w⁰ chung, dữ liệu của chính nó, luồng batch riêng, hệ số c_i."""
         config = self.config
@@ -313,17 +325,31 @@ def _spectral_gap(
     return mixing.spectral_gap(policy(schedule.graph_at(0), sizes))
 
 
+def _place(config: RunConfig, raw: PartitionResult, schedule: TopologySchedule | None) -> PartitionResult:
+    """Vị trí node: hoán vị ngẫu nhiên, hay theo bậc của đồ thị tĩnh với hub/edge (ADR-014)."""
+    rng = seeding.numpy_rng(config.seed, Stream.PLACEMENT)
+    placement = config.partition.placement
+    if placement == "random":
+        return assign_positions(raw, rng)
+    assert schedule is not None and schedule.is_static and config.partition.holders is not None
+    graph = schedule.graph_at(0)
+    degrees = np.array([graph.degree(i) for i in range(config.num_nodes)])
+    return assign_by_degree(raw, degrees, config.partition.holders, placement, rng)
+
+
 def assemble(config: RunConfig, datasets: data.Datasets) -> Assembly:
     """Cách chia, vị trí node, lịch topology, mixing, π, thống kê Non-IID, c_i và spectral gap của lượt."""
     n, seed = config.num_nodes, config.seed
     labels = datasets.train.y.numpy()
+    # Lịch dựng trước vị trí vì hub/edge cần bậc; hai bước rút từ hai luồng riêng (GRAPH, PLACEMENT), nên thứ
+    # tự này không đổi số nào của lượt cũ (ADR-014).
+    schedule = schedule_for(config)
     if config.topology.kind == "central":
         placed = PartitionResult(parts=(np.arange(len(labels), dtype=np.int64),), retries=0)
     else:
         raw = partitioner(config.partition)(labels, n, seeding.numpy_rng(seed, Stream.PARTITION))
-        placed = assign_positions(raw, seeding.numpy_rng(seed, Stream.PLACEMENT))
+        placed = _place(config, raw, schedule)
     sizes = np.array([len(part) for part in placed.parts], dtype=float)
-    schedule = schedule_for(config)
     policy = None if schedule is None else MIXING_POLICIES[config.mixing]
     weights = objective_weights(config, schedule, sizes)
     return Assembly(
@@ -350,6 +376,7 @@ class RunSetup:
     heterogeneity: HeterogeneityStats
     objective_weights: np.ndarray
     spectral_gap: float | None
+    graph_edges: list[list[int]] | None
     nodes: tuple[Node, ...]
     engine: Engine
     observer: Observer
@@ -394,6 +421,7 @@ def build(config: RunConfig, datasets: data.Datasets) -> RunSetup:
         heterogeneity=assembly.heterogeneity,
         objective_weights=assembly.objective_weights,
         spectral_gap=assembly.spectral_gap,
+        graph_edges=assembly.graph_edges,
         nodes=nodes,
         engine=engine,
         observer=observer,
@@ -494,6 +522,7 @@ class Driver(Protocol):
     heterogeneity: HeterogeneityStats
     objective_weights: np.ndarray
     spectral_gap: float | None
+    graph_edges: list[list[int]] | None
 
     def execute(self, logger: RunLogger) -> SummaryOk: ...
 
@@ -547,6 +576,7 @@ def _attempt(
             objective_weights=setup.objective_weights.tolist(),
             objective_shift_tv=setup.heterogeneity.objective_shift_tv,
             node_class_counts=setup.heterogeneity.node_class_counts,
+            graph_edges=setup.graph_edges,
         )
     )
     try:

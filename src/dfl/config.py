@@ -29,7 +29,10 @@ from pathlib import Path
 
 import yaml
 
-SCHEMES = ("iid", "dirichlet", "label_k", "quantity", "shards")
+SCHEMES = ("iid", "dirichlet", "label_k", "quantity", "shards", "rare_classes")
+# Vị trí node (ADR-014): random là hoán vị cũ; hub, edge chỉ cho rare_classes trên đồ thị có bậc khác nhau.
+PLACEMENTS = ("random", "hub", "edge")
+DEGREE_KINDS = ("barabasi_albert", "erdos_renyi")
 # central: baseline B1/B1-4k, một node giữ đủ dữ liệu train, không có topology hay mixing (T11c).
 TOPOLOGIES = (
     "ring",
@@ -76,7 +79,14 @@ SPLITS = ("test", "validation")
 RUNTIMES = ("inprocess", "processes")
 DEPLOYS = ("local", "docker")
 # Tham số của từng scheme chia dữ liệu (KH §3.2); tham số khác phải để null.
-SCHEME_PARAMS = {"iid": (), "dirichlet": ("alpha",), "label_k": ("k",), "quantity": ("beta",), "shards": ()}
+SCHEME_PARAMS = {
+    "iid": (),
+    "dirichlet": ("alpha",),
+    "label_k": ("k",),
+    "quantity": ("beta",),
+    "shards": (),
+    "rare_classes": ("holders",),
+}
 
 
 def _one_of(value: str, allowed: tuple[str, ...], where: str) -> None:
@@ -104,11 +114,15 @@ class PartitionConfig:
     alpha: float | None = None
     k: int | None = None
     beta: float | None = None
+    # Số node giữ lớp 5–9 của rare_classes (E7, ADR-014).
+    holders: int | None = None
+    placement: str = "random"
     min_size: int = 64
 
     def __post_init__(self) -> None:
         _one_of(self.scheme, SCHEMES, "partition.scheme")
-        for name in ("alpha", "k", "beta"):
+        _one_of(self.placement, PLACEMENTS, "partition.placement")
+        for name in ("alpha", "k", "beta", "holders"):
             used = name in SCHEME_PARAMS[self.scheme]
             value = getattr(self, name)
             if used and value is None:
@@ -121,6 +135,13 @@ class PartitionConfig:
             _positive(self.beta, "partition.beta")
         if self.k is not None and not 1 <= self.k <= 10:
             raise ValueError(f"partition.k phải nằm trong 1..10, nhận {self.k}")
+        if self.holders is not None:
+            _at_least(self.holders, 1, "partition.holders")
+        if self.placement != "random" and self.scheme != "rare_classes":
+            raise ValueError(
+                f"partition.placement: {self.placement} chỉ dùng với scheme rare_classes (ADR-014), nhận "
+                f"{self.scheme}"
+            )
         _at_least(self.min_size, 1, "partition.min_size")
 
     @staticmethod
@@ -244,6 +265,16 @@ class RunConfig:
             )
         if self.topology.kind == "barabasi_albert" and self.topology.m >= self.num_nodes:
             raise ValueError(f"topology.m phải nhỏ hơn N = {self.num_nodes}, nhận {self.topology.m}")
+        if self.partition.holders is not None and self.partition.holders >= self.num_nodes:
+            raise ValueError(
+                f"partition.holders phải nhỏ hơn N = {self.num_nodes}, nhận {self.partition.holders}"
+            )
+        if self.partition.placement != "random" and self.topology.kind not in DEGREE_KINDS:
+            raise ValueError(
+                f"partition.placement: {self.partition.placement} cần topology có bậc khác nhau "
+                f"{DEGREE_KINDS} "
+                f"(ADR-014), nhận {self.topology.kind}"
+            )
         if self.partition.scheme == "label_k" and self.num_nodes < 10:
             raise ValueError(f"#C = k cần N ≥ 10 để mọi nhãn có node sở hữu, nhận N = {self.num_nodes} (G23)")
         if self.deploy == "docker" and self.runtime != "processes":

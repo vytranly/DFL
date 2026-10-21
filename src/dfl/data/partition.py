@@ -1,4 +1,5 @@
-"""Chia chỉ số mẫu train cho N node theo P0–P3 của NIID-Bench (module data; KH §3.2; T-INV-8).
+"""Chia chỉ số mẫu train cho N node theo P0–P3 của NIID-Bench và P5 của E7 (module data; KH §3.2; T-INV-8;
+ADR-014).
 
 Chỉ dùng numpy và không import `dfl.seeding` (vốn nạp torch): Generator do sim truyền vào, lấy từ luồng
 "partition" (contract pure-no-torch, SPEC §3.2). Thứ tự tiêu thụ số ngẫu nhiên giống hệt hàm tham chiếu sao
@@ -7,6 +8,7 @@ từ docs/spikes/ (tests/reference/), để test golden so khớp tuyệt đối
 Khác NIID-Bench có chủ đích: min_size = 64 (= 2B) thay vì 10; lấy mẫu lại khi mọi xác suất còn lại bằng 0
 (code gốc sinh NaN); lấy mẫu lại tối đa 1,000 lần rồi báo lỗi (KH §3.2, SPEC REQ-02).
 numpy.random.Generator: https://numpy.org/doc/2.5/reference/random/generator.html
+numpy.lexsort (khóa cuối là khóa chính): https://numpy.org/doc/2.5/reference/generated/numpy.lexsort.html
 """
 
 from __future__ import annotations
@@ -21,6 +23,9 @@ NUM_CLASSES = 10
 DEFAULT_MIN_SIZE = 64
 # Số lần lấy mẫu lại tối đa (không tính lần thử đầu); vượt thì cấu hình coi như không thực hiện được.
 MAX_RETRIES = 1_000
+# P5 (E7, theo Palmieri 2024): lớp 5–9 chỉ ở vài node; lớp 0–4 chia đều cho mọi node.
+RARE_CLASSES = (5, 6, 7, 8, 9)
+SIDES = ("hub", "edge")
 
 
 def _check_inputs(labels: np.ndarray, num_nodes: int) -> None:
@@ -194,6 +199,63 @@ class ShardsPartitioner:
         order = rng.permutation(num_nodes * s)
         parts = [np.concatenate([shards[j] for j in order[i * s : (i + 1) * s]]) for i in range(num_nodes)]
         return _result(parts, 0, self.min_size)
+
+
+def _check_holders(holders: int, num_nodes: int) -> None:
+    if not 1 <= holders < num_nodes:
+        raise ValueError(f"holders phải nằm trong 1..N−1 = 1..{num_nodes - 1}, nhận {holders}")
+
+
+@dataclass(frozen=True, slots=True)
+class RareClassPartitioner:
+    """P5 `rare_classes` (E7, ADR-014): lớp 0–4 chia đều cho N phần, lớp 5–9 chia đều cho K phần đầu.
+
+    "Hiếm" nghĩa là chỉ K node có, không phải ít mẫu. Phần 0…K−1 là phần giữ lớp hiếm, theo đúng thứ tự đó;
+    `assign_by_degree` dựa vào thứ tự này. Rút đúng hai hoán vị (lớp chung trước), không lấy mẫu lại.
+    """
+
+    holders: int
+    min_size: int = DEFAULT_MIN_SIZE
+
+    def __post_init__(self) -> None:
+        _check_min_size(self.min_size)
+
+    def __call__(self, labels: np.ndarray, num_nodes: int, rng: np.random.Generator) -> PartitionResult:
+        _check_inputs(labels, num_nodes)
+        _check_holders(self.holders, num_nodes)
+        rare = np.isin(labels, RARE_CLASSES)
+        common = np.array_split(rng.permutation(np.flatnonzero(~rare)), num_nodes)
+        held = np.array_split(rng.permutation(np.flatnonzero(rare)), self.holders)
+        parts = [
+            np.concatenate([common[i], held[i]]) if i < self.holders else common[i] for i in range(num_nodes)
+        ]
+        return _result(parts, 0, self.min_size)
+
+
+def assign_by_degree(
+    result: PartitionResult, degrees: np.ndarray, holders: int, side: str, rng: np.random.Generator
+) -> PartitionResult:
+    """Đặt K phần đầu (phần giữ lớp hiếm của P5) ở K node bậc cao nhất (`hub`) hay thấp nhất (`edge`).
+
+    Rút đúng một `rng.permutation(N)` của luồng placement; thứ hạng của node trong hoán vị đó phá hòa bậc,
+    rồi xếp N − K phần còn lại vào các node còn lại. Cùng seed thì cùng đồ thị và cùng partition ở cả ba vị
+    trí (G9), nên chỉ chỗ đặt các phần là khác.
+    """
+    n = len(result.parts)
+    degrees = np.asarray(degrees)
+    if degrees.shape != (n,):
+        raise ValueError(f"cần bậc của đúng {n} node, nhận shape {degrees.shape}")
+    if side not in SIDES:
+        raise ValueError(f"side phải là một trong {SIDES}, nhận {side!r}")
+    _check_holders(holders, n)
+    rank = np.empty(n, dtype=np.int64)
+    rank[rng.permutation(n)] = np.arange(n)
+    order = np.lexsort((rank, -degrees if side == "hub" else degrees))
+    rest = sorted(order[holders:].tolist(), key=lambda node: rank[node])
+    placed: list[np.ndarray] = [np.empty(0, dtype=np.int64)] * n
+    for j, node in enumerate([*order[:holders].tolist(), *rest]):
+        placed[node] = result.parts[j]
+    return PartitionResult(parts=tuple(placed), retries=result.retries)
 
 
 def assign_positions(result: PartitionResult, rng: np.random.Generator) -> PartitionResult:

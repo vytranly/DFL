@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 import torch
 
-from dfl.config import AlgorithmConfig, EvalConfig, RunConfig, TopologyConfig, load_config
+from dfl.config import AlgorithmConfig, EvalConfig, PartitionConfig, RunConfig, TopologyConfig, load_config
 from dfl.io import manifest
 from dfl.sim import engine, process_runtime, run
 
@@ -53,6 +53,24 @@ def test_t_inv_13_processes_reproduce_the_simulator_byte_for_byte(
     assert read(processes, "summary.json") == read(inprocess, "summary.json")
     manifest_in, manifest_proc = read(inprocess, "manifest.json"), read(processes, "manifest.json")
     for key in ("node_class_counts", "objective_weights", "spectral_gap", "partition_retries"):
+        assert manifest_proc[key] == manifest_in[key]
+
+
+def test_t_inv_13_processes_reproduce_an_e7_cell_with_rare_classes_on_ba_hubs(
+    tmp_path: Path, here: manifest.Provenance
+) -> None:
+    # ADR-014: cả hai runtime dùng chung assemble, nên vị trí theo bậc và đồ thị BA phải như nhau.
+    config = dataclasses.replace(
+        SHORT,
+        topology=TopologyConfig(kind="barabasi_albert", m=2),
+        partition=PartitionConfig(scheme="rare_classes", holders=1, placement="hub"),
+    )
+
+    inprocess, processes = both(config, tmp_path, here)
+
+    assert (processes / "rounds.jsonl").read_bytes() == (inprocess / "rounds.jsonl").read_bytes()
+    manifest_in, manifest_proc = read(inprocess, "manifest.json"), read(processes, "manifest.json")
+    for key in ("node_class_counts", "graph_edges", "spectral_gap"):
         assert manifest_proc[key] == manifest_in[key]
 
 

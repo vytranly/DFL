@@ -785,7 +785,7 @@ T22a, T22b và T09c là code của lưới: phải xong trước T14b (E0a), đ�
   - Phụ thuộc: T30a
   - File: `src/dfl/network/topology.py`, `src/dfl/config.py`, `src/dfl/sim/run.py`, `configs/base.yaml`, `tests/unit/test_topology.py`, `tests/unit/test_config.py`
 
-- [ ] **T30c · `rare_classes`, vị trí theo bậc, `graph_edges`** — nhánh `binh` · M
+- [x] **T30c · `rare_classes`, vị trí theo bậc, `graph_edges`** — nhánh `binh` · M
   - Mô tả: `RareClassPartitioner(holders)`; `assign_by_degree(result, degrees, holders, side, rng)`; `PartitionConfig.holders`, `placement`; `assemble` dựng lịch trước khi gán vị trí; manifest ghi `graph_edges`.
   - Chấp nhận:
     - Lớp 5–9 chỉ ở K phần, lớp 0–4 ở mọi phần, mọi chỉ số dùng đúng một lần.
