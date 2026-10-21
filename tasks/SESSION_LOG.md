@@ -1119,3 +1119,9 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - `docs/report/PHAN_HOI_GOP_Y_BUOI_2.md`: từng góp ý của bản chép lời, trạng thái, bằng chứng, ý cho slide, thư viện theo module, việc còn mở; README thêm trạng thái và lệnh demo
 - Gọn lại sau khi tự soát: P17 hiện chú giải theo số đường topology đã vẽ; `aggregate._seconds_at` tính chuỗi ước tính một lần
 - Kiểm chứng: `make check-task` 1049 test xanh, 128 s
+
+## 2026-10-21 — Phiên #21 (tiếp) — Hoàn tất phần so dataset của T31f
+- Tải CIFAR-10 (`python -m dfl download cifar10`, kiểm md5, sáu file 30,730,000 byte) vào data/ (đã .gitignore); chạy lại `python -m scripts.demo_partition` trên MNIST và CIFAR-10 (11 s)
+- Cùng α cho cùng JS trên hai dataset (α = 0.1: 0.561 so với 0.573; #C = 2: 0.614 so với 0.613); CIFAR-10 có node nhỏ hơn nên ở α = 0.05 phải lấy mẫu lại 4.6 lần (MNIST 1.4). Cập nhật mục 2 của docs/report/PHAN_HOI_GOP_Y_BUOI_2.md
+- Sửa câu sai ở ADR-015: JSON chuẩn hóa của cấu hình cũ không đổi, nhưng `run_id` vẫn đổi vì băm cả `code_version`
+- Kiểm chứng: `make check-full` 1058 test xanh (cả e2e), `check-inv` 88 xanh, `pip check` không lỗi

@@ -138,9 +138,16 @@ Cả hai đều chạy trong E1, và mọi cách chia được đặt lên cùng
 
 Feature skew (cùng nhãn nhưng ảnh khác kiểu, ví dụ FEMNIST theo người viết) nằm ngoài phạm vi, vì MNIST không có thông tin người viết.
 
-**So giữa các dataset:** độ lệch nhãn của một cách chia chỉ phụ thuộc số lớp, mức cân bằng giữa các lớp và Nα, không phụ thuộc nội dung ảnh.
-- MNIST và CIFAR-10 cùng 10 lớp gần cân bằng, nên cùng α cho JS gần như nhau. Trung bình 20 seed, N = 20: CIFAR-10 (ADR-012) cho Dir(0.5) 0.287, Dir(0.1) 0.554, #C = 2 0.614, #C = 1 0.758; MNIST (bảng KH §3.2) cho 0.283, 0.553, 0.613, 0.758. Bảng so đủ ở `build/demo_partition/demo_partition.md` (mục 6) khi đã tải CIFAR-10.
-- Cái khác giữa hai dataset là **ảnh hưởng của cùng mức lệch lên accuracy**: CIFAR-10 khó hơn nhiều. Phải đo bằng thí nghiệm, không suy ra được từ JS.
+**So giữa các dataset** (cùng script, N = 20, trung bình 5 seed; CIFAR-10 tải bằng `python -m dfl download cifar10`):
+
+| Dataset | Số mẫu của node | Mẫu mỗi lớp | JS α = 100 | JS α = 1 | JS α = 0.5 | JS α = 0.1 | JS α = 0.05 | JS #C = 2 | JS #C = 1 |
+|---|---|---|---|---|---|---|---|---|---|
+| MNIST | 55,000 | 4,969–6,180 | 0.001 | 0.176 | 0.287 | 0.561 | 0.633 | 0.614 | 0.758 |
+| CIFAR-10 | 45,000 | 4,500 mỗi lớp | 0.002 | 0.166 | 0.297 | 0.573 | 0.635 | 0.613 | 0.758 |
+
+- **Cùng α thì cùng mức lệch nhãn** trên hai dataset (đường JS theo α của hai dataset gần như trùng nhau trong `alpha_effect.png`). Lý do: độ lệch nhãn của một cách chia chỉ phụ thuộc số lớp, mức cân bằng giữa các lớp và Nα, không phụ thuộc nội dung ảnh. Kết quả này khớp với số 20 seed đã đo trước: CIFAR-10 ở ADR-012 và MNIST ở bảng KH §3.2.
+- **Khác ở kích thước node:** CIFAR-10 có ít mẫu hơn (45,000 so với 55,000), nên ở α = 0.05 node nhỏ nhất chỉ còn 158 mẫu (MNIST 200) và phải rút lại trung bình 4.6 lần để mọi node có ít nhất 64 mẫu (MNIST 1.4 lần). Với dataset nhỏ hơn nữa hay nhiều lớp hơn, cùng α sẽ lệch khác.
+- **Khác ở accuracy:** CIFAR-10 khó hơn nhiều, nên cùng một mức lệch nhãn sẽ làm giảm accuracy nhiều hơn. Điều này phải đo bằng thí nghiệm, không suy ra được từ JS.
 
 **Ý cho slide:** bốn bước của Dirichlet trên MNIST, kèm tỉ lệ rút được ở lớp 0 và ma trận node × lớp; bảng α với cột Nα; bảng k và câu trả lời "chia đều cho các chủ"; hình `alpha_effect.png`; heatmap P7.
 

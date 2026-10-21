@@ -88,7 +88,7 @@ Hiện trạng trước ADR này:
 
 ## Consequences
 - **`code_version` đổi** (topology mới, `describe` mới). Nhánh `grid` không nhận các commit `src/` này, như ADR-013, ADR-014. Phần analysis (bậc từ message, P16, P17, s@x) không đổi `code_version` và chạy được trên lượt của lưới lõi.
-- **Cấu hình chuẩn hóa không thêm khóa:** `lattice` chỉ là một giá trị mới của `topology.kind`, nên `run_id` của cấu hình cũ không đổi.
+- **Cấu hình chuẩn hóa không thêm khóa:** `lattice` chỉ là một giá trị mới của `topology.kind`, nên JSON chuẩn hóa của cấu hình cũ không đổi. `run_id` vẫn đổi, vì nó băm cả `code_version` (ADR-008).
 - **SPEC cần sửa:** §1.4 (lattice có code), §5.2 (lưới E9), REQ-04 (thời gian để đạt ngưỡng), REQ-07 (T7), REQ-10 (P16, P17), US-4 (`describe` in bậc và tỉ lệ hub/leaf).
 - **Tasks:** T31a (ADR-015, SPEC), T31b (thời gian ước tính, s@x, P17), T31c (bậc từ message, P16), T31d (lattice), T31e (`describe` mô tả bậc, ER theo p, BA theo m), T31f (demo chia dữ liệu từng bước), T31g (thẻ E9, lưới, lượt thử, tài liệu phản hồi góp ý).
 - Hạn chế cần nêu: thời gian phân tán là ước tính từ một mô hình băng thông đơn giản; ở runtime inprocess, thời gian đo là tổng qua node.
