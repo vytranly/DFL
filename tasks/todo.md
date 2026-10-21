@@ -767,6 +767,49 @@ T22a, T22b và T09c là code của lưới: phải xong trước T14b (E0a), đ�
   - Phụ thuộc: T29b, T16a
   - File: `analysis/aggregate.py`, `analysis/comm_cost.py`, `analysis/plots.py`, `tests/unit/test_comm_cost.py`, `tests/unit/test_plots.py`
 
+## E7: vị trí dữ liệu theo bậc trên đồ thị Barabási–Albert (ADR-014; người dùng yêu cầu ngày 2026-10-21)
+
+> Code, test, tiền đăng ký và lượt thử vào `build/`; không chạy lưới, không ghi vào `results/`. Nhánh `grid` không nhận các commit này (như ADR-013). Đã hỏi theo Ask first: K = 2, lưới 9 lượt, chưa chạy lưới, commit thẳng lên `binh`.
+
+- [x] **T30a · ADR-014 và SPEC** — nhánh `binh` · S
+  - Mô tả: ADR-014 (Proposed); sửa SPEC §1.3 (H9), §1.4, §5.2, §5.3 (`graph_edges`), REQ-07 (T6), REQ-10 (P14, P15); thêm dòng vào bảng ADR.
+  - Chấp nhận: khóa cấu hình, quy tắc vị trí, trường manifest, H9 và hai hình có trong SPEC và ADR-014, khớp với nhau.
+  - Kiểm chứng: `make check-task` (chỉ đổi tài liệu)
+  - Phụ thuộc: —
+  - File: `docs/decisions/ADR-014-e7-barabasi-albert-rare-classes-by-degree.md`, `docs/decisions/README.md`, `SPEC.md`, `tasks/todo.md`
+
+- [ ] **T30b · Topology T6 `barabasi_albert`** — nhánh `binh` · S
+  - Mô tả: `topology.barabasi_albert(N, m, rng)` lấy seed từ luồng GRAPH; `TopologyConfig.m` (mặc định 2 với BA, null với topology khác); `schedule_for`.
+  - Chấp nhận: m(N − m) cạnh, liên thông, gọi lại cùng seed thì cùng đồ thị, khác seed thì khác; m ngoài 1..N−1 bị từ chối; `m` với topology khác bị từ chối; lượt smoke chạy được với BA.
+  - Kiểm chứng: `make check-task`
+  - Phụ thuộc: T30a
+  - File: `src/dfl/network/topology.py`, `src/dfl/config.py`, `src/dfl/sim/run.py`, `configs/base.yaml`, `tests/unit/test_topology.py`, `tests/unit/test_config.py`
+
+- [ ] **T30c · `rare_classes`, vị trí theo bậc, `graph_edges`** — nhánh `binh` · M
+  - Mô tả: `RareClassPartitioner(holders)`; `assign_by_degree(result, degrees, holders, side, rng)`; `PartitionConfig.holders`, `placement`; `assemble` dựng lịch trước khi gán vị trí; manifest ghi `graph_edges`.
+  - Chấp nhận:
+    - Lớp 5–9 chỉ ở K phần, lớp 0–4 ở mọi phần, mọi chỉ số dùng đúng một lần.
+    - `hub` đặt K phần giữ lớp hiếm ở K node bậc cao nhất, `edge` ở K node bậc thấp nhất; cùng seed thì ba vị trí cùng partition và cùng đồ thị.
+    - `placement: random` cho đúng hoán vị cũ; `hub`/`edge` ngoài `rare_classes` hay ngoài BA/ER bị từ chối.
+    - `graph_edges` khớp đồ thị tĩnh, null với gossip và đường server; T-INV-13 vẫn xanh.
+  - Kiểm chứng: `make check-task`; `make check-inv`
+  - Phụ thuộc: T30b
+  - File: `src/dfl/data/partition.py`, `src/dfl/config.py`, `src/dfl/sim/run.py`, `src/dfl/io/manifest.py`, `src/dfl/contracts.py`, `src/dfl/sim/process_runtime.py`, `configs/base.yaml`, test tương ứng
+
+- [ ] **T30d · Analysis: bậc từ manifest, P14 và P15** — nhánh `binh` · M
+  - Mô tả: `analysis/centrality.py` (bậc, node giữ lớp hiếm, độ đo của H9); `plots.py` vẽ P14 (accuracy cuối theo bậc) và P15 (đồ thị mạng tô màu theo accuracy, cỡ theo tải byte).
+  - Chấp nhận: hai hình sinh được từ kết quả giả và từ lượt smoke thật (`--draft`), có đơn vị, bảng màu an toàn và mục trong PROVENANCE; lượt thiếu `graph_edges` báo lỗi rõ.
+  - Kiểm chứng: `make check-task`
+  - Phụ thuộc: T30c
+  - File: `analysis/centrality.py`, `analysis/plots.py`, `tests/unit/test_centrality.py`, `tests/unit/test_plots.py`
+
+- [ ] **T30e · Thẻ E7, lưới, lượt thử** — nhánh `binh` · S
+  - Mô tả: `docs/experiments/E7.md` (H9, phép so sánh chính, ngân sách), `configs/experiments/e7_centrality.yaml` (9 lượt), test lưới; chạy thử một ô E7 ngắn vào `build/`; `cmp` `rounds.jsonl` của smoke và fast giữa trước và sau T30b–d.
+  - Chấp nhận: test lưới xanh (9 lượt đúng ô và seed); lượt thử xong và vẽ được P14, P15; `rounds.jsonl` của lượt cũ trùng từng byte.
+  - Kiểm chứng: `make check-task`; `python -m dfl sweep --experiment configs/experiments/e7_centrality.yaml --dry-run`
+  - Phụ thuộc: T30d
+  - File: `docs/experiments/E7.md`, `configs/experiments/e7_centrality.yaml`, `tests/unit/test_experiment_e7.py`, `README.md`, `tasks/todo.md`, `tasks/SESSION_LOG.md`
+
 ## Mở rộng — chỉ làm sau M4, và phải hỏi trước (SPEC §1.4, QĐ-4)
 
 - [ ] T21 E6 Fashion-MNIST và E5 quy mô N ∈ {10, 50} (E5 chỉ đổi cấu hình)

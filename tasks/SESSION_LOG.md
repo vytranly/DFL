@@ -1040,3 +1040,9 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - Màu topology: Okabe–Ito bỏ vàng và đen; validator của skill dataviz đạt (ΔE mù màu ≥ 15.8). Đã vẽ thử trên smoke 4 topology × 2 seed (inprocess) và 3 topology × 2 seed (processes) rồi xem hình: sửa đường trùng (ring và server cùng 2N message), hộp không độ rộng, chú giải đè cột
 - Kiểm chứng: `make check-task` 918 test xanh, 79 s; e2e vẽ hình trên smoke có P12, P13
 - Còn mở (nhóm quyết): đưa T29b vào nhánh `grid` trước E0b không (ADR-013); thay số ngân sách MIN_TESTS ở checkpoint tới
+
+## 2026-10-21 — Phiên #21 — T30a: ADR-014 cho E7
+- Người dùng hỏi repo có so được node hub với node biên và vẽ được node mạnh không. Trả lời: số theo node đã có, nhưng lưới gần như không có hub và analysis không biết đồ thị
+- Người dùng chọn "làm đầy đủ" E7. Đã hỏi theo Ask first và chốt: K = 2 node giữ lớp 5–9, lưới BA m = 2 × {hub, edge, random} × 3 seed = 9 lượt, chỉ làm code và tiền đăng ký (chưa chạy lưới), commit thẳng lên `binh`
+- ADR-014 (Proposed): topology T6 BA, cách chia `rare_classes`, vị trí theo bậc, `graph_edges` trong manifest, P14, P15, H9 (hub − edge trên accuracy của node không giữ lớp hiếm, tối đa "gợi ý"); SPEC §1.3, §1.4, §5.2, §5.3, REQ-07, REQ-10; thêm T30a–e vào todo
+- Việc tiếp theo: T30b

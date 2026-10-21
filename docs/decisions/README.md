@@ -17,6 +17,7 @@ Tách từ bản tóm tắt ở `docs/KE_HOACH_DE_TAI_2.md` §10 (P1.6), cập n
 | [ADR-011](ADR-011-model-complexity-ladder.md) | Thang bốn model (7,850 → 1,663,370 tham số) cho E8; SmallCNN vẫn là model lõi | Proposed | Q1 (đã trả lời), Q11 |
 | [ADR-012](ADR-012-cifar10-binary-niidbench-cnn-crop-flip.md) | CIFAR-10 đọc từ bản binary bằng numpy; CNN NIID-Bench 62,006 tham số; augmentation crop + flip lấy từ luồng batch của node | Proposed | Yêu cầu ngày 2026-10-15 (Ask first); bổ sung ADR-003, ADR-004 |
 | [ADR-013](ADR-013-comm-cost-by-type-and-node.md) | Ghi tải message, tải byte và thời gian của từng node; P12, P13 vẽ chi phí giao tiếp theo loại và theo node | Proposed | Yêu cầu ngày 2026-10-21; bổ sung ADR-008, ADR-010 |
+| [ADR-014](ADR-014-e7-barabasi-albert-rare-classes-by-degree.md) | E7: đồ thị Barabási–Albert m = 2; lớp 5–9 chỉ ở K = 2 node đặt ở hub, biên hay ngẫu nhiên; đồ thị ghi vào manifest; P14, P15 | Proposed | Yêu cầu ngày 2026-10-21 (Ask first); bổ sung ADR-005, ADR-008, ADR-009 |
 
 Q1–Q13, A1–A6, QĐ-1…5: [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md). QS-1…8: `SPEC.md` §11.2.
 
