@@ -758,7 +758,7 @@ T22a, T22b và T09c là code của lưới: phải xong trước T14b (E0a), đ�
   - Phụ thuộc: T29a
   - File: `src/dfl/contracts.py`, `src/dfl/network/transport.py`, `src/dfl/sim/torchdist.py`, `src/dfl/sim/process_runtime.py`, `src/dfl/sim/run.py` (cùng `observer.py` và test)
 
-- [ ] **T29c · Analysis: đọc `timing.jsonl`, hình P12 và P13** — nhánh `binh` · M
+- [x] **T29c · Analysis: đọc `timing.jsonl`, hình P12 và P13** — nhánh `binh` · M
   - Mô tả: `aggregate.Run` có thêm `timing`; `analysis/comm_cost.py` tính chuỗi message, byte và thời gian theo pha của lượt, cùng tải và thời gian theo node; `plots.py` vẽ P12 và P13 (ADR-013).
   - Chấp nhận:
     - Lượt cũ không có `timing.jsonl` vẫn đọc được. P12, P13 báo lỗi rõ khi lượt thiếu trường của ADR-013, và khi trộn hai runtime.

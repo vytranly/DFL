@@ -1,5 +1,5 @@
-"""Vẽ hình từ kết quả: khung chung, P1 và P7 (module analysis; T16a; SPEC INT-1, INT-2, INT-6, REQ-10; KH
-§3.8).
+"""Vẽ hình từ kết quả: khung chung, P1, P7, P12 và P13 (module analysis; T16a, T29c; SPEC INT-1, INT-2, INT-6,
+REQ-10; KH §3.8; ADR-013).
 
 - `python -m analysis.plots --results results/ --out figures/` là cách duy nhất sinh hình cho báo cáo
   (INT-1):
@@ -17,6 +17,13 @@
   lượt phân kỳ ghi trong chú giải (INT-3).
 - **P7:** heatmap node × lớp kèm cột kích thước node, mỗi cách chia một ô, từ `node_class_counts` của manifest
   (lượt có seed nhỏ nhất của mỗi cách chia).
+- **P12, P13:** chi phí giao tiếp theo loại (message, byte, thời gian), mức lượt và mức node (ADR-013). Lượt
+  DFL và đường server (B1, B2 không có message), τ = 20, μ = 0, η chung như P1, một runtime mỗi hình; mỗi màu
+  một topology, cùng màu ở mọi ô. Mỗi loại một ô riêng, không dùng trục kép.
+  - P12: (a) message tích lũy, (b) byte tích lũy (trục log) theo bước cục bộ, trung bình qua seed; (c) giây
+    mỗi round của từng pha, cột chồng, trung bình qua seed.
+  - P13: phân bố qua node và seed của message, byte và giây (train, comm) mỗi round; server ảo là một điểm có
+    nhãn. Cần lượt ghi sau ADR-013.
 
 matplotlib (backend Agg không cần màn hình; subplots; Axes.imshow; Figure.savefig):
 https://matplotlib.org/3.11.2/users/explain/figure/backends.html
@@ -46,7 +53,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.figure import Figure
 
-from analysis import checks, provenance
+from analysis import checks, comm_cost, provenance
 from analysis.aggregate import AnalysisError, Run, read_experiment, scan
 
 REPO_ROOT = provenance.REPO_ROOT
@@ -85,6 +92,17 @@ def select_p1(runs: Sequence[Run], *, draft: bool) -> list[Run]:
         return []
     common = Counter(r.config["algorithm"]["lr"] for r in dfl).most_common(1)[0][0]
     return [r for r in dfl if r.config["algorithm"]["lr"] == common]
+
+
+def select_comm(runs: Sequence[Run], *, draft: bool) -> list[Run]:
+    """Lượt có message của P12, P13: như P1 nhưng giữ đường server; ở --draft nhận mọi τ của profile."""
+    sent = [r for r in runs if _kind(r) not in ("central", "local_only") and r.config["algorithm"]["mu"] == 0]
+    if not draft:
+        sent = [r for r in sent if r.config["algorithm"]["tau"] == 20]
+    if not sent:
+        return []
+    common = Counter(r.config["algorithm"]["lr"] for r in sent).most_common(1)[0][0]
+    return [r for r in sent if r.config["algorithm"]["lr"] == common]
 
 
 def select_p7(runs: Sequence[Run], *, draft: bool) -> list[Run]:
@@ -237,10 +255,183 @@ def draw_p7_describe(report: dict[str, Any], *, seed: int = 0) -> Figure:
     return figure
 
 
+def topology_label(run: Run) -> str:
+    """Tên topology, kèm p của Erdős–Rényi để hai mức p không gộp làm một."""
+    p = run.config["topology"].get("p")
+    return f"{_kind(run)} p = {p:g}" if p is not None else _kind(run)
+
+
+# Màu topology: Okabe–Ito bỏ vàng (#F0E442 quá sáng cho đường trên nền trắng) và đen (dành cho server ảo).
+# Đã chạy validator của skill dataviz: đạt độ sáng, chroma, tách biệt khi mù màu (ΔE ≥ 15.8); độ tương phản
+# thấp với nền được bù bằng nhãn hiển thị (chú giải, nhãn trục).
+TOPOLOGY_COLORS = [c for c in OKABE_ITO if c not in ("#F0E442", "#000000")]
+# Kiểu nét theo topology, mã hóa thứ hai cạnh màu: hai topology cùng số message (ring và server ở N = 4 đều
+# 2N mỗi round) thì đường nét đứt vẫn hiện trên đường liền.
+LINESTYLES = ["-", "--", ":", "-."]
+# Pha của thời gian mỗi round, theo thứ tự chồng từ dưới lên; "khác" là wall time ngoài mọi pha.
+PHASE_LABELS = {"train": "train", "comm": "comm", "combine": "combine", "eval": "eval", "other": "khác"}
+PHASE_COLORS = dict(zip(PHASE_LABELS, OKABE_ITO[4:7] + OKABE_ITO[0:2], strict=True))
+MEDIAN = {"color": "#000000", "linewidth": 1.5}
+MB = 1e6
+
+
+def _by_topology(runs: Sequence[Run]) -> tuple[dict[str, list[Run]], dict[str, str], Counter[str]]:
+    """Lượt `ok` theo topology, màu cố định theo thứ tự tên (cùng màu ở mọi ô), và số lượt phân kỳ."""
+    groups: dict[str, list[Run]] = defaultdict(list)
+    for run in runs:
+        if run.status == "ok":
+            groups[topology_label(run)].append(run)
+    names = sorted(groups)
+    colors = {name: TOPOLOGY_COLORS[i % len(TOPOLOGY_COLORS)] for i, name in enumerate(names)}
+    diverged = Counter(topology_label(r) for r in runs if r.status == "diverged")
+    return {name: groups[name] for name in names}, colors, diverged
+
+
+def _seeds_label(name: str, group: Sequence[Run], diverged: Counter[str]) -> str:
+    extra = f", {diverged[name]} phân kỳ" if diverged[name] else ""
+    return f"{name} ({len(group)} seed{extra})"
+
+
+def _runtime_label(runtime: str) -> str:
+    """Nhãn trục x của ô thời gian; ở inprocess nói rõ comm = 0 là vì runtime (ADR-010)."""
+    if runtime == "inprocess":
+        return "topology (runtime inprocess: comm = 0, Transport trong bộ nhớ không chờ)"
+    return f"topology (runtime {runtime})"
+
+
+def _headroom(ax: Any, top: float) -> None:
+    """Chừa phần trên của ô cho chú giải, để nó không đè lên cột hay hộp."""
+    ax.set_ylim(0, 1.4 * top if top > 0 else 1)
+
+
+def _jitter(center: float, count: int, spread: float = 0.12) -> np.ndarray:
+    """Hoành độ rải đều quanh `center`, tất định (không dùng RNG), để các điểm cùng giá trị không chồng."""
+    return center + (np.linspace(-spread, spread, count) if count > 1 else np.zeros(count))
+
+
+def draw_p12(runs: Sequence[Run], *, draft: bool) -> Figure | None:
+    """P12: message, byte tích lũy và thời gian mỗi round theo pha, mỗi topology một màu (ADR-013)."""
+    groups, colors, diverged = _by_topology(runs)
+    if not groups:
+        return None
+    runtime = comm_cost.single_runtime(runs)
+    figure, axes = _figure(3, 16)
+    messages_ax, bytes_ax, time_ax = axes[0]
+    for i, (name, group) in enumerate(groups.items()):
+        series = [comm_cost.cost_series(run) for run in group]
+        steps = series[0].steps
+        # Đường vẽ trước dày hơn, nên vẫn lộ viền khi đường sau trùng hệt nó.
+        width = max(1.5, 3.5 - 0.7 * i)
+        style = {"color": colors[name], "linestyle": LINESTYLES[i % len(LINESTYLES)], "linewidth": width}
+        label = _seeds_label(name, group, diverged)
+        messages_ax.plot(steps, np.mean([s.messages for s in series], axis=0), label=label, **style)
+        bytes_ax.plot(steps, np.mean([s.bytes for s in series], axis=0) / MB, label=label, **style)
+    for ax, ylabel in ((messages_ax, "message tích lũy"), (bytes_ax, "byte tích lũy (MB)")):
+        ax.set_xlabel("bước cục bộ")
+        ax.set_ylabel(ylabel)
+        ax.grid(alpha=0.3)
+    bytes_ax.set_yscale("log")
+    messages_ax.legend(fontsize=7)
+    names = list(groups)
+    bottom = np.zeros(len(names))
+    for phase, label in PHASE_LABELS.items():
+        heights = np.array(
+            [np.mean([comm_cost.phase_seconds_per_round(run)[phase] for run in groups[n]]) for n in names]
+        )
+        time_ax.bar(
+            names,
+            heights,
+            bottom=bottom,
+            color=PHASE_COLORS[phase],
+            label=label,
+            edgecolor="white",
+            linewidth=1,
+        )
+        bottom += heights
+    time_ax.set_ylabel("thời gian mỗi round (s)")
+    time_ax.set_xlabel(_runtime_label(runtime), fontsize=8)
+    time_ax.tick_params(axis="x", labelrotation=20)
+    time_ax.grid(alpha=0.3, axis="y")
+    _headroom(time_ax, float(bottom.max()))
+    time_ax.legend(fontsize=7, loc="upper center", ncol=len(PHASE_LABELS))
+    messages_ax.set_title("(a) message")
+    bytes_ax.set_title("(b) byte")
+    time_ax.set_title("(c) thời gian, theo pha")
+    figure.suptitle("P12 · chi phí giao tiếp theo loại (trung bình qua seed)")
+    _stamp(figure, runs, draft=draft)
+    return figure
+
+
+def _node_boxes(
+    ax: Any, data: list[np.ndarray], positions: np.ndarray, colors: list[str], width: float
+) -> None:
+    """Hộp qua node và seed, cùng mỗi node × seed một điểm, để phân bố không độ rộng (mọi node cùng bậc) vẫn
+    mang màu."""
+    boxes = ax.boxplot(data, positions=positions, widths=width, patch_artist=True, medianprops=MEDIAN)
+    for patch, values, x, color in zip(boxes["boxes"], data, positions, colors, strict=True):
+        patch.set(facecolor=color, alpha=0.4)
+        ax.scatter(_jitter(x, len(values), width / 4), values, s=10, color=color, zorder=3)
+
+
+def draw_p13(runs: Sequence[Run], *, draft: bool) -> Figure | None:
+    """P13: phân bố qua node và seed của tải và thời gian mỗi round; server ảo là một điểm (ADR-013)."""
+    groups, colors, _ = _by_topology(runs)
+    if not groups:
+        return None
+    runtime = comm_cost.single_runtime(runs)
+    loads = {name: [comm_cost.node_load(run) for run in group] for name, group in groups.items()}
+    seconds = {
+        name: [comm_cost.node_seconds_per_round(run) for run in group] for name, group in groups.items()
+    }
+    figure, axes = _figure(3, 16)
+    names = list(groups)
+    positions = np.arange(len(names))
+    for ax, field, scale, ylabel in (
+        (axes[0][0], "messages", 1, "message mỗi round"),
+        (axes[0][1], "bytes", MB, "byte mỗi round (MB)"),
+    ):
+        data = [np.concatenate([getattr(load, field) for load in loads[n]]) / scale for n in names]
+        _node_boxes(ax, data, positions, [colors[n] for n in names], 0.5)
+        servers = [
+            (i, getattr(load, f"server_{field}") / scale)
+            for i, n in enumerate(names)
+            for load in loads[n]
+            if getattr(load, f"server_{field}") is not None
+        ]
+        if servers:
+            xs, ys = zip(*servers, strict=True)
+            ax.scatter(xs, ys, marker="X", s=64, color=OKABE_ITO[7], label="server ảo", zorder=4)
+            ax.legend(fontsize=7)
+        ax.set_xticks(positions, names, rotation=20)
+        ax.set_ylabel(ylabel)
+        ax.grid(alpha=0.3, axis="y")
+    time_ax = axes[0][2]
+    top = 0.0
+    for offset, index, phase in ((-0.2, 0, "train"), (0.2, 1, "comm")):
+        data = [np.concatenate([pair[index] for pair in seconds[n]]) for n in names]
+        _node_boxes(time_ax, data, positions + offset, [PHASE_COLORS[phase]] * len(names), 0.3)
+        time_ax.plot([], [], color=PHASE_COLORS[phase], linewidth=6, label=PHASE_LABELS[phase])
+        top = max(top, *(float(values.max()) for values in data))
+    time_ax.set_xticks(positions, names, rotation=20)
+    time_ax.set_ylabel("thời gian mỗi round (s)")
+    time_ax.set_xlabel(_runtime_label(runtime), fontsize=8)
+    time_ax.grid(alpha=0.3, axis="y")
+    _headroom(time_ax, top)
+    time_ax.legend(fontsize=7, loc="upper center", ncol=2)
+    axes[0][0].set_title("(a) tải message (gửi + nhận)")
+    axes[0][1].set_title("(b) tải byte (gửi + nhận)")
+    time_ax.set_title("(c) thời gian của từng node")
+    figure.suptitle("P13 · chi phí giao tiếp theo node (phân bố qua node và seed)")
+    _stamp(figure, runs, draft=draft)
+    return figure
+
+
 # Tên hình → (nhóm thí nghiệm cấp dữ liệu khi không có --draft, hàm chọn lượt, hàm vẽ).
 FIGURES: dict[str, tuple[tuple[str, ...], Callable[..., list[Run]], Callable[..., Figure | None]]] = {
     "P1": (("e1_noniid", "e0b_sanity"), select_p1, draw_p1),
     "P7": (("e1_noniid",), select_p7, draw_p7),
+    "P12": (("e1_noniid", "e2_topology", "e0b_sanity"), select_comm, draw_p12),
+    "P13": (("e1_noniid", "e2_topology", "e0b_sanity"), select_comm, draw_p13),
 }
 
 

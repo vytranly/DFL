@@ -1032,3 +1032,11 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - S5 (REVIEW-C3-P4.1): `combine_s` của process runtime không còn chứa thời gian chờ gửi, nhận
 - Kiểm chứng: `make check-task` 900 test xanh, 76 s; `make check-inv` 86 test xanh; e2e 9 test xanh. Smoke trước và sau T29b: bỏ hai trường mới thì 6/6 dòng `rounds.jsonl` trùng nhau (huấn luyện không đổi)
 - Test mới: 6 (tải theo bậc trên ring/FC/ER/gossip, thời gian theo node ở processes, tải ring và thời gian ở e2e); test cũ sửa theo schema mới
+
+## 2026-10-21 — Phiên #20 (tiếp) — T29c: P12, P13
+- `aggregate.Run.timing` (rỗng khi không có timing.jsonl); `analysis/comm_cost.py`: chuỗi message, byte tích lũy, giây mỗi round theo pha (cùng phần "khác" của wall time, chặn dưới 0), tải và thời gian theo node, server ảo tách riêng, một runtime mỗi hình. T27c (E8) sẽ mở rộng module này
+- `plots.py`: P12 (message, byte log, cột chồng thời gian theo pha) và P13 (hộp qua node × seed kèm điểm từng node, server ảo là điểm X), lấy từ E1, E2, E0b; lượt có message, τ = 20, μ = 0, η chung. Mỗi loại chi phí một ô, không trục kép
+- P12 chỉ cần messages_cum, bytes_cum, timing.jsonl, nên vẽ được cả lượt cũ (ví dụ E0b ở code_version của lưới); P13 cần lượt ghi sau T29b
+- Màu topology: Okabe–Ito bỏ vàng và đen; validator của skill dataviz đạt (ΔE mù màu ≥ 15.8). Đã vẽ thử trên smoke 4 topology × 2 seed (inprocess) và 3 topology × 2 seed (processes) rồi xem hình: sửa đường trùng (ring và server cùng 2N message), hộp không độ rộng, chú giải đè cột
+- Kiểm chứng: `make check-task` 918 test xanh, 79 s; e2e vẽ hình trên smoke có P12, P13
+- Còn mở (nhóm quyết): đưa T29b vào nhánh `grid` trước E0b không (ADR-013); thay số ngân sách MIN_TESTS ở checkpoint tới

@@ -46,6 +46,7 @@ def config(**overrides: object) -> dict[str, object]:
 def round_record(step: int, tau: int, acc: list[float], **fields: object) -> dict[str, object]:
     """Một dòng rounds.jsonl ở mốc `step` bước cục bộ; các trường tổng hợp tính từ `acc` theo node."""
     n = len(acc)
+    messages = 8 * (step // tau)
     mean = sum(acc) / n
     std = (sum((a - mean) ** 2 for a in acc) / n) ** 0.5
     record: dict[str, object] = {
@@ -71,9 +72,30 @@ def round_record(step: int, tau: int, acc: list[float], **fields: object) -> dic
         "train_loss_mean": 1.0,
         "acc_per_node": list(acc),
         "acc_local_per_node": list(acc),
+        # Mỗi message 1,000 byte, tính cho cả hai đầu (ADR-013): tổng tải message = 2 × messages_cum.
+        "node_messages_cum": [2 * messages // n] * n,
+        "node_bytes_cum": [2 * messages // n * 1000] * n,
     }
     record.update(fields)
     return record
+
+
+def timing_records(rounds: list[dict[str, object]], nodes: int) -> list[dict[str, object]]:
+    """timing.jsonl khớp `rounds`: mỗi lần ghi 0.4 s train (chia đều qua node), 0.1 s combine, 0.2 s eval,
+    không giao tiếp (inprocess), và 0.1 s không thuộc pha nào; wall_time_s cộng dồn 0.8 s mỗi lần ghi."""
+    return [
+        {
+            "round": r["round"],
+            "wall_time_s": 0.8 * (i + 1),
+            "train_s": 0.4,
+            "combine_s": 0.1,
+            "eval_s": 0.2,
+            "comm_s": 0.0,
+            "train_s_per_node": [0.4 / nodes] * nodes,
+            "comm_s_per_node": [0.0] * nodes,
+        }
+        for i, r in enumerate(rounds)
+    ]
 
 
 def curve(values: list[float], *, tau: int = 20, nodes: int = 4, every: int = 100) -> list[dict[str, object]]:
@@ -95,6 +117,7 @@ def write_run(
     machine: str = MACHINE,
     final_eval_split: str | None = None,
     final_acc: float = 0.9,
+    timing: list[dict[str, object]] | None = None,
 ) -> Path:
     """Một attempt trong `root`/runs/<run_id>/attempt-<k>/; status ok, diverged, failed hay None (bị ngắt)."""
     cfg = cfg if cfg is not None else config()
@@ -124,6 +147,8 @@ def write_run(
     }
     (path / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
     (path / "rounds.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rounds), encoding="utf-8")
+    timing = timing if timing is not None else timing_records(rounds, n)
+    (path / "timing.jsonl").write_text("".join(json.dumps(t) + "\n" for t in timing), encoding="utf-8")
     last = rounds[-1] if rounds else {"messages_cum": 0, "bytes_cum": 0}
     split = final_eval_split or cfg["eval"]["split"]
     summaries: dict[str, dict[str, object]] = {

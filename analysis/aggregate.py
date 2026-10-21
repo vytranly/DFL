@@ -8,6 +8,8 @@ INT-3; ADR-008).
   ghi chỉ mục.
 - Mỗi run_id có nhiều nhất một attempt đã xong (`ok` hay `diverged`); attempt `failed` và attempt bị ngắt
   (không có summary.json) được đếm, không bị bỏ qua (INT-3). Lượt thiếu hay phân kỳ vẫn có dòng trong bảng.
+- `timing.jsonl` được đọc nếu có (lượt nào cũng ghi nó, nhưng không bắt buộc với phân tích chỉ dùng
+  rounds.jsonl); thời gian không tất định, nên chỉ hình về thời gian dùng tới nó (ADR-013).
 - File kết quả không bao giờ chứa NaN hay vô cực (ghi với `allow_nan=False`), nên gặp chúng lúc đọc là file
   hỏng: báo lỗi ngay, không để NaN lọt vào thống kê (INT-3).
 
@@ -27,7 +29,7 @@ from typing import Any
 
 import pandas as pd
 
-from dfl.contracts import ExperimentIndex, ManifestRecord, RoundRecord
+from dfl.contracts import ExperimentIndex, ManifestRecord, RoundRecord, TimingRecord
 
 FINISHED = ("ok", "diverged")
 
@@ -69,6 +71,8 @@ class Run:
     manifest: ManifestRecord
     rounds: list[RoundRecord]
     summary: dict[str, Any]
+    # Rỗng khi attempt không có timing.jsonl.
+    timing: list[TimingRecord]
 
     @property
     def status(self) -> str:
@@ -117,8 +121,16 @@ def read_run(run_dir: Path) -> Attempts:
         if summary["status"] == "failed":
             failed.append((number, str(summary["error"])))
             continue
+        timing = read_lines(path / "timing.jsonl") if (path / "timing.jsonl").exists() else []
         finished.append(
-            Run(run_id, path, read_json(path / "manifest.json"), read_lines(path / "rounds.jsonl"), summary)
+            Run(
+                run_id,
+                path,
+                read_json(path / "manifest.json"),
+                read_lines(path / "rounds.jsonl"),
+                summary,
+                timing,
+            )
         )
     if len(finished) > 1:
         raise AnalysisError(

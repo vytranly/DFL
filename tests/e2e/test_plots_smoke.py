@@ -30,4 +30,7 @@ def test_plots_draw_from_smoke_results_in_draft_mode_only(tmp_path: Path) -> Non
     ).stat().st_size > 0
     record = json.loads((tmp_path / "fig" / "PROVENANCE.json").read_text(encoding="utf-8"))
     assert record["draft"] is True and len(record["analysis_version"]) == 64
+    # ADR-013: P12 và P13 vẽ được từ lượt thật, vì dfl ghi đủ tải và thời gian theo node.
+    assert all((tmp_path / "fig" / f"{name}.png").stat().st_size > 0 for name in ("P12", "P13"))
+    assert set(record["figures"]) >= {"P1", "P7", "P12", "P13"}
     assert refused.returncode != 0 and "results/" in refused.stderr
