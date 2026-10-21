@@ -93,8 +93,25 @@ def test_t_inv_6_messages_and_bytes_count_only_node_traffic(
     rounds = [json.loads(line) for line in (attempt / "rounds.jsonl").read_text().splitlines()]
     assert [r["messages_cum"] for r in rounds] == [8, 16]
     assert all(r["bytes_cum"] == r["messages_cum"] * 4 * 46_730 for r in rounds)
+    # ADR-013: mỗi node có 2 láng giềng, nên gửi 2 và nhận 2 message mỗi round.
+    assert [r["node_messages_cum"] for r in rounds] == [[4] * 4, [8] * 4]
+    assert all(r["node_bytes_cum"] == [m * 4 * 46_730 for m in r["node_messages_cum"]] for r in rounds)
     timing = [json.loads(line) for line in (attempt / "timing.jsonl").read_text().splitlines()]
     assert all(t["comm_s"] >= 0 for t in timing) and len(timing) == 2
+
+
+def test_timing_has_the_train_and_comm_time_of_every_node(tmp_path: Path, here: manifest.Provenance) -> None:
+    # ADR-013: thời gian của từng node do chính tiến trình node đo; trường gộp là lớn nhất qua node.
+    config = dataclasses.replace(SHORT, runtime="processes")
+
+    attempt = run.run(config, out=tmp_path, provenance=here)
+
+    timing = [json.loads(line) for line in (attempt / "timing.jsonl").read_text().splitlines()]
+    for record in timing:
+        assert len(record["train_s_per_node"]) == len(record["comm_s_per_node"]) == 4
+        assert min(record["train_s_per_node"]) > 0 and min(record["comm_s_per_node"]) >= 0
+        assert record["train_s"] == max(record["train_s_per_node"])
+        assert record["comm_s"] == max(record["comm_s_per_node"])
 
 
 def test_a_diverging_node_stops_every_process_at_the_simulator_round(

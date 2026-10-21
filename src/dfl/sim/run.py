@@ -163,27 +163,37 @@ def objective_weights(config: RunConfig, schedule: TopologySchedule | None, size
 
 @dataclass(slots=True)
 class PhaseTimer:
-    """Thời gian huấn luyện và đánh giá cộng dồn giữa hai lần ghi timing.jsonl (G21)."""
+    """Thời gian huấn luyện của từng node và thời gian đánh giá, cộng dồn giữa hai lần ghi timing.jsonl (G21,
+    ADR-013)."""
 
+    num_nodes: int
     start: float = field(default_factory=time.perf_counter)
     last: float = 0.0
-    train: float = 0.0
+    train: list[float] = field(init=False)
     evaluate: float = 0.0
 
+    def __post_init__(self) -> None:
+        self.train = [0.0] * self.num_nodes
+
     def restart(self) -> None:
-        self.start, self.last, self.train, self.evaluate = time.perf_counter(), 0.0, 0.0, 0.0
+        self.start, self.last, self.evaluate = time.perf_counter(), 0.0, 0.0
+        self.train = [0.0] * self.num_nodes
 
     def lap(self, round_number: int) -> TimingRecord:
         wall = time.perf_counter() - self.start
+        train = sum(self.train)
         record = TimingRecord(
             round=round_number,
             wall_time_s=wall,
-            train_s=self.train,
-            combine_s=max(0.0, wall - self.last - self.train - self.evaluate),
+            train_s=train,
+            combine_s=max(0.0, wall - self.last - train - self.evaluate),
             eval_s=self.evaluate,
             comm_s=0.0,  # Transport trong bộ nhớ không chờ (ADR-010)
+            train_s_per_node=list(self.train),
+            comm_s_per_node=[0.0] * self.num_nodes,
         )
-        self.last, self.train, self.evaluate = wall, 0.0, 0.0
+        self.last, self.evaluate = wall, 0.0
+        self.train = [0.0] * self.num_nodes
         return record
 
 
@@ -199,7 +209,7 @@ class TimedTrainer:
         try:
             return self.inner(model, data, loss_scale=loss_scale, generator=generator)
         finally:
-            self.timer.train += time.perf_counter() - start
+            self.timer.train[data.node_id] += time.perf_counter() - start
 
 
 @dataclass(frozen=True, slots=True)
@@ -358,7 +368,7 @@ def build(config: RunConfig, datasets: data.Datasets) -> RunSetup:
         raise ValueError(f"runtime {config.runtime}: build chỉ lắp runtime inprocess; xem process_runtime")
     assembly = assemble(config, datasets)
     nodes = tuple(assembly.node(i) for i in range(config.num_nodes))
-    timer = PhaseTimer()
+    timer = PhaseTimer(config.num_nodes)
     server = assembly.schedule is None
     engine = Engine(
         nodes=nodes,

@@ -40,6 +40,8 @@ def timing(round_number: int) -> TimingRecord:
         "combine_s": 0.25,
         "eval_s": 0.25,
         "comm_s": 0.0,
+        "train_s_per_node": [0.5, 0.5],
+        "comm_s_per_node": [0.0, 0.0],
     }
 
 

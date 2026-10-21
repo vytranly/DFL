@@ -103,6 +103,28 @@ def test_messages_and_bytes_follow_the_ring_with_one_message_per_neighbour(
     assert (summary["messages_total"], summary["bytes_total"]) == (48, 48 * MESSAGE_BYTES)
 
 
+def test_every_node_of_the_ring_carries_the_same_load(smoke_run: tuple[Path, float]) -> None:
+    # ADR-013: mỗi node gửi 2 và nhận 2 message mỗi round; tải byte lớn nhất là max_node_bytes_cum.
+    rounds = read_lines(smoke_run[0] / "rounds.jsonl")
+
+    assert [r["node_messages_cum"] for r in rounds] == [[4 * k] * 4 for k in range(1, 7)]
+    for r in rounds:
+        assert r["node_bytes_cum"] == [m * MESSAGE_BYTES for m in r["node_messages_cum"]]
+        assert max(r["node_bytes_cum"]) == r["max_node_bytes_cum"]
+        assert sum(r["node_messages_cum"]) == 2 * r["messages_cum"]
+
+
+def test_timing_has_the_train_time_of_every_node_and_no_comm_time(smoke_run: tuple[Path, float]) -> None:
+    # ADR-013: ở inprocess, train_s là tổng qua node, và Transport trong bộ nhớ không chờ (ADR-010).
+    timing = read_lines(smoke_run[0] / "timing.jsonl")
+
+    for record in timing:
+        assert len(record["train_s_per_node"]) == len(record["comm_s_per_node"]) == 4
+        assert min(record["train_s_per_node"]) > 0
+        assert record["comm_s_per_node"] == [0.0] * 4
+        assert sum(record["train_s_per_node"]) == pytest.approx(record["train_s"], abs=1e-9)
+
+
 def test_timing_phases_add_up_to_the_wall_time_between_records(smoke_run: tuple[Path, float]) -> None:
     timing = read_lines(smoke_run[0] / "timing.jsonl")
 

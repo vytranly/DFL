@@ -17,7 +17,7 @@ from dfl.contracts import CommCounters, Snapshot
 
 
 class CommLedger:
-    """Số message, số byte và tải (byte gửi + byte nhận) theo từng node, cộng dồn từ đầu lượt.
+    """Số message, số byte và tải (gửi + nhận, theo message và theo byte) của từng node, cộng dồn từ đầu lượt.
 
     Chỉ InMemoryTransport.send gọi `record` (INV-2: chỉ Transport đếm byte).
     """
@@ -25,17 +25,23 @@ class CommLedger:
     def __init__(self, num_ids: int) -> None:
         self._messages = 0
         self._bytes = 0
+        self._node_messages = [0] * num_ids
         self._node_bytes = [0] * num_ids
 
     def record(self, sender: int, dst: int, nbytes: int) -> None:
         self._messages += 1
         self._bytes += nbytes
-        self._node_bytes[sender] += nbytes
-        self._node_bytes[dst] += nbytes
+        for node in (sender, dst):
+            self._node_messages[node] += 1
+            self._node_bytes[node] += nbytes
 
     def counters(self) -> CommCounters:
         return CommCounters(
-            messages_cum=self._messages, bytes_cum=self._bytes, max_node_bytes_cum=max(self._node_bytes)
+            messages_cum=self._messages,
+            bytes_cum=self._bytes,
+            max_node_bytes_cum=max(self._node_bytes),
+            node_messages_cum=tuple(self._node_messages),
+            node_bytes_cum=tuple(self._node_bytes),
         )
 
     def node_bytes(self) -> tuple[int, ...]:

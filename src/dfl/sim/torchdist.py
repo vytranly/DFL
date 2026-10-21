@@ -15,8 +15,9 @@ lẫn nhau.
 - Tài liệu ghi "Modifying tensor before the request completes causes undefined behavior", nên buffer đã gửi
   được giữ tới `end_round`, lúc mọi lần gửi đã xong.
 
-CommLedger ở đây là của riêng node: message và byte nó gửi, cùng tải (gửi + nhận). Observer của process
-runtime cộng số đếm của các node để ra số của cả lượt, cùng định nghĩa với InMemoryTransport (INV-2).
+CommLedger ở đây là của riêng node: message và byte nó gửi, cùng tải (gửi + nhận) theo message và theo byte.
+Observer của process runtime cộng số đếm của các node để ra số của cả lượt, và ghép tải của từng node thành
+dãy theo node, cùng định nghĩa với InMemoryTransport (INV-2, ADR-013).
 
 torch.distributed (isend, irecv, Work, init_process_group, bảng backend):
 https://docs.pytorch.org/docs/2.14/distributed.html#torch.distributed.isend
@@ -112,6 +113,7 @@ class TorchDistTransport:
         self._ended: set[int] = set()
         self._sent_messages = 0
         self._sent_bytes = 0
+        self._received_messages = 0
         self._received_bytes = 0
 
     def _check_peer(self, peer: int, role: str) -> None:
@@ -171,6 +173,7 @@ class TorchDistTransport:
                 received[sender] = Snapshot(
                     sender=sender, round_idx=round_idx, state=state, nbytes=self._layout.nbytes
                 )
+                self._received_messages += 1
                 self._received_bytes += self._layout.nbytes
             self._inboxes[round_idx] = MappingProxyType(received)
         return self._inboxes[round_idx]
@@ -187,9 +190,16 @@ class TorchDistTransport:
         self._ended.add(round_idx)
 
     def counters(self) -> CommCounters:
-        """Số đếm của riêng node: message và byte nó gửi; `max_node_bytes_cum` là tải của nó (gửi + nhận)."""
+        """Số đếm của riêng node: message và byte nó gửi; `max_node_bytes_cum` là tải của nó (gửi + nhận).
+
+        Trong hai dãy theo node, chỉ phần tử của chính node khác 0 (ADR-013).
+        """
+        load = self._sent_bytes + self._received_bytes
+        messages = self._sent_messages + self._received_messages
         return CommCounters(
             messages_cum=self._sent_messages,
             bytes_cum=self._sent_bytes,
-            max_node_bytes_cum=self._sent_bytes + self._received_bytes,
+            max_node_bytes_cum=load,
+            node_messages_cum=tuple(messages if i == self._me else 0 for i in range(self._num_nodes)),
+            node_bytes_cum=tuple(load if i == self._me else 0 for i in range(self._num_nodes)),
         )

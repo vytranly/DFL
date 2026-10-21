@@ -28,6 +28,18 @@ def test_in_memory_transport_satisfies_the_contract() -> None:
     assert isinstance(InMemoryTransport(3), Transport)
 
 
+def _counters(
+    messages: int, nbytes: int, node_messages: tuple[int, ...], node_bytes: tuple[int, ...]
+) -> CommCounters:
+    return CommCounters(
+        messages_cum=messages,
+        bytes_cum=nbytes,
+        max_node_bytes_cum=max(node_bytes),
+        node_messages_cum=node_messages,
+        node_bytes_cum=node_bytes,
+    )
+
+
 def test_ledger_counts_messages_bytes_and_load_as_sent_plus_received() -> None:
     # Arrange
     transport = InMemoryTransport(3)
@@ -37,8 +49,14 @@ def test_ledger_counts_messages_bytes_and_load_as_sent_plus_received() -> None:
     transport.send(0, _snap(1, nbytes=50))
     transport.send(1, _snap(2, nbytes=10))
 
-    # Assert
-    assert transport.counters() == CommCounters(messages_cum=3, bytes_cum=160, max_node_bytes_cum=160)
+    # Assert: node 1 nhận hai và gửi một message (ADR-013).
+    assert transport.counters() == CommCounters(
+        messages_cum=3,
+        bytes_cum=160,
+        max_node_bytes_cum=160,
+        node_messages_cum=(2, 3, 1),
+        node_bytes_cum=(150, 160, 10),
+    )
     assert transport.node_bytes() == (150, 160, 10)
 
 
@@ -49,7 +67,7 @@ def test_counters_accumulate_across_rounds_and_survive_end_round() -> None:
 
     transport.send(0, _snap(1, round_idx=1))
 
-    assert transport.counters() == CommCounters(messages_cum=2, bytes_cum=200, max_node_bytes_cum=200)
+    assert transport.counters() == _counters(2, 200, (2, 2), (200, 200))
 
 
 def test_self_send_is_rejected_and_not_counted() -> None:
@@ -58,7 +76,7 @@ def test_self_send_is_rejected_and_not_counted() -> None:
     with pytest.raises(ValueError, match="tự gửi"):
         transport.send(1, _snap(1))
 
-    assert transport.counters() == CommCounters(0, 0, 0)
+    assert transport.counters() == _counters(0, 0, (0, 0, 0), (0, 0, 0))
 
 
 @pytest.mark.parametrize(("dst", "sender"), [(3, 0), (-1, 0), (0, 3), (0, -1)])
@@ -77,7 +95,7 @@ def test_virtual_server_has_id_n_and_its_load_is_counted() -> None:
     for i in range(n):
         transport.send(i, _snap(n))
 
-    assert transport.counters() == CommCounters(messages_cum=2 * n, bytes_cum=800, max_node_bytes_cum=800)
+    assert transport.counters() == _counters(2 * n, 800, (2, 2, 2, 2, 2 * n), (200, 200, 200, 200, 800))
     assert transport.node_bytes() == (200, 200, 200, 200, 800)
 
 
@@ -170,6 +188,32 @@ def test_one_message_per_directed_edge_gives_the_expected_count(graph: nx.Graph,
         transport.send(i, _snap(j))
 
     assert transport.counters().messages_cum == expected
+
+
+@pytest.mark.parametrize(
+    "graph",
+    [
+        topo.ring(20).graph_at(0),
+        topo.fully_connected(20).graph_at(0),
+        topo.erdos_renyi(20, 0.3, seeding.numpy_rng(0, Stream.GRAPH)).graph_at(0),
+        topo.gossip(20, lambda r: seeding.numpy_rng(0, Stream.GOSSIP, r)).graph_at(0),
+    ],
+    ids=["ring", "fc", "er", "gossip"],
+)
+def test_node_load_is_twice_the_degree_and_matches_the_totals(graph: nx.Graph) -> None:
+    # ADR-013: mỗi message được tính cho cả người gửi và người nhận, nên tổng tải message gấp đôi số message,
+    # và tải byte lớn nhất là max_node_bytes_cum.
+    transport = InMemoryTransport(20)
+
+    for i, j in graph.edges():
+        transport.send(j, _snap(i, nbytes=7))
+        transport.send(i, _snap(j, nbytes=7))
+
+    counters = transport.counters()
+    assert counters.node_messages_cum == tuple(2 * graph.degree(i) for i in range(20))
+    assert counters.node_bytes_cum == tuple(7 * m for m in counters.node_messages_cum)
+    assert sum(counters.node_messages_cum) == 2 * counters.messages_cum
+    assert max(counters.node_bytes_cum) == counters.max_node_bytes_cum
 
 
 def test_transport_needs_at_least_one_node() -> None:

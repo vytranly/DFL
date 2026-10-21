@@ -69,6 +69,8 @@ def worker(rank: int, init_method: str, out_dir: str) -> None:
             "messages": counters.messages_cum,
             "bytes": counters.bytes_cum,
             "load": counters.max_node_bytes_cum,
+            "node_messages": list(counters.node_messages_cum),
+            "node_bytes": list(counters.node_bytes_cum),
         }
     Path(out_dir, f"rank{rank}.json").write_text(json.dumps(report))
     dist.barrier()
@@ -112,5 +114,14 @@ def test_four_processes_exchange_bitwise_exact_snapshots_and_count_like_the_in_m
             assert report[name]["messages"] == ROUNDS * degree
             assert report[name]["bytes"] == ROUNDS * degree * nbytes
             assert report[name]["load"] == reference.node_bytes()[rank]
+            # ADR-013: dãy theo node của một tiến trình chỉ có phần tử của chính nó khác 0, bằng tải của
+            # InMemoryTransport; observer ghép các phần tử này thành dãy của cả lượt.
+            own = reference.counters()
+            assert report[name]["node_messages"] == [
+                own.node_messages_cum[i] if i == rank else 0 for i in range(WORLD)
+            ]
+            assert report[name]["node_bytes"] == [
+                own.node_bytes_cum[i] if i == rank else 0 for i in range(WORLD)
+            ]
         assert sum(report[name]["messages"] for report in reports) == reference.counters().messages_cum
         assert sum(report[name]["bytes"] for report in reports) == reference.counters().bytes_cum

@@ -83,6 +83,8 @@ class Observer:
             train_loss_mean=fmean(result.train_losses),
             acc_per_node=list(evaluation.acc),
             acc_local_per_node=list(evaluation.acc_local),
+            node_messages_cum=list(counters.node_messages_cum),
+            node_bytes_cum=list(counters.node_bytes_cum),
         )
 
 

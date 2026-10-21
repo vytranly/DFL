@@ -175,6 +175,10 @@ class CommCounters:
     bytes_cum: int
     # Lớn nhất theo node của (byte gửi + byte nhận); với đường server của B3/E1c thì tính cả server ảo.
     max_node_bytes_cum: int
+    # Tải (gửi + nhận) của từng id, theo message và theo byte: N phần tử, thêm phần tử thứ N cho server ảo ở
+    # đường server (ADR-013). Mỗi message được tính cho cả hai đầu, nên tổng tải message = 2 × messages_cum.
+    node_messages_cum: tuple[int, ...]
+    node_bytes_cum: tuple[int, ...]
 
 
 @runtime_checkable
@@ -325,13 +329,18 @@ class RoundRecord(TypedDict):
     # N phần tử theo id node; bắt buộc có, để tính độ ổn định theo từng node (G24).
     acc_per_node: list[float]
     acc_local_per_node: list[float]
+    # CommCounters.node_messages_cum và node_bytes_cum: tải cộng dồn của từng node, thêm server ảo ở đường
+    # server (ADR-013).
+    node_messages_cum: list[int]
+    node_bytes_cum: list[int]
 
 
 class TimingRecord(TypedDict):
     """Một dòng của timing.jsonl, ghi cùng lúc với mỗi dòng rounds.jsonl (cùng `round`).
 
     Thời gian các pha tính từ lần ghi trước; `wall_time_s` tính từ đầu lượt chạy. Không tất định, nên
-    tách khỏi rounds.jsonl (INV-6, G21). Ở process runtime, train_s, combine_s và comm_s là lớn nhất qua node.
+    tách khỏi rounds.jsonl (INV-6, G21). Ở process runtime, train_s, combine_s và comm_s là lớn nhất qua node;
+    ở inprocess, train_s là tổng qua node. combine_s không chứa comm_s ở cả hai runtime (ADR-013).
     """
 
     round: int
@@ -342,6 +351,9 @@ class TimingRecord(TypedDict):
     # Thời gian chờ gửi và nhận snapshot trong các round từ lần ghi trước, lớn nhất qua node; chỉ có ở process
     # runtime, bằng 0 ở runtime inprocess vì Transport trong bộ nhớ không chờ (ADR-010; Q13).
     comm_s: float
+    # Thời gian huấn luyện và chờ gửi, nhận của từng node từ lần ghi trước, N phần tử (ADR-013).
+    train_s_per_node: list[float]
+    comm_s_per_node: list[float]
 
 
 class SummaryOk(TypedDict):

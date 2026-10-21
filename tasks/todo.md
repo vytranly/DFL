@@ -745,7 +745,7 @@ T22a, T22b và T09c là code của lưới: phải xong trước T14b (E0a), đ�
   - Phụ thuộc: —
   - File: `docs/decisions/ADR-013-comm-cost-by-type-and-node.md`, `docs/decisions/README.md`, `SPEC.md`
 
-- [ ] **T29b · Tải và thời gian theo node ở hai runtime** — nhánh `binh` · M
+- [x] **T29b · Tải và thời gian theo node ở hai runtime** — nhánh `binh` · M
   - Mô tả:
     - `CommCounters` thêm `node_messages_cum`, `node_bytes_cum`; `CommLedger` đếm message theo node; `TorchDistTransport` đếm message nhận.
     - `RoundRecord` thêm hai dãy đó. `TimingRecord` thêm `train_s_per_node`, `comm_s_per_node`.

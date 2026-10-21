@@ -95,6 +95,9 @@ def test_server_baseline_sends_two_messages_per_node_per_round(tmp_path: Path) -
 
     assert [r["messages_cum"] for r in rounds] == [8, 16]  # 2N mỗi round
     assert all(r["bytes_cum"] == r["messages_cum"] * MESSAGE_BYTES for r in rounds)
+    # ADR-013: phần tử thứ N là server ảo, nhận N và gửi N message mỗi round; mỗi node gửi 1, nhận 1.
+    assert [r["node_messages_cum"] for r in rounds] == [[2, 2, 2, 2, 8], [4, 4, 4, 4, 16]]
+    assert all(max(r["node_bytes_cum"]) == r["node_bytes_cum"][4] == r["max_node_bytes_cum"] for r in rounds)
     assert all(r["consensus_distance"] == 0 for r in rounds)  # mọi node nhận cùng model của server
     sizes = np.array([sum(row) for row in manifest["node_class_counts"]], dtype=float)
     assert manifest["objective_weights"] == pytest.approx(list(sizes / sizes.sum()))

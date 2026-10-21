@@ -68,7 +68,13 @@ def test_t_inv_2_identity_mixing_matches_local_only_training(make_nodes, sgd_tra
     for state, node in zip(states, oracle, strict=True):
         assert_states_equal(state, node.model.state_dict())
     assert [result.train_losses for result in results] == oracle_losses
-    assert transport.counters() == CommCounters(messages_cum=0, bytes_cum=0, max_node_bytes_cum=0)
+    assert transport.counters() == CommCounters(
+        messages_cum=0,
+        bytes_cum=0,
+        max_node_bytes_cum=0,
+        node_messages_cum=(0,) * N,
+        node_bytes_cum=(0,) * N,
+    )
     # Không suông: các node đã học, và học khác nhau.
     assert not torch.equal(states[0]["fc1.weight"], w0[0]["fc1.weight"])
     assert not torch.equal(states[0]["fc1.weight"], states[1]["fc1.weight"])

@@ -1025,3 +1025,10 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - Đánh số hình P12, P13 vì P10, P11 đã thuộc E8 (T27c)
 - Còn mở (nhóm quyết): có đưa ADR-013 vào nhánh `grid` trước E0b không (đổi `code_version` của Tier 1)
 - Việc tiếp theo: T29b
+
+## 2026-10-21 — Phiên #20 (tiếp) — T29b: tải và thời gian theo node
+- Máy làm việc này chưa có `.venv` và python3.12: lấy CPython 3.12.15 bằng uv (vào ~/.local/share/uv), rồi `make venv PYTHON312=…` đúng SPEC §4. Trước khi sửa, `check-task` xanh với 894 test
+- `CommCounters`, `RoundRecord` thêm `node_messages_cum`, `node_bytes_cum`; `TimingRecord` thêm `train_s_per_node`, `comm_s_per_node`. CommLedger đếm message theo node; TorchDistTransport đếm message nhận; hàng gom của process runtime thêm tải message (cột 5); observer ghép dãy theo node
+- S5 (REVIEW-C3-P4.1): `combine_s` của process runtime không còn chứa thời gian chờ gửi, nhận
+- Kiểm chứng: `make check-task` 900 test xanh, 76 s; `make check-inv` 86 test xanh; e2e 9 test xanh. Smoke trước và sau T29b: bỏ hai trường mới thì 6/6 dòng `rounds.jsonl` trùng nhau (huấn luyện không đổi)
+- Test mới: 6 (tải theo bậc trên ring/FC/ER/gossip, thời gian theo node ở processes, tải ring và thời gian ở e2e); test cũ sửa theo schema mới

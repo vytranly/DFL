@@ -256,6 +256,9 @@ def test_round_record_has_every_contract_field_and_no_nan(make_nodes, sgd_traine
             counters.bytes_cum,
             counters.max_node_bytes_cum,
         )
+        # ADR-013: tải theo node là list (JSON), cùng giá trị với số đếm của Transport; ring: 2 láng giềng.
+        assert record["node_messages_cum"] == list(counters.node_messages_cum) == [4 * (t + 1)] * N
+        assert record["node_bytes_cum"] == list(counters.node_bytes_cum)
         assert record["train_loss_mean"] == pytest.approx(np.mean(result.train_losses), rel=1e-12)
         assert record["acc_mean"] == pytest.approx(np.mean(record["acc_per_node"]), rel=1e-12)
         assert record["acc_min"] == min(record["acc_per_node"])
@@ -382,6 +385,11 @@ class FixedEvaluator:
         return EvalResult(acc=same, acc_local=same, acc_eff=same, f1_macro=same, acc_avg_model=0.1)
 
 
+def no_messages(n: int) -> CommCounters:
+    """Số đếm của một lượt chưa gửi message nào, với n node."""
+    return CommCounters(0, 0, 0, node_messages_cum=(0,) * n, node_bytes_cum=(0,) * n)
+
+
 def test_std_across_nodes_is_exactly_zero_when_every_node_scores_the_same() -> None:
     # SAN-5 đòi acc_std = 0 đúng tuyệt đối trên FC + MH với N = 20 (SPEC §9.3).
     n = 20
@@ -394,7 +402,7 @@ def test_std_across_nodes_is_exactly_zero_when_every_node_scores_the_same() -> N
     )
     observer = Observer(FixedEvaluator(), tau=1, total_rounds=1, eval_every_steps=None)
 
-    record = observer.record(result, states, CommCounters(0, 0, 0))
+    record = observer.record(result, states, no_messages(n))
 
     assert record["acc_std"] == record["acc_local_std"] == record["f1_macro_std"] == 0.0
 
@@ -424,7 +432,7 @@ def test_round_record_aggregates_are_population_statistics_of_the_matching_per_n
     )
     observer = Observer(PerNodeEvaluator(), tau=1, total_rounds=1, eval_every_steps=None)
 
-    record = observer.record(result, states, CommCounters(0, 0, 0))
+    record = observer.record(result, states, no_messages(N))
 
     # Tính tay; độ lệch chuẩn theo ddof = 0 (contracts.RoundRecord), ví dụ acc: (0.04 + 0.01 + 0 + 0.09) / 4.
     expected = {

@@ -13,13 +13,15 @@ chạy lượt kiêm observer (module sim; ADR-010; SPEC §9.2 T-INV-13).
   TorchDistTransport (isend/irecv, tag = round); kiểm inbox; combine theo id người gửi tăng dần; gom trạng
   thái lần 2. Hai lần gom (all_gather) ứng đúng hai chỗ engine kiểm hữu hạn (sau Adapt và sau tổng hợp), nên
   khi một node phân kỳ, mọi tiến trình dừng gọn ở cùng round với bản inprocess.
-- Mỗi lần gom mang [mã, message, byte, tải, chi tiết] của từng node; observer cộng thành CommCounters cùng
-  định nghĩa với InMemoryTransport (INV-2). Chi tiết là bit float64 của mất mát (mã LOSS) hay vị trí trong
-  state của tensor không hữu hạn (PARAMS, COMBINED). Nhờ đó observer dựng đúng câu lý do của engine
-  (`loss_reason`, `params_reason`), và summary.json của hai runtime trùng nhau cả khi phân kỳ (review C3
-  P4.1, I6).
+- Mỗi lần gom mang [mã, message, byte, tải byte, chi tiết, tải message] của từng node; observer cộng thành
+  CommCounters, kèm tải của từng node, cùng định nghĩa với InMemoryTransport (INV-2, ADR-013). Chi tiết là
+  bit float64 của mất mát (mã LOSS) hay vị trí trong state của tensor không hữu hạn (PARAMS, COMBINED). Nhờ
+  đó observer dựng đúng câu lý do của engine (`loss_reason`, `params_reason`), và summary.json của hai
+  runtime trùng nhau cả khi phân kỳ (review C3 P4.1, I6).
 - Ở mốc đánh giá, node gửi cho observer state sau tổng hợp, snapshot trước tổng hợp, mất mát và thời gian các
-  pha bằng send/recv. Kênh đo này không đi qua Transport nên không bị đếm (INV-2, INV-5).
+  pha bằng send/recv. Kênh đo này không đi qua Transport nên không bị đếm (INV-2, INV-5). Observer ghi thời
+  gian của từng node vào timing.jsonl (ADR-013); thời gian tổng hợp không chứa thời gian chờ gửi, nhận
+  (review C3 P4.1, S5).
 - rounds.jsonl trùng từng byte với bản inprocess (T-INV-13): gloo chép đúng byte của tensor (mã hóa uint8 của
   torchdist), mỗi tiến trình một luồng, mọi phép cộng cùng thứ tự, và observer đánh giá bằng cùng Observer và
   Evaluator trên cùng state.
@@ -83,8 +85,8 @@ from dfl.sim.torchdist import StateLayout, TorchDistTransport, decode_state, enc
 # engine.
 OK, LOSS, PARAMS, COMBINED = 0, 1, 2, 3
 STOP_CODES = (LOSS, PARAMS, COMBINED)
-# Hàng của mỗi lần gom: [mã, message, byte, tải, chi tiết].
-IDLE_ROW = [OK, 0, 0, 0, 0]
+# Hàng của mỗi lần gom: [mã, message, byte, tải byte, chi tiết, tải message].
+IDLE_ROW = [OK, 0, 0, 0, 0, 0]
 THREAD_VARIABLES = ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS")
 # Mất mát, thời gian huấn luyện, giao tiếp, tổng hợp từ lần gửi trước.
 META_SIZE = 4
@@ -97,7 +99,7 @@ class NodeFailed(RuntimeError):
 
 
 def _gather(row: list[int], world_size: int) -> list[list[int]]:
-    """all_gather một hàng [mã, message, byte, tải] của mỗi tiến trình; mọi tiến trình nhận cùng bảng."""
+    """all_gather một hàng (IDLE_ROW) của mỗi tiến trình; mọi tiến trình nhận cùng bảng."""
     mine = torch.tensor(row, dtype=torch.int64)
     rows = [torch.zeros(len(row), dtype=torch.int64) for _ in range(world_size)]
     dist.all_gather(rows, mine)
@@ -106,7 +108,9 @@ def _gather(row: list[int], world_size: int) -> list[list[int]]:
 
 def _node_row(code: int, transport: TorchDistTransport, detail: int = 0) -> list[int]:
     counters = transport.counters()
-    return [code, counters.messages_cum, counters.bytes_cum, counters.max_node_bytes_cum, detail]
+    # Dãy theo node của TorchDistTransport chỉ có phần tử của chính node khác 0, nên tổng là tải của node.
+    messages = sum(counters.node_messages_cum)
+    return [code, counters.messages_cum, counters.bytes_cum, counters.max_node_bytes_cum, detail, messages]
 
 
 def _loss_bits(loss: float) -> int:
@@ -207,14 +211,15 @@ def _node_rounds(
         for dst in neighbours:
             transport.send(dst, snapshot)
         inbox = transport.inbox(rank, t)
-        comm_s += time.perf_counter() - exchange
+        waited = time.perf_counter() - exchange
         _check_inbox(inbox, rank, t)
         combined = combine(snapshot, inbox, weights[rank])
         exchange = time.perf_counter()
         transport.end_round(t)
-        comm_s += time.perf_counter() - exchange
+        waited += time.perf_counter() - exchange
         node.model.load_state_dict(combined)
-        combine_s += time.perf_counter() - start
+        comm_s += waited
+        combine_s += time.perf_counter() - start - waited  # không tính giao tiếp hai lần (S5)
         index = _non_finite_index(combined)
         row = _node_row(OK, transport) if index is None else _node_row(COMBINED, transport, index)
         if _stopped(_gather(row, world), n):
@@ -252,7 +257,8 @@ class ProcessRun:
         self._code_version = code_version
         self._root = Path(root).resolve()
         self._timeout = timeout
-        self._counters = CommCounters(messages_cum=0, bytes_cum=0, max_node_bytes_cum=0)
+        n = assembly.config.num_nodes
+        self._counters = CommCounters(0, 0, 0, node_messages_cum=(0,) * n, node_bytes_cum=(0,) * n)
 
     def counters(self) -> CommCounters:
         """Số đếm của cả lượt ở lần gom gần nhất (cộng message, byte; lớn nhất tải qua node)."""
@@ -369,6 +375,8 @@ class ProcessRun:
             messages_cum=sum(row[1] for row in nodes),
             bytes_cum=sum(row[2] for row in nodes),
             max_node_bytes_cum=max(row[3] for row in nodes),
+            node_messages_cum=tuple(row[5] for row in nodes),
+            node_bytes_cum=tuple(row[3] for row in nodes),
         )
 
     def _check(self, rows: list[list[int]], round_idx: int) -> None:
@@ -392,7 +400,7 @@ class ProcessRun:
         n, world = config.num_nodes, config.num_nodes + 1
         layout = StateLayout.of(initial_model(config).state_dict())
         self._names = [entry.name for entry in layout.entries]
-        timer = PhaseTimer()
+        timer = PhaseTimer(n)
         observer = Observer(
             TimedEvaluator(assembly.evaluator(assembly.curve_set()), timer),
             tau=config.algorithm.tau,
@@ -435,6 +443,8 @@ class ProcessRun:
                     combine_s=max(meta[3] for meta in metas),
                     eval_s=lap["eval_s"],
                     comm_s=max(meta[2] for meta in metas),
+                    train_s_per_node=[meta[1] for meta in metas],
+                    comm_s_per_node=[meta[2] for meta in metas],
                 )
             )
         final = final_evaluator.evaluate(states)

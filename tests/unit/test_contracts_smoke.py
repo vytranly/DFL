@@ -44,9 +44,22 @@ RECORD_KEYS = {
         "train_loss_mean",
         "acc_per_node",
         "acc_local_per_node",
+        # Tải (gửi + nhận) theo node, theo message và theo byte (ADR-013, T29b).
+        "node_messages_cum",
+        "node_bytes_cum",
     },
     # comm_s: thời gian chờ gửi và nhận, lớn nhất qua node; 0 ở runtime inprocess (ADR-010, T22b).
-    "TimingRecord": {"round", "wall_time_s", "train_s", "combine_s", "eval_s", "comm_s"},
+    # *_per_node: thời gian của từng node (ADR-013, T29b).
+    "TimingRecord": {
+        "round",
+        "wall_time_s",
+        "train_s",
+        "combine_s",
+        "eval_s",
+        "comm_s",
+        "train_s_per_node",
+        "comm_s_per_node",
+    },
     "SummaryOk": {
         "status",
         "messages_total",
@@ -121,6 +134,13 @@ def test_summary_record_is_the_union_of_ok_diverged_and_failed_variants() -> Non
     variants = typing.get_args(contracts.SummaryRecord.__value__)
 
     assert variants == (contracts.SummaryOk, contracts.SummaryDiverged, contracts.SummaryFailed)
+
+
+def test_comm_counters_carry_totals_and_the_load_of_every_node() -> None:
+    # ADR-013: tải theo node đi cùng số đếm tổng, để observer ghi chúng vào cùng một RoundRecord.
+    names = {field.name for field in dataclasses.fields(contracts.CommCounters)}
+
+    assert names == {"messages_cum", "bytes_cum", "max_node_bytes_cum", "node_messages_cum", "node_bytes_cum"}
 
 
 @pytest.mark.parametrize("name", VALUE_OBJECTS)
