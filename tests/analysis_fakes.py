@@ -118,6 +118,7 @@ def write_run(
     final_eval_split: str | None = None,
     final_acc: float = 0.9,
     timing: list[dict[str, object]] | None = None,
+    class_counts: list[list[int]] | None = None,
 ) -> Path:
     """Một attempt trong `root`/runs/<run_id>/attempt-<k>/; status ok, diverged, failed hay None (bị ngắt)."""
     cfg = cfg if cfg is not None else config()
@@ -143,7 +144,7 @@ def write_run(
         "spectral_gap": 0.5,
         "objective_weights": [1 / n] * n,
         "objective_shift_tv": 0.0,
-        "node_class_counts": [[10] * 10 for _ in range(n)],
+        "node_class_counts": class_counts if class_counts is not None else [[10] * 10 for _ in range(n)],
     }
     (path / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
     (path / "rounds.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rounds), encoding="utf-8")
