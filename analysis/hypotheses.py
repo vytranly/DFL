@@ -104,6 +104,9 @@ class Cell:
     mu: float = 0.0
     mixing: str = MH
     model: str = "smallcnn"
+    # E8 là nhóm duy nhất chạy process runtime (N = 8); thiếu trường này thì ô smallcnn của E8 trùng ô của
+    # lưới lõi.
+    runtime: str = "inprocess"
 
     def matches(self, run: Run) -> bool:
         cfg, algorithm = run.config, run.config["algorithm"]
@@ -115,6 +118,7 @@ class Cell:
             and float(algorithm["lr"]) == ETA
             and cfg["mixing"] == self.mixing
             and cfg["model"] == self.model
+            and cfg["runtime"] == self.runtime
         )
 
 
@@ -366,7 +370,7 @@ E8_COMBOS = tuple((kind, lv) for kind in (RING, GOSSIP, FC) for lv in (IID, A01)
 
 def h8(runs: Sequence[Run]) -> Outcome:
     cells = {
-        (kind, lv, model): cell(runs, Cell(kind, lv, model=model), SEEDS3)
+        (kind, lv, model): cell(runs, Cell(kind, lv, model=model, runtime="processes"), SEEDS3)
         for kind, lv in E8_COMBOS
         for model in PARAMS
     }

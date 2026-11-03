@@ -46,6 +46,7 @@ class Results:
         mu: float = 0.0,
         mixing: str = "metropolis_hastings",
         model: str = "smallcnn",
+        runtime: str = "inprocess",
         status: str = "ok",
         k: int = 0,
         rounds: list[dict[str, object]] | None = None,
@@ -61,10 +62,11 @@ class Results:
             topology__kind=kind,
             mixing=mixing,
             model=model,
+            runtime=runtime,
             algorithm={"batch_size": 32, "lr": hypotheses.ETA, "mu": mu, "tau": tau},
             **fields,
         )
-        run_id = f"{group}-{kind}-{scheme}{value}-t{tau}-m{mu}-{mixing}-{model}-s{seed}"
+        run_id = f"{group}-{kind}-{scheme}{value}-t{tau}-m{mu}-{mixing}-{model}-{runtime}-s{seed}"
         write_run(
             self.root,
             run_id,
@@ -265,8 +267,8 @@ def comm_timing(rounds: list[dict[str, object]], seconds_per_round: float) -> li
     return records
 
 
-def e8_results(tmp_path: Path, exponent: float) -> Results:
-    results = Results(tmp_path)
+def e8_results(tmp_path: Path, exponent: float, results: Results | None = None) -> Results:
+    results = results if results is not None else Results(tmp_path)
     for seed in SEEDS3:
         for model, params in hypotheses.PARAMS.items():
             for kind in ("ring", "gossip", "fully_connected"):
@@ -278,6 +280,7 @@ def e8_results(tmp_path: Path, exponent: float) -> Results:
                         kind=kind,
                         part=part,
                         model=model,
+                        runtime="processes",
                         rounds=rounds,
                         timing=comm_timing(rounds, 1e-4 * params**exponent * (1 + 0.01 * seed)),
                     )
@@ -289,6 +292,25 @@ def test_h8_fits_comm_time_against_parameter_count_on_a_log_scale(tmp_path: Path
 
     assert outcome.verdict == stats.SUGGESTED
     assert outcome.values == pytest.approx((0.5, 0.5, 0.5))
+
+
+def test_e8_cells_never_mix_with_core_cells_of_the_same_topology_and_level(tmp_path: Path) -> None:
+    # Review T25: smallcnn × {ring, FC} × α = 0.1 của E8 (N = 8, process runtime) trùng mọi trường khác với ô
+    # của E1; trước khi Cell so runtime, H4 báo "hai lượt ở seed 0" và H8 thiếu ô.
+    results = Results(tmp_path)
+    for seed in SEEDS5:
+        for kind in ("ring", "fully_connected"):
+            results.add(
+                "e1_noniid",
+                seed=seed,
+                kind=kind,
+                part=("dirichlet", 0.1),
+                rounds=curve([0.8, 0.96, 0.97, 0.98]),
+            )
+    runs = hypotheses.load(e8_results(tmp_path, 0.5, results).index())
+
+    assert hypotheses.h4(runs).verdict != "chưa đủ dữ liệu"
+    assert hypotheses.h8(runs).values == pytest.approx((0.5, 0.5, 0.5))
 
 
 def test_e8_checks_flag_bytes_that_are_not_messages_times_parameter_bytes(tmp_path: Path) -> None:

@@ -181,3 +181,40 @@ def test_a_draft_writes_every_figure_and_the_t1_table_with_provenance(tmp_path: 
     for name in ("P2", "P3", "P4", "P5", "P8", "T1"):
         assert name in record["figures"]
     assert (tmp_path / "out" / "T1.md").read_text().startswith("| topology | mức |")
+
+
+def test_a_diverged_seed_counts_as_not_reaching_95_in_t1_and_p3(tmp_path: Path) -> None:
+    # Review T25 (R4): lượt phân kỳ là +∞ trong trung vị R@95 trên đủ seed, không bị bỏ khỏi mẫu.
+    runs = core(tmp_path)
+    write_run(
+        tmp_path,
+        "ring-iid-2",
+        cfg=config(seed=2, topology__kind="ring"),
+        rounds=rounds([0.8, 0.9, 0.95, 0.96])[:2],
+        status="diverged",
+    )
+    runs = [a.finished for a in aggregate.scan(tmp_path) if a.finished is not None]
+
+    table = plots.table_t1(plots.select_t1(runs, draft=False))
+    figure = plots.draw_p3(plots.select_core(runs, draft=False), draft=False)
+
+    ring_iid = table[(table["topology"] == "ring") & (table["mức"] == "IID")].iloc[0]
+    assert ring_iid["phân kỳ"] == 1 and ring_iid["R@95 (bước)"].endswith("(2/3 seed đạt)")
+    assert figure is not None
+
+
+def test_provenance_is_written_after_every_figure_so_a_later_failure_leaves_it_in_step(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Review T25 (R1): hình sau lỗi thì PROVENANCE.json vẫn ghi các hình đã lưu.
+    core(tmp_path)
+
+    def broken(runs: list[aggregate.Run], *, draft: bool) -> None:
+        raise plots.AnalysisError("hỏng giả")
+
+    monkeypatch.setitem(plots.FIGURES, "P17", (plots.FIGURES["P17"][0], plots.select_comm, broken))
+    with pytest.raises(plots.AnalysisError, match="hỏng giả"):
+        plots.main(["--results", str(tmp_path), "--out", str(tmp_path / "out"), "--draft"])
+
+    record = json.loads((tmp_path / "out" / "PROVENANCE.json").read_text())
+    assert "P1" in record["figures"] and (tmp_path / "out" / "P1.png").exists()

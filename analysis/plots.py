@@ -888,10 +888,14 @@ def draw_p3(runs: Sequence[Run], *, draft: bool) -> Figure | None:
     acc = np.full((len(kinds), len(names)), np.nan)
     r95 = np.full((len(kinds), len(names)), np.nan)
     unreached = np.zeros((len(kinds), len(names)), dtype=bool)
+    every: dict[tuple[str, str], list[Run]] = defaultdict(list)
+    for run in runs:
+        every[(_kind(run), level(run))].append(run)
     for (kind, name), group in groups.items():
         i, j = kinds.index(kind), names.index(name)
         acc[i, j] = 100 * float(np.mean([final_acc(r) for r in group]))
-        step = float(np.median([reach95(r).step for r in group]))
+        # Trung vị R@95 trên mọi seed của ô, kể cả lượt phân kỳ (+∞).
+        step = float(np.median([reach95(r).step for r in every[(kind, name)]]))
         unreached[i, j] = math.isinf(step)
         r95[i, j] = step
     figure, axes = _figure(2, 14)
@@ -1262,7 +1266,8 @@ def table_t1(runs: Sequence[Run]) -> pd.DataFrame:
         if ok:
             acc = [100 * final_acc(r) for r in ok]
             mean, half = _mean_half(acc)
-            reaches = [reach95(r) for r in ok]
+            # Lượt phân kỳ là +∞ trong trung vị trên đủ seed (run_reach trả +∞), không bị bỏ khỏi mẫu.
+            reaches = [reach95(r) for r in group]
             middle, label = median_reach(reaches)
             costs = [bytes95(r) for r in ok]
             swings = [
@@ -1420,6 +1425,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             "code_version": checks.single_code_version(runs),
             "run_ids": sorted(r.run_id for r in runs),
         }
+        # Ghi ngay sau mỗi hình, để một hình sau có lỗi không để lại PNG mới với PROVENANCE cũ.
+        provenance.update(
+            args.out / "PROVENANCE.json", command=command, draft=args.draft, figures={name: entries[name]}
+        )
         print(f"đã vẽ {args.out / f'{name}.png'}")
     for name, (experiments, select, tabulate) in TABLES.items():
         runs = select(_runs_of(args.results, experiments, draft=args.draft), draft=args.draft)
@@ -1436,6 +1445,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         table.to_csv(args.out / f"{name}.csv", index=False)
         (args.out / f"{name}.md").write_text(_markdown(table), encoding="utf-8")
         entries[name] = {"code_version": version, "run_ids": sorted(r.run_id for r in runs)}
+        provenance.update(
+            args.out / "PROVENANCE.json", command=command, draft=args.draft, figures={name: entries[name]}
+        )
         print(f"đã lập {args.out / f'{name}.csv'}")
     if entries or (args.out / "PROVENANCE.json").exists():
         args.out.mkdir(parents=True, exist_ok=True)
