@@ -1140,3 +1140,4 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - Kết luận sơ bộ (`python -m analysis.hypotheses`): H1, H2 ủng hộ; H7 gợi ý; H3, H4, H5 chưa kết luận; H6, H8, RQ4 chờ E1c, E8, E4
 - Security audit T25: gloo nghe trên địa chỉ link-local của card mạng thật (firewalld mở 1025–65535). Lưới (không được đổi src) chuyển sang `pipeline3.sh` đặt `GLOO_SOCKET_IFNAME=lo`, đã kiểm trên smoke processes: chỉ nghe 127.0.0.1, `rounds.jsonl` trùng từng byte. Trên `binh`, process runtime tự đặt interface loopback cho node con và observer (giữ giá trị người dùng đặt)
 - Không có Docker trên máy này (T22c tùy chọn, không làm được ở đây)
+- Người dùng duyệt Gate (2026-11-03): ADR-001…015 chuyển sang Accepted (ghi rõ chưa có ghi nhận duyệt riêng của GVHD), G1 đánh dấu xong. Gate G3 ghi khi lưới xong, `make check-full` xanh và báo cáo đủ kết quả. Thẻ E7, E9 nay được duyệt chạy (sau lưới lõi, để không làm nhiễu số đo thời gian của E8)

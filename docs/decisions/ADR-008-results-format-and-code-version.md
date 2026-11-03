@@ -1,7 +1,7 @@
 # ADR-008: Định dạng kết quả và `code_version` — JSONL + manifest theo attempt, hash nội dung `src/` + file khóa, độ đo suy ra ở `analysis/`, hình chỉ sinh bằng script
 
 ## Status
-Proposed — chờ Gate G1 (phụ thuộc SPEC QS-1, QS-4, QS-7).
+Accepted — nhóm duyệt tại Gate G1 ngày 2026-11-03 (người dùng xác nhận trong phiên làm việc; chưa có ghi nhận duyệt riêng của GVHD). Trạng thái trước đó: Proposed — chờ Gate G1 (phụ thuộc SPEC QS-1, QS-4, QS-7).
 
 ## Date
 2026-09-30 (cập nhật theo hai vòng phản biện P1.9 cùng ngày)

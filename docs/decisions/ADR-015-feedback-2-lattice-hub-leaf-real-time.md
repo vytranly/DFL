@@ -1,7 +1,7 @@
 # ADR-015: Theo góp ý buổi 2 — topology lattice, mô tả hub/leaf của đồ thị, đường hội tụ theo node (P16), thời gian thực và thời gian ước tính theo băng thông (P17), E9
 
 ## Status
-Proposed — soạn ngày 2026-10-21 theo yêu cầu của người dùng: làm hết các mục còn thiếu so với góp ý của GVHD ở buổi báo cáo tiến độ 2 (bản chép lời `transcript.md`, bản tóm tắt `tom_tat_bao_cao_buoi_2.md`), liên tục, không dừng. Người dùng duyệt luôn các việc thuộc Ask first trong yêu cầu đó (ADR, SPEC, topology mới, lưới mới chỉ tiền đăng ký). Chờ nhóm duyệt. Bổ sung ADR-009 (topology), ADR-013 (chi phí theo node), ADR-014 (bậc trong manifest), không thay thế chúng.
+Accepted — nhóm duyệt tại Gate G1 ngày 2026-11-03 (người dùng xác nhận trong phiên làm việc; chưa có ghi nhận duyệt riêng của GVHD). Trạng thái trước đó: Proposed — soạn ngày 2026-10-21 theo yêu cầu của người dùng: làm hết các mục còn thiếu so với góp ý của GVHD ở buổi báo cáo tiến độ 2 (bản chép lời `transcript.md`, bản tóm tắt `tom_tat_bao_cao_buoi_2.md`), liên tục, không dừng. Người dùng duyệt luôn các việc thuộc Ask first trong yêu cầu đó (ADR, SPEC, topology mới, lưới mới chỉ tiền đăng ký). Chờ nhóm duyệt. Bổ sung ADR-009 (topology), ADR-013 (chi phí theo node), ADR-014 (bậc trong manifest), không thay thế chúng.
 
 ## Date
 2026-10-21

@@ -1,7 +1,7 @@
 # ADR-014: E7 — đồ thị Barabási–Albert (m = 2), lớp 5–9 chỉ ở K = 2 node đặt theo bậc (hub, biên, ngẫu nhiên), đồ thị ghi vào manifest
 
 ## Status
-Proposed — soạn ngày 2026-10-21 theo yêu cầu của người dùng ("làm đầy đủ" E7, nhánh `binh`). Đây là phần mở rộng (SPEC §1.4, QĐ-4), thuộc Ask first; bốn lựa chọn được hỏi và chốt trong phiên ngày 2026-10-21: K = 2 node giữ lớp hiếm, lưới 9 lượt, chỉ làm code và tiền đăng ký (chưa chạy lưới), commit thẳng lên `binh`. Chờ nhóm duyệt. Bổ sung ADR-005 (partition, vị trí node), ADR-008 (manifest) và ADR-009 (topology), không thay thế chúng.
+Accepted — nhóm duyệt tại Gate G1 ngày 2026-11-03 (người dùng xác nhận trong phiên làm việc; chưa có ghi nhận duyệt riêng của GVHD). Trạng thái trước đó: Proposed — soạn ngày 2026-10-21 theo yêu cầu của người dùng ("làm đầy đủ" E7, nhánh `binh`). Đây là phần mở rộng (SPEC §1.4, QĐ-4), thuộc Ask first; bốn lựa chọn được hỏi và chốt trong phiên ngày 2026-10-21: K = 2 node giữ lớp hiếm, lưới 9 lượt, chỉ làm code và tiền đăng ký (chưa chạy lưới), commit thẳng lên `binh`. Chờ nhóm duyệt. Bổ sung ADR-005 (partition, vị trí node), ADR-008 (manifest) và ADR-009 (topology), không thay thế chúng.
 
 ## Date
 2026-10-21

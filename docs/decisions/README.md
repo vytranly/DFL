@@ -4,21 +4,21 @@ Tách từ bản tóm tắt ở `docs/KE_HOACH_DE_TAI_2.md` §10 (P1.6), cập n
 
 | ADR | Quyết định | Status | Phụ thuộc câu hỏi / quyết định |
 |---|---|---|---|
-| [ADR-001](ADR-001-custom-pytorch-networkx-simulator.md) | Tự viết mô phỏng trên PyTorch + NetworkX, không dùng framework FL | Proposed | Q7 (đã trả lời) |
-| [ADR-002](ADR-002-single-process-synchronous-transport.md) | Đơn tiến trình, đồng bộ, message-passing qua Transport | Proposed | Q1 (GVHD trả lời 2026-10-01; bổ sung bởi ADR-010) |
-| [ADR-003](ADR-003-mnist-primary-dataset.md) | MNIST chính; CIFAR-10 là mở rộng ưu tiên; Fashion-MNIST là phương án kiểm chứng rẻ | Proposed | Q5, QĐ-4 |
-| [ADR-004](ADR-004-smallcnn-no-batchnorm-plain-sgd.md) | SmallCNN 46,730 tham số, không BatchNorm, SGD thuần, minibatch có hoàn lại | Proposed | — |
-| [ADR-005](ADR-005-metropolis-hastings-mixing.md) | Trọng số MH; ablation uniform và size-corrected; size-weighted chỉ trên FC | Proposed | — |
-| [ADR-006](ADR-006-single-atc-gossip-sgd-loop.md) | Một vòng ATC tham số (τ, μ, $c_i$); τ·R = 4,000; khởi tạo chung | Proposed | A3, QS-2 |
-| [ADR-007](ADR-007-evaluation-protocol.md) | Giao thức đánh giá, chọn lr, seed, thống kê, ngân sách | Proposed | Q3, QĐ-2, QS-2; η điền sau E0a |
-| [ADR-008](ADR-008-results-format-and-code-version.md) | Định dạng kết quả, `code_version`, độ đo suy ra ở `analysis/` | Proposed | QS-1, QS-4, QS-7 |
-| [ADR-009](ADR-009-random-pairwise-gossip-schedule.md) | Random gossip theo lịch chung trên $K_N$; thêm T3b trên cạnh ER | Proposed | — |
-| [ADR-010](ADR-010-multiprocess-node-runtime.md) | Mỗi node một tiến trình (tiến trình cục bộ hoặc container Docker) qua gloo; bộ mô phỏng một tiến trình giữ lại và phải trùng từng bit | Proposed | Q1 (đã trả lời), Q10, Q12, Q13 |
-| [ADR-011](ADR-011-model-complexity-ladder.md) | Thang bốn model (7,850 → 1,663,370 tham số) cho E8; SmallCNN vẫn là model lõi | Proposed | Q1 (đã trả lời), Q11 |
-| [ADR-012](ADR-012-cifar10-binary-niidbench-cnn-crop-flip.md) | CIFAR-10 đọc từ bản binary bằng numpy; CNN NIID-Bench 62,006 tham số; augmentation crop + flip lấy từ luồng batch của node | Proposed | Yêu cầu ngày 2026-10-15 (Ask first); bổ sung ADR-003, ADR-004 |
-| [ADR-013](ADR-013-comm-cost-by-type-and-node.md) | Ghi tải message, tải byte và thời gian của từng node; P12, P13 vẽ chi phí giao tiếp theo loại và theo node | Proposed | Yêu cầu ngày 2026-10-21; bổ sung ADR-008, ADR-010 |
-| [ADR-014](ADR-014-e7-barabasi-albert-rare-classes-by-degree.md) | E7: đồ thị Barabási–Albert m = 2; lớp 5–9 chỉ ở K = 2 node đặt ở hub, biên hay ngẫu nhiên; đồ thị ghi vào manifest; P14, P15 | Proposed | Yêu cầu ngày 2026-10-21 (Ask first); bổ sung ADR-005, ADR-008, ADR-009 |
-| [ADR-015](ADR-015-feedback-2-lattice-hub-leaf-real-time.md) | Theo góp ý buổi 2: lattice xuyến bậc 4; `describe` in bậc, % hub, % leaf, ER theo p; bậc của lượt cũ suy từ tải message; P16 đường hội tụ theo node; P17 và s@x theo thời gian phân tán ước tính; E9 | Proposed | Góp ý GVHD buổi 2 (2026-10-21); bổ sung ADR-009, ADR-013, ADR-014 |
+| [ADR-001](ADR-001-custom-pytorch-networkx-simulator.md) | Tự viết mô phỏng trên PyTorch + NetworkX, không dùng framework FL | Accepted (G1, 2026-11-03) | Q7 (đã trả lời) |
+| [ADR-002](ADR-002-single-process-synchronous-transport.md) | Đơn tiến trình, đồng bộ, message-passing qua Transport | Accepted (G1, 2026-11-03) | Q1 (GVHD trả lời 2026-10-01; bổ sung bởi ADR-010) |
+| [ADR-003](ADR-003-mnist-primary-dataset.md) | MNIST chính; CIFAR-10 là mở rộng ưu tiên; Fashion-MNIST là phương án kiểm chứng rẻ | Accepted (G1, 2026-11-03) | Q5, QĐ-4 |
+| [ADR-004](ADR-004-smallcnn-no-batchnorm-plain-sgd.md) | SmallCNN 46,730 tham số, không BatchNorm, SGD thuần, minibatch có hoàn lại | Accepted (G1, 2026-11-03) | — |
+| [ADR-005](ADR-005-metropolis-hastings-mixing.md) | Trọng số MH; ablation uniform và size-corrected; size-weighted chỉ trên FC | Accepted (G1, 2026-11-03) | — |
+| [ADR-006](ADR-006-single-atc-gossip-sgd-loop.md) | Một vòng ATC tham số (τ, μ, $c_i$); τ·R = 4,000; khởi tạo chung | Accepted (G1, 2026-11-03) | A3, QS-2 |
+| [ADR-007](ADR-007-evaluation-protocol.md) | Giao thức đánh giá, chọn lr, seed, thống kê, ngân sách | Accepted (G1, 2026-11-03) | Q3, QĐ-2, QS-2; η điền sau E0a |
+| [ADR-008](ADR-008-results-format-and-code-version.md) | Định dạng kết quả, `code_version`, độ đo suy ra ở `analysis/` | Accepted (G1, 2026-11-03) | QS-1, QS-4, QS-7 |
+| [ADR-009](ADR-009-random-pairwise-gossip-schedule.md) | Random gossip theo lịch chung trên $K_N$; thêm T3b trên cạnh ER | Accepted (G1, 2026-11-03) | — |
+| [ADR-010](ADR-010-multiprocess-node-runtime.md) | Mỗi node một tiến trình (tiến trình cục bộ hoặc container Docker) qua gloo; bộ mô phỏng một tiến trình giữ lại và phải trùng từng bit | Accepted (G1, 2026-11-03) | Q1 (đã trả lời), Q10, Q12, Q13 |
+| [ADR-011](ADR-011-model-complexity-ladder.md) | Thang bốn model (7,850 → 1,663,370 tham số) cho E8; SmallCNN vẫn là model lõi | Accepted (G1, 2026-11-03) | Q1 (đã trả lời), Q11 |
+| [ADR-012](ADR-012-cifar10-binary-niidbench-cnn-crop-flip.md) | CIFAR-10 đọc từ bản binary bằng numpy; CNN NIID-Bench 62,006 tham số; augmentation crop + flip lấy từ luồng batch của node | Accepted (G1, 2026-11-03) | Yêu cầu ngày 2026-10-15 (Ask first); bổ sung ADR-003, ADR-004 |
+| [ADR-013](ADR-013-comm-cost-by-type-and-node.md) | Ghi tải message, tải byte và thời gian của từng node; P12, P13 vẽ chi phí giao tiếp theo loại và theo node | Accepted (G1, 2026-11-03) | Yêu cầu ngày 2026-10-21; bổ sung ADR-008, ADR-010 |
+| [ADR-014](ADR-014-e7-barabasi-albert-rare-classes-by-degree.md) | E7: đồ thị Barabási–Albert m = 2; lớp 5–9 chỉ ở K = 2 node đặt ở hub, biên hay ngẫu nhiên; đồ thị ghi vào manifest; P14, P15 | Accepted (G1, 2026-11-03) | Yêu cầu ngày 2026-10-21 (Ask first); bổ sung ADR-005, ADR-008, ADR-009 |
+| [ADR-015](ADR-015-feedback-2-lattice-hub-leaf-real-time.md) | Theo góp ý buổi 2: lattice xuyến bậc 4; `describe` in bậc, % hub, % leaf, ER theo p; bậc của lượt cũ suy từ tải message; P16 đường hội tụ theo node; P17 và s@x theo thời gian phân tán ước tính; E9 | Accepted (G1, 2026-11-03) | Góp ý GVHD buổi 2 (2026-10-21); bổ sung ADR-009, ADR-013, ADR-014 |
 
 Q1–Q13, A1–A6, QĐ-1…5: [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md). QS-1…8: `SPEC.md` §11.2.
 

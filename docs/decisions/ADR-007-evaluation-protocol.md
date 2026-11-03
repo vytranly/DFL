@@ -1,7 +1,7 @@
 # ADR-007: Giao thức đánh giá — test toàn cục + acc^loc + acc^eff, đo trước và sau tổng hợp, lưới mốc chung cho mọi τ, lr chọn trên validation theo trường hợp xấu nhất, 5 seed lõi / 3 seed ablation, thiết kế ghép cặp
 
 ## Status
-Proposed — chờ Gate G1. Giá trị η (và μ theo SPEC QS-2) được điền vào mục Decision sau E0a.
+Accepted — nhóm duyệt tại Gate G1 ngày 2026-11-03 (người dùng xác nhận trong phiên làm việc; chưa có ghi nhận duyệt riêng của GVHD). Trạng thái trước đó: Proposed — chờ Gate G1. Giá trị η (và μ theo SPEC QS-2) được điền vào mục Decision sau E0a.
 
 ## Date
 2026-09-30 (cập nhật theo hai vòng phản biện P1.9 cùng ngày)

@@ -1,7 +1,7 @@
 # ADR-001: Tự viết mô phỏng DFL trên PyTorch + NetworkX, không dùng framework FL có sẵn
 
 ## Status
-Proposed — chờ Gate G1.
+Accepted — nhóm duyệt tại Gate G1 ngày 2026-11-03 (người dùng xác nhận trong phiên làm việc; chưa có ghi nhận duyệt riêng của GVHD). Trạng thái trước đó: Proposed — chờ Gate G1.
 
 ## Date
 2026-09-30

@@ -1,7 +1,7 @@
 # ADR-010: Mỗi node một tiến trình độc lập (tiến trình cục bộ hoặc container Docker) qua torch.distributed/gloo; bộ mô phỏng một tiến trình được giữ và phải trùng từng bit
 
 ## Status
-Proposed — nhóm soạn ngày 2026-10-01 theo trả lời Q1 của GVHD; **nhóm duyệt ngày 2026-10-01 (K14)**, chờ Gate G1. Q12 (Docker là tùy chọn) và Q13 (đo cả byte lẫn thời gian) đã chốt; Q10, Q11 nhóm quyết sau (OPEN_QUESTIONS.md). Bổ sung ADR-002, không thay thế nó (phương án đã ghi sẵn trong ADR-002, mục "Chờ Q1"). Nếu GVHD trả lời Q10 là "mọi thí nghiệm phải chạy đa tiến trình", ADR này thay thế ADR-002 và phải tính lại ngân sách ở ADR-007.
+Accepted — nhóm duyệt tại Gate G1 ngày 2026-11-03 (người dùng xác nhận trong phiên làm việc; chưa có ghi nhận duyệt riêng của GVHD). Trạng thái trước đó: Proposed — nhóm soạn ngày 2026-10-01 theo trả lời Q1 của GVHD; **nhóm duyệt ngày 2026-10-01 (K14)**, chờ Gate G1. Q12 (Docker là tùy chọn) và Q13 (đo cả byte lẫn thời gian) đã chốt; Q10, Q11 nhóm quyết sau (OPEN_QUESTIONS.md). Bổ sung ADR-002, không thay thế nó (phương án đã ghi sẵn trong ADR-002, mục "Chờ Q1"). Nếu GVHD trả lời Q10 là "mọi thí nghiệm phải chạy đa tiến trình", ADR này thay thế ADR-002 và phải tính lại ngân sách ở ADR-007.
 
 ## Date
 2026-10-01

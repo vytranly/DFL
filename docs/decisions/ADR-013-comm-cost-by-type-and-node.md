@@ -1,7 +1,7 @@
 # ADR-013: Ghi chi phí giao tiếp theo từng node và vẽ theo loại chi phí (byte, message, thời gian)
 
 ## Status
-Proposed — soạn ngày 2026-10-21 theo yêu cầu của người dùng (nhánh `binh`, phương án B: "làm luôn"). Bổ sung ADR-008 (định dạng kết quả) và ADR-010 (đo `comm_s`), không thay thế chúng. Có hiệu lực cho lưới khi nhóm quyết đưa code này vào nhánh `grid` (xem Consequences).
+Accepted — nhóm duyệt tại Gate G1 ngày 2026-11-03 (người dùng xác nhận trong phiên làm việc; chưa có ghi nhận duyệt riêng của GVHD). Trạng thái trước đó: Proposed — soạn ngày 2026-10-21 theo yêu cầu của người dùng (nhánh `binh`, phương án B: "làm luôn"). Bổ sung ADR-008 (định dạng kết quả) và ADR-010 (đo `comm_s`), không thay thế chúng. Có hiệu lực cho lưới khi nhóm quyết đưa code này vào nhánh `grid` (xem Consequences).
 
 ## Date
 2026-10-21

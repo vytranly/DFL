@@ -1,7 +1,7 @@
 # ADR-002: Mô phỏng đơn tiến trình, đồng bộ, message-passing qua giao diện Transport
 
 ## Status
-Proposed — chờ Gate G1. GVHD đã trả lời Q1 ngày 2026-10-01 (cần tiến trình chạy song song, mỗi node độc lập): áp dụng phương án bổ sung ghi ở mục Consequences, xem ADR-010.
+Accepted — nhóm duyệt tại Gate G1 ngày 2026-11-03 (người dùng xác nhận trong phiên làm việc; chưa có ghi nhận duyệt riêng của GVHD). Trạng thái trước đó: Proposed — chờ Gate G1. GVHD đã trả lời Q1 ngày 2026-10-01 (cần tiến trình chạy song song, mỗi node độc lập): áp dụng phương án bổ sung ghi ở mục Consequences, xem ADR-010.
 
 ## Date
 2026-09-30 (cập nhật theo hai vòng phản biện P1.9 cùng ngày)

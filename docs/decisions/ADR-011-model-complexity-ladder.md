@@ -1,7 +1,7 @@
 # ADR-011: Thang bốn model tăng dần độ phức tạp cho thí nghiệm chi phí giao tiếp E8; SmallCNN vẫn là model của thí nghiệm lõi
 
 ## Status
-Proposed — nhóm soạn ngày 2026-10-01 theo trả lời Q1 của GVHD; **nhóm duyệt ngày 2026-10-01 (K14)**, chờ Gate G1. Q11 ("độ phức tạp" có phải kích thước model không) nhóm quyết sau; đến lúc đó dùng cách hiểu ở dưới. Q13 đã chốt: đo cả byte lẫn thời gian. Bổ sung ADR-004, không thay thế nó.
+Accepted — nhóm duyệt tại Gate G1 ngày 2026-11-03 (người dùng xác nhận trong phiên làm việc; chưa có ghi nhận duyệt riêng của GVHD). Trạng thái trước đó: Proposed — nhóm soạn ngày 2026-10-01 theo trả lời Q1 của GVHD; **nhóm duyệt ngày 2026-10-01 (K14)**, chờ Gate G1. Q11 ("độ phức tạp" có phải kích thước model không) nhóm quyết sau; đến lúc đó dùng cách hiểu ở dưới. Q13 đã chốt: đo cả byte lẫn thời gian. Bổ sung ADR-004, không thay thế nó.
 
 ## Date
 2026-10-01

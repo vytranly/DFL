@@ -1,7 +1,7 @@
 # ADR-012: CIFAR-10 đọc từ bản binary bằng numpy, model CNN của NIID-Bench (62,006 tham số), augmentation crop + flip lấy ngẫu nhiên từ luồng batch của node
 
 ## Status
-Proposed — soạn ngày 2026-10-15 theo yêu cầu làm code CIFAR-10 trước M4 (nhánh `binh`). Đây là việc thuộc Ask first của SPEC §8 ("phần mở rộng trước M4"); ba lựa chọn thiết kế (model, augmentation, phạm vi) được hỏi và chốt trong phiên ngày 2026-10-15. Chờ nhóm duyệt và Gate G1. Bổ sung ADR-003 và ADR-004, không thay thế chúng. ADR này chỉ quyết phần code; lưới thu gọn, ngân sách, η và ngưỡng sanity của CIFAR-10 chưa quyết (xem cuối mục Decision).
+Accepted — nhóm duyệt tại Gate G1 ngày 2026-11-03 (người dùng xác nhận trong phiên làm việc; chưa có ghi nhận duyệt riêng của GVHD). Trạng thái trước đó: Proposed — soạn ngày 2026-10-15 theo yêu cầu làm code CIFAR-10 trước M4 (nhánh `binh`). Đây là việc thuộc Ask first của SPEC §8 ("phần mở rộng trước M4"); ba lựa chọn thiết kế (model, augmentation, phạm vi) được hỏi và chốt trong phiên ngày 2026-10-15. Chờ nhóm duyệt và Gate G1. Bổ sung ADR-003 và ADR-004, không thay thế chúng. ADR này chỉ quyết phần code; lưới thu gọn, ngân sách, η và ngưỡng sanity của CIFAR-10 chưa quyết (xem cuối mục Decision).
 
 ## Date
 2026-10-15

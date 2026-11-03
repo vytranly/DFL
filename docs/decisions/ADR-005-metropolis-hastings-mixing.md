@@ -1,7 +1,7 @@
 # ADR-005: Trọng số trộn Metropolis–Hastings mặc định; uniform và size-corrected là ablation; size-weighted chỉ dùng trên FC
 
 ## Status
-Proposed — chờ Gate G1.
+Accepted — nhóm duyệt tại Gate G1 ngày 2026-11-03 (người dùng xác nhận trong phiên làm việc; chưa có ghi nhận duyệt riêng của GVHD). Trạng thái trước đó: Proposed — chờ Gate G1.
 
 ## Date
 2026-09-30 (cập nhật theo hai vòng phản biện P1.9 cùng ngày)

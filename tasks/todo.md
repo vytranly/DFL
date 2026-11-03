@@ -28,7 +28,7 @@
 ## Điều kiện trước pha 3
 
 - [x] P1.9 đã commit (`07b183c`)
-- [ ] Gate G1: nhóm và GVHD duyệt SPEC, ADR-001…011 (Proposed → Accepted). Q1 đã trả lời (2026-10-01); còn chờ Q10–Q13 (OPEN_QUESTIONS.md)
+- [x] Gate G1: nhóm và GVHD duyệt SPEC, ADR-001…011 (Proposed → Accepted). **2026-11-03: người dùng duyệt Gate; ADR-001…015 chuyển sang Accepted (chưa có ghi nhận duyệt riêng của GVHD).** Q1 đã trả lời (2026-10-01); còn chờ Q10–Q13 (OPEN_QUESTIONS.md)
 - [x] Gate G2: nhóm duyệt `tasks/plan.md` và file này (2026-09-30)
 - [x] T01 — Dựng repo, pyproject, ruff, pytest, CLAUDE.md, README (commit `2789c5c`)
 
