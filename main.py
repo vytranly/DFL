@@ -417,11 +417,242 @@ def exp_combined():
 # ═══════════════════════════════════════════════════════════════════
 # MAIN
 # ═══════════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════════
+# EXP 6 — Topology mới: Lattice & Scale-Free hội tụ thế nào?
+# ═══════════════════════════════════════════════════════════════════
+def exp_topology_long():
+    """
+    EXP 6 — Chứng minh topology.py: lattice + scale_free mới.
+    Giữ cố định FedProx + alpha=0.1 để topology là biến duy nhất.
+    10 clients, 50 rounds, 3 local epochs.
+    """
+    print("\n" + "="*60)
+    print("EXP 6 — Topology mới (10 clients, 50 rounds, FedProx, alpha=0.1)")
+    print("="*60)
+
+    topos = ["ring", "lattice", "fully_connected", "random", "scale_free"]
+    results   = {}
+    summaries = []
+
+    for topo in topos:
+        print(f"\n  topology = {topo}")
+        extra = {"lattice_k": 4} if topo == "lattice" else {}
+        cfg = make_cfg(
+            topology     = topo,
+            algorithm    = "fedprox",
+            mu           = 0.1,
+            alpha        = 0.1,
+            num_clients  = 10,
+            num_rounds   = 50,
+            local_epochs = 3,
+            eval_every   = 5,
+            **extra
+        )
+        tracker = run_single(cfg)
+        results[topo] = tracker.to_dataframe()
+        s = tracker.summary(); s["topology"] = topo
+        summaries.append(s)
+        tracker.save_csv(f"{SAVE_DIR}/exp6_topo_{topo}.csv")
+
+    plot_f1_curves(results,
+                   "EXP6 — Topology Sweep (FedProx, alpha=0.1, 10 clients)",
+                   f"{SAVE_DIR}/exp6_f1_curves.png")
+    plot_comm_cost(results,
+                   "EXP6 — Comm Cost theo Topology",
+                   f"{SAVE_DIR}/exp6_comm_cost.png")
+    plot_final_bar(summaries, "topology",
+                   "EXP6 — Final F1 theo Topology",
+                   f"{SAVE_DIR}/exp6_final_bar.png")
+    plot_variance(results,
+                  "EXP6 — Variance (std F1) theo Topology",
+                  f"{SAVE_DIR}/exp6_variance.png")
+
+    print("\n  [EXP6] Ket qua luu: exp6_*.csv + exp6_*.png")
+    print("="*60)
+    return results, summaries
+
+
+# ═══════════════════════════════════════════════════════════════════
+# EXP 7 — FedProx ưu việt dưới Non-IID mạnh + size imbalance
+# ═══════════════════════════════════════════════════════════════════
+def exp_fedprox_long():
+    """
+    EXP 7 — Chứng minh: trainer.py (FedProx) + data_generator.py (dirichlet_imbalanced).
+    So sánh Gossip / FedAvg / FedProx(mu=0.1) trên scale_free, alpha=0.1.
+    2 mức size_alpha: None (bằng nhau) vs 0.1 (lệch mạnh).
+    10 clients, 50 rounds, 3 local epochs.
+    """
+    print("\n" + "="*60)
+    print("EXP 7 — FedProx ưu việt (10 clients, 50 rounds, scale_free, alpha=0.1)")
+    print("="*60)
+
+    base_kw = dict(
+        topology     = "scale_free",
+        alpha        = 0.1,
+        num_clients  = 10,
+        num_rounds   = 50,
+        local_epochs = 3,
+        eval_every   = 5,
+        batch_size   = 64,
+    )
+
+    # 2 mức size_alpha × 3 thuật toán = 6 run
+    size_cfgs = [
+        (None,  None,  "equal"),          # size bằng nhau
+        (0.1,   3000,  "imbalanced"),     # lệch mạnh: ~20 vs 3000
+    ]
+    algos = [
+        ("gossip",  0.0, "Gossip"),
+        ("fedavg",  0.0, "FedAvg"),
+        ("fedprox", 0.1, "FedProx"),
+    ]
+
+    all_results   = {}
+    all_summaries = []
+
+    for size_alpha, max_cs, size_label in size_cfgs:
+        print(f"\n  === size = {size_label} ===")
+        for algo, mu, algo_label in algos:
+            label = f"{algo_label} ({size_label})"
+            print(f"    {label}")
+            cfg = make_cfg(
+                algorithm      = algo,
+                mu             = mu,
+                size_alpha     = size_alpha,
+                max_client_size= max_cs,
+                **base_kw
+            )
+            tracker = run_single(cfg)
+            all_results[label] = tracker.to_dataframe()
+            s = tracker.summary()
+            s["algorithm"]  = algo_label
+            s["size_config"] = size_label
+            all_results_label = label
+            all_summaries.append(s)
+            tracker.save_csv(
+                f"{SAVE_DIR}/exp7_{algo}_{size_label}.csv")
+
+    # Plot riêng theo từng size config để so sánh rõ
+    for size_label in ["equal", "imbalanced"]:
+        sub = {k: v for k, v in all_results.items() if size_label in k}
+        plot_f1_curves(sub,
+                       f"EXP7 — F1 curves ({size_label}, scale_free, alpha=0.1)",
+                       f"{SAVE_DIR}/exp7_f1_{size_label}.png")
+        plot_variance(sub,
+                      f"EXP7 — Variance ({size_label})",
+                      f"{SAVE_DIR}/exp7_variance_{size_label}.png")
+
+    plot_final_bar(all_summaries, "algorithm",
+                   "EXP7 — Final F1: Gossip vs FedAvg vs FedProx",
+                   f"{SAVE_DIR}/exp7_final_bar.png")
+
+    print("\n  [EXP7] Ket qua luu: exp7_*.csv + exp7_*.png")
+    print("="*60)
+    return all_results, all_summaries
+
+
+# ═══════════════════════════════════════════════════════════════════
+# EXP 8 — Straggler & Communication Cost dưới size imbalance
+# ═══════════════════════════════════════════════════════════════════
+def exp_straggler():
+    """
+    EXP 8 — Chứng minh: metrics.py (round_time 43:45, per-node comm 52:22,
+    per-node train time) + data_generator.py (dirichlet_imbalanced).
+    2 mức size_alpha: None (bằng nhau) vs 0.1 (lệch mạnh).
+    Giữ cố định scale_free + FedProx để size là biến duy nhất.
+    10 clients, 30 rounds, 3 local epochs.
+    """
+    print("\n" + "="*60)
+    print("EXP 8 — Straggler & Per-node Cost (10 clients, 30 rounds)")
+    print("="*60)
+
+    base_kw = dict(
+        topology     = "scale_free",
+        algorithm    = "fedprox",
+        mu           = 0.1,
+        alpha        = 0.1,
+        num_clients  = 10,
+        num_rounds   = 30,
+        local_epochs = 3,
+        eval_every   = 5,
+        batch_size   = 64,
+    )
+
+    size_cfgs = [
+        (None,  None,  "equal"),      # baseline: size bằng nhau
+        (0.1,   3000,  "imbalanced"), # lệch mạnh: ~20 vs 3000
+    ]
+
+    results   = {}
+    summaries = []
+    trackers  = {}
+
+    for size_alpha, max_cs, size_label in size_cfgs:
+        print(f"\n  === size_alpha = {size_alpha} ({size_label}) ===")
+        cfg = make_cfg(
+            size_alpha      = size_alpha,
+            max_client_size = max_cs,
+            **base_kw
+        )
+        tracker = run_single(cfg)
+        trackers[size_label] = tracker
+        results[size_label]  = tracker.to_dataframe()
+        s = tracker.summary(); s["size_config"] = size_label
+        summaries.append(s)
+        tracker.save_csv(f"{SAVE_DIR}/exp8_size_{size_label}.csv")
+
+    # F1 curves: so sánh equal vs imbalanced
+    plot_f1_curves(results,
+                   "EXP8 — F1: equal vs imbalanced size (scale_free, FedProx)",
+                   f"{SAVE_DIR}/exp8_f1_curves.png")
+
+    # Per-node cost cho từng size config
+    for size_label, tracker in trackers.items():
+        nodes_info   = tracker.nodes_info
+        node_comm_kb = tracker.node_comm_kb
+        node_train_s = getattr(tracker, "node_train_time_s", {})
+        client_sizes = tracker.client_sizes
+
+        plot_node_costs(
+            nodes_info, node_comm_kb, node_train_s, client_sizes,
+            f"EXP8 — Per-node Cost ({size_label}, scale_free, FedProx)",
+            f"{SAVE_DIR}/exp8_node_costs_{size_label}.png"
+        )
+
+        # Bảng per-node in ra console
+        print(f"\n  --- Per-node cost ({size_label}) ---")
+        print(f"  {'Node':>4}  {'Type':>5}  {'Deg':>3}  {'Samples':>7}"
+              f"  {'Comm(KB)':>9}  {'Train(s)':>9}")
+        print("  " + "-"*52)
+        node_ids = sorted(nodes_info.keys(),
+                          key=lambda i: -nodes_info[i]["degree"])
+        for nid in node_ids:
+            print(f"  {nid:>4}  {nodes_info[nid]['type']:>5}"
+                  f"  {nodes_info[nid]['degree']:>3}"
+                  f"  {client_sizes.get(nid,0):>7}"
+                  f"  {node_comm_kb.get(nid,0):>9.1f}"
+                  f"  {node_train_s.get(nid,0):>9.4f}")
+
+        comm_s  = tracker.get_node_comm_summary()
+        train_s = tracker.get_node_train_summary()
+        print(f"  Comm : avg={comm_s.get('avg_kb',0):.0f} KB"
+              f"  max={comm_s.get('max_kb',0):.0f}"
+              f"  min={comm_s.get('min_kb',0):.0f}")
+        print(f"  Train: avg={train_s.get('avg_s',0):.3f}s"
+              f"  max={train_s.get('max_s',0):.3f}"
+              f"  min={train_s.get('min_s',0):.3f}")
+
+    print("\n  [EXP8] Ket qua luu: exp8_*.csv + exp8_*.png")
+    print("="*60)
+    return results, summaries
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="DFL Experiments")
     parser.add_argument("--exp", default="all",
                         choices=["baseline", "noniid", "topology",
-                                 "algorithm", "p2p", "combined", "all"])
+                                 "algorithm", "p2p", "combined",
+                                 "exp6", "exp7", "exp8", "all_long", "all"])
     args = parser.parse_args()
 
     if args.exp in ("baseline",  "all"): exp_baseline()
@@ -430,5 +661,8 @@ if __name__ == "__main__":
     if args.exp in ("algorithm", "all"): exp_algorithm()
     if args.exp in ("p2p",       "all"): exp_p2p()
     if args.exp in ("combined",  "all"): exp_combined()
+    if args.exp in ("exp6", "all_long"): exp_topology_long()
+    if args.exp in ("exp7", "all_long"): exp_fedprox_long()
+    if args.exp in ("exp8", "all_long"): exp_straggler()
 
     print(f"\n[DONE] Kết quả lưu tại: {SAVE_DIR}/")
