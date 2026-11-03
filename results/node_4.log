@@ -1,0 +1,78 @@
+[Node 4] 19:40:58 PID=21084 starting
+[Node 4] 19:41:02 Loaded 800 samples
+[Node 4] 19:41:05 === Round 1/10 ===
+[Node 4] 19:41:07   Train loss=1.0494
+[Node 4] 19:41:07   Sent 1649.7KB to Node 0
+[Node 4] 19:41:07   Sent 1649.7KB to Node 1
+[Node 4] 19:41:07   Sent 1649.7KB to Node 2
+[Node 4] 19:41:07   Sent 1649.7KB to Node 3
+[Node 4] 19:41:07   Got 4/4 neighbors
+[Node 4] 19:41:08 === Round 2/10 ===
+[Node 4] 19:41:11   Train loss=1.1911
+[Node 4] 19:41:11   Sent 1649.7KB to Node 0
+[Node 4] 19:41:11   Sent 1649.7KB to Node 1
+[Node 4] 19:41:11   Sent 1649.7KB to Node 2
+[Node 4] 19:41:11   Sent 1649.7KB to Node 3
+[Node 4] 19:41:12   Got 4/4 neighbors
+[Node 4] 19:41:19   EVAL: acc=0.5883 f1=0.5343 comm=12.89MB time=11.8s
+[Node 4] 19:41:19 === Round 3/10 ===
+[Node 4] 19:41:23   Train loss=0.4862
+[Node 4] 19:41:23   Sent 1649.7KB to Node 0
+[Node 4] 19:41:23   Sent 1649.7KB to Node 1
+[Node 4] 19:41:23   Sent 1649.7KB to Node 2
+[Node 4] 19:41:23   Sent 1649.7KB to Node 3
+[Node 4] 19:41:23   Got 4/4 neighbors
+[Node 4] 19:41:23 === Round 4/10 ===
+[Node 4] 19:41:26   Train loss=0.2930
+[Node 4] 19:41:26   Sent 1649.7KB to Node 0
+[Node 4] 19:41:26   Sent 1649.7KB to Node 1
+[Node 4] 19:41:26   Sent 1649.7KB to Node 2
+[Node 4] 19:41:26   Sent 1649.7KB to Node 3
+[Node 4] 19:41:27   Got 4/4 neighbors
+[Node 4] 19:41:35   EVAL: acc=0.8798 f1=0.8779 comm=25.78MB time=11.8s
+[Node 4] 19:41:35 === Round 5/10 ===
+[Node 4] 19:41:39   Train loss=0.2241
+[Node 4] 19:41:39   Sent 1649.7KB to Node 0
+[Node 4] 19:41:39   Sent 1649.7KB to Node 1
+[Node 4] 19:41:39   Sent 1649.7KB to Node 2
+[Node 4] 19:41:39   Sent 1649.7KB to Node 3
+[Node 4] 19:41:39   Got 4/4 neighbors
+[Node 4] 19:41:39 === Round 6/10 ===
+[Node 4] 19:41:43   Train loss=0.1458
+[Node 4] 19:41:43   Sent 1649.7KB to Node 0
+[Node 4] 19:41:43   Sent 1649.7KB to Node 1
+[Node 4] 19:41:43   Sent 1649.7KB to Node 2
+[Node 4] 19:41:43   Sent 1649.7KB to Node 3
+[Node 4] 19:41:43   Got 4/4 neighbors
+[Node 4] 19:41:50   EVAL: acc=0.9204 f1=0.9196 comm=38.66MB time=11.5s
+[Node 4] 19:41:50 === Round 7/10 ===
+[Node 4] 19:41:54   Train loss=0.1383
+[Node 4] 19:41:54   Sent 1649.7KB to Node 0
+[Node 4] 19:41:54   Sent 1649.7KB to Node 1
+[Node 4] 19:41:54   Sent 1649.7KB to Node 2
+[Node 4] 19:41:54   Sent 1649.7KB to Node 3
+[Node 4] 19:41:54   Got 4/4 neighbors
+[Node 4] 19:41:54 === Round 8/10 ===
+[Node 4] 19:41:58   Train loss=0.1154
+[Node 4] 19:41:58   Sent 1649.7KB to Node 0
+[Node 4] 19:41:58   Sent 1649.7KB to Node 1
+[Node 4] 19:41:58   Sent 1649.7KB to Node 2
+[Node 4] 19:41:58   Sent 1649.7KB to Node 3
+[Node 4] 19:41:58   Got 4/4 neighbors
+[Node 4] 19:42:06   EVAL: acc=0.9318 f1=0.9312 comm=51.55MB time=11.5s
+[Node 4] 19:42:06 === Round 9/10 ===
+[Node 4] 19:42:09   Train loss=0.0892
+[Node 4] 19:42:09   Sent 1649.7KB to Node 0
+[Node 4] 19:42:09   Sent 1649.7KB to Node 1
+[Node 4] 19:42:09   Sent 1649.7KB to Node 2
+[Node 4] 19:42:09   Sent 1649.7KB to Node 3
+[Node 4] 19:42:10   Got 4/4 neighbors
+[Node 4] 19:42:10 === Round 10/10 ===
+[Node 4] 19:42:13   Train loss=0.0774
+[Node 4] 19:42:13   Sent 1649.7KB to Node 0
+[Node 4] 19:42:13   Sent 1649.7KB to Node 1
+[Node 4] 19:42:13   Sent 1649.7KB to Node 2
+[Node 4] 19:42:13   Sent 1649.7KB to Node 3
+[Node 4] 19:42:14   Got 4/4 neighbors
+[Node 4] 19:42:22   EVAL: acc=0.9467 f1=0.9461 comm=64.44MB time=11.7s
+[Node 4] 19:42:22 Done. Total sent=64.44MB
