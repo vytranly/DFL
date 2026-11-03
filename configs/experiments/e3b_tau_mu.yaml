@@ -1,0 +1,20 @@
+# E3b: tần suất giao tiếp và prox (RQ3, H5, H7), thẻ docs/experiments/E3b.md. 42 lượt, seed {0, 1, 2}.
+# μ theo QS-2 với η = 0.1: μ danh nghĩa 0.1 → 0.05, μ danh nghĩa 1 → 0.5. τ·R = 4,000 ở mọi ô.
+# - μ = 0: τ ∈ {5, 50} × {T1, T4} × {IID, α = 0.1} (24);
+# - μ = 0.05, τ = 20 × {T1, T4} × {IID, α = 0.1} (12);
+# - μ = 0.5, τ = 50 × {T1, T4} × α = 0.1 (6).
+experiment: e3b_tau_mu
+profile: ../profiles/full.yaml
+blocks:
+  - seeds: [0, 1, 2]
+    grid:
+      algorithm:
+        - {tau: 5, lr: 0.1, mu: 0.0}
+        - {tau: 50, lr: 0.1, mu: 0.0}
+        - {tau: 20, lr: 0.1, mu: 0.05}
+      topology: [{kind: ring}, {kind: fully_connected}]
+      partition: [{scheme: iid}, {scheme: dirichlet, alpha: 0.1}]
+  - seeds: [0, 1, 2]
+    set: {algorithm: {tau: 50, lr: 0.1, mu: 0.5}, partition: {scheme: dirichlet, alpha: 0.1}}
+    grid:
+      topology: [{kind: ring}, {kind: fully_connected}]

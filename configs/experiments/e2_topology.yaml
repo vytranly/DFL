@@ -1,0 +1,15 @@
+# E2: topology × Non-IID (RQ2, H2, H3, H4), thẻ docs/experiments/E2.md. 30 lượt.
+# DFedAvg (τ = 20, μ = 0), η chung 0.1, N = 20, MH, profile full.
+# {T2 ER p = 0.3, T3 gossip trên K_N} × {α = 1, α = 0.1, #C = 2} × seed {0…4};
+# ô IID lấy từ E0b, ô T1/T4 lấy từ E1. Chỉ chạy sau khi SAN-4 đạt (SPEC §9.3).
+experiment: e2_topology
+profile: ../profiles/full.yaml
+blocks:
+  - seeds: [0, 1, 2, 3, 4]
+    set: {algorithm: {lr: 0.1}}
+    grid:
+      topology: [{kind: erdos_renyi}, {kind: gossip}]
+      partition:
+        - {scheme: dirichlet, alpha: 1.0}
+        - {scheme: dirichlet, alpha: 0.1}
+        - {scheme: label_k, k: 2}

@@ -1,0 +1,12 @@
+# E3a: ba thuật toán đề yêu cầu (REQ-08; H5), thẻ docs/experiments/E3a.md. 24 lượt.
+# D-PSGD (τ = 1, μ = 0) và DFedProx (τ = 20, μ = 1 danh nghĩa, tức μ = 0.5 với η = 0.1: QS-2, ADR-007)
+# × {T1 ring, T4 FC} × {IID, α = 0.1} × seed {0, 1, 2}; DFedAvg lấy từ E0b (IID) và E1 (α = 0.1).
+# τ·R = 4,000 ở mọi ô (ADR-006); η chung 0.1.
+experiment: e3a_algorithms
+profile: ../profiles/full.yaml
+blocks:
+  - seeds: [0, 1, 2]
+    grid:
+      algorithm: [{tau: 1, lr: 0.1, mu: 0.0}, {tau: 20, lr: 0.1, mu: 0.5}]
+      topology: [{kind: ring}, {kind: fully_connected}]
+      partition: [{scheme: iid}, {scheme: dirichlet, alpha: 0.1}]

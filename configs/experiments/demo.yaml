@@ -1,0 +1,10 @@
+# Demo trên laptop (T26; SPEC ENG-11, QS-8): ring so với FC ở α = 0.1, seed 0, 2 lượt; chạy bằng
+#   python -m dfl sweep --experiment configs/experiments/demo.yaml --out build/demo --workers 2
+# rồi vẽ bằng python -m analysis.plots --results build/demo --out build/demo/figures --draft (docs/DEMO.md).
+experiment: demo
+profile: ../profiles/demo.yaml
+blocks:
+  - seeds: [0]
+    set: {partition: {scheme: dirichlet, alpha: 0.1}}
+    grid:
+      topology: [{kind: ring}, {kind: fully_connected}]

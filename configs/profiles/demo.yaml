@@ -1,0 +1,7 @@
+# Profile demo (SPEC §5.2, QS-8, ENG-11): MNIST thật đã tải sẵn, N = 20, τ·R = 400 (τ = 20, R = 20), đánh giá mỗi
+# 100 bước trên tập con test 2,000 ảnh và đánh giá cuối trên đủ 10,000 ảnh, 1 luồng mỗi lượt. Chỉ để trình diễn
+# trên laptop (docs/DEMO.md); không bao giờ ghi vào results/, và không phải kết quả cho báo cáo.
+extends: ../base.yaml
+local_steps: 400
+algorithm:
+  lr: 0.1                  # η chung của lưới (ADR-007)

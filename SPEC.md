@@ -560,12 +560,12 @@ Ngưỡng có số do nhóm chốt ở P1.8 (QS-3); đối chứng của SAN-2 c
 | E0b | 1 | B1 (3); B1-4k (3); B2 × {IID, α = 0.1} (6); B3 × IID (3); IID × {T1, T2, T3, T4} (20, 5 seed); độ nhạy {η/2, 2η} × {T1, T4} × {IID, α = 0.1} (8, seed 0) | 3 / 5 / 1 | 43 |
 | E1 | 1 | {T1, T4} × {α = 100, 1, 0.5, 0.1, 0.05, #C = 2, #C = 1}; ô IID lấy từ E0b | 5 | 70 |
 | E2 | 1 | {T2, T3} × {α = 1, α = 0.1, #C = 2}; ô IID lấy từ E0b, ô T1/T4 lấy từ E1 | 5 | 30 |
-| E3a | 1 | {D-PSGD (τ = 1), DFedProx (μ = 1, QS-2)} × {T1, T4} × {IID, α = 0.1}; DFedAvg lấy từ E0b/E1 (seed 0–2) | 3 | 24 |
+| E3a | 1 | {D-PSGD (τ = 1), DFedProx (μ = 1 danh nghĩa, tức 0.5 với η = 0.1; QS-2)} × {T1, T4} × {IID, α = 0.1}; DFedAvg lấy từ E0b/E1 (seed 0–2) | 3 | 24 |
 | E4a | 1 | P3 β = 0.5 × {T2, T4} | 3 | 6 |
 | E8 | 1 | {M0, M1, M2, M3} × {T1, T3, T4} × {IID, α = 0.1}; N = 8, R = 50 (T13 chốt lại), process runtime, `deploy: local` (Docker tùy chọn); ADR-010, ADR-011 | 3 | 72 |
 | E1c | 2 | B3 (đường server) × α ∈ {100, 1, 0.5, 0.1, 0.05} | 3 | 15 |
 | E2b | 2 | T3b × {IID, α = 0.1, #C = 2} | 3 | 9 |
-| E3b | 2 | μ = 0: τ ∈ {5, 50} × {T1, T4} × {IID, α = 0.1} (24); μ = 0.1 (QS-2), τ = 20 × {T1, T4} × {IID, α = 0.1} (12); μ = 1, τ = 50 × {T1, T4} × α = 0.1 (6) | 3 | 42 |
+| E3b | 2 | μ = 0: τ ∈ {5, 50} × {T1, T4} × {IID, α = 0.1} (24); μ = 0.1 danh nghĩa (0.05 với η = 0.1; QS-2), τ = 20 × {T1, T4} × {IID, α = 0.1} (12); μ = 1 danh nghĩa (0.5), τ = 50 × {T1, T4} × α = 0.1 (6) | 3 | 42 |
 | E4 | 2 | β = 0.5: T2 × {uniform, size-corrected} và T4 × size-weighted (9); α = 0.1: T2 × {uniform, size-corrected} (6). Ô MH lấy từ E4a, E1, E2; ô size-weighted ở α = 0.1 lấy từ E1c | 3 | 15 |
 | Có điều kiện | 2 | η riêng cho τ = 1: các ô D-PSGD của E3a (12); η riêng cho τ = 50: các ô μ = 0, τ = 50 của E3b (12) | 3 | ≤ 24 |
 
