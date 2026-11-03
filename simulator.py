@@ -87,6 +87,8 @@ class DFLSimulator:
         )
         # Lưu kích thước mỗi client để exp5 báo cáo size imbalance
         self.tracker.client_sizes = dict(self.num_samples)
+        # Lưu nodes_info (Hub/Leaf) lên tracker để main.py truy cập
+        self.tracker.nodes_info = self.nodes_info
 
         print(f"\n{'='*55}")
         print(f"  DFL Simulator — {config.get('topology','ring').upper()}"
@@ -124,6 +126,9 @@ class DFLSimulator:
                 device     = self.device,
             )
             new_weights[cid] = state
+            # Training cost rieng tung node (wall-clock) -- node co nhieu
+            # mau hon se train lau hon (size imbalance). Bo sung cho transcript 52:22.
+            self.tracker.add_node_train_time(cid, _tt)
 
         # Cập nhật weight sau local train
         for cid in range(self.num_clients):

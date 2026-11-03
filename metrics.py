@@ -25,10 +25,15 @@ class MetricsTracker:
         self.target_f1     = target_f1
         self.history       = []               # list of dict, 1 dict per round
         self.total_bytes   = 0                # tổng bytes đã truyền
-        self._conv_round   = -1              # round đầu đạt target_f1
+        self._conv_round   = -1
+        # Theo yeu cau co (43:45): do thoi gian thuc moi round
+        self.total_time_s  = 0.0
+        self.round_times   = []
+        # Theo yeu cau co (52:22): tach comm cost rieng tung node
+        self.node_comm_kb  = {}
 
     # ── Ghi kết quả 1 round ──────────────────────────────────────────
-    def log_round(self, round_num: int, per_client_metrics: list):
+    def log_round(self, round_num: int, per_client_metrics: list, **kwargs):
         """
         per_client_metrics: list of (accuracy, f1, loss) — 1 tuple/client
         """
@@ -53,6 +58,8 @@ class MetricsTracker:
             "std_f1"      : float(np.std(f1s)),
             "mean_loss"   : float(np.mean(losses)),
             "comm_cost_mb": self.total_bytes / (1024 ** 2),
+            "round_time_s": kwargs.get("round_time_s", 0.0),
+            "cum_time_s"  : self.total_time_s,
         }
         # Lưu F1 từng client riêng để vẽ variance heatmap
         for i, f1 in enumerate(f1s):
@@ -65,6 +72,52 @@ class MetricsTracker:
     # ── Cập nhật communication cost ───────────────────────────────────
     def add_comm_bytes(self, bytes_this_round: int):
         self.total_bytes += bytes_this_round
+
+    def add_round_time(self, seconds: float):
+        """Do thoi gian thuc 1 round de so sanh mang day vs thua.
+        (Theo yeu cau co transcript 43:45)"""
+        self.total_time_s += seconds
+        self.round_times.append(seconds)
+
+    def add_node_comm(self, node_id: int, kb: float):
+        """Ghi comm cost rieng tung node (KB gui di).
+        (Theo yeu cau co transcript 52:22 -- tach rieng comm cost)"""
+        self.node_comm_kb[node_id] = self.node_comm_kb.get(node_id, 0.0) + kb
+
+    def add_node_train_time(self, node_id: int, seconds: float):
+        """Ghi training time rieng tung node (giay wall-clock).
+        Training cost ty le voi (num_samples x local_epochs) -- node co
+        nhieu mau hon se mat nhieu thoi gian hon (size imbalance ro rang).
+        (Cho thay tac dung cua dirichlet_imbalanced, bo sung cho transcript 52:22)"""
+        if not hasattr(self, 'node_train_time_s'):
+            self.node_train_time_s = {}
+        self.node_train_time_s[node_id] = \
+            self.node_train_time_s.get(node_id, 0.0) + seconds
+
+    def get_node_train_summary(self):
+        """Tom tat training time tung node."""
+        d = getattr(self, 'node_train_time_s', {})
+        if not d:
+            return {}
+        avg = sum(d.values()) / len(d)
+        return {
+            "per_node_s": dict(d),
+            "avg_s"     : round(avg, 4),
+            "max_s"     : round(max(d.values()), 4),
+            "min_s"     : round(min(d.values()), 4),
+        }
+
+    def get_node_comm_summary(self):
+        """Tom tat comm cost tung node -- phan biet Hub vs Leaf."""
+        if not self.node_comm_kb:
+            return {}
+        avg = sum(self.node_comm_kb.values()) / len(self.node_comm_kb)
+        return {
+            "per_node_kb": dict(self.node_comm_kb),
+            "avg_kb"     : round(avg, 2),
+            "max_kb"     : round(max(self.node_comm_kb.values()), 2),
+            "min_kb"     : round(min(self.node_comm_kb.values()), 2),
+        }
 
     # ── Truy vấn ─────────────────────────────────────────────────────
     @property
@@ -93,6 +146,8 @@ class MetricsTracker:
             "convergence_round" : self._conv_round,
             "total_comm_mb"     : round(self.total_bytes / (1024**2), 2),
             "best_f1"           : round(df["mean_f1"].max(), 4),
+            "avg_round_time_s"  : round(sum(self.round_times)/max(len(self.round_times),1), 2),
+            "total_time_s"      : round(self.total_time_s, 2),
         }
 
     def print_summary(self):
@@ -106,4 +161,6 @@ class MetricsTracker:
         print(f"  Convergence round  : {s.get('convergence_round','N/A')}")
         print(f"  Total comm cost    : {s.get('total_comm_mb','N/A')} MB")
         print(f"  Best F1            : {s.get('best_f1','N/A')}")
+        print(f"  Avg round time     : {s.get('avg_round_time_s','N/A')} s")
+        print(f"  Total time         : {s.get('total_time_s','N/A')} s")
         print("="*50)

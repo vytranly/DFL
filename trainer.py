@@ -10,6 +10,7 @@ Chứa:
 """
 
 import copy
+import time
 import numpy as np
 import torch
 import torch.nn as nn
@@ -64,41 +65,24 @@ def get_model_size_kb(model):
 # 2. LOCAL TRAINING
 # ─────────────────────────────────────────────
 
-def local_train(model, dataloader, epochs, lr, device,
-                algorithm='gossip', mu=0.0, anchor_state=None):
+def local_train(model, dataloader, epochs, lr, device):
     """
-    Huấn luyện cục bộ trên data của 1 node.
-
-    Args:
-        model        : SimpleCNN cần train
-        dataloader   : DataLoader chứa data cục bộ của node
-        epochs       : số epoch local (thường = 5)
-        lr           : learning rate (thường = 0.01)
-        device       : 'cpu' hoặc 'cuda'
-        algorithm    : 'gossip' | 'fedavg' | 'fedprox'
-        mu           : hệ số proximal (chỉ dùng khi algorithm='fedprox')
-        anchor_state : state_dict lưu trước khi train (chỉ FedProx)
+    Huan luyen cuc bo SGD thuan tuy.
+    KHONG co proximal term o day -- FedProx xu ly o fedprox_aggregate().
+    (Theo feedback co 31:24: FedProx la co che tong hop, khong phai local train)
 
     Returns:
-        new_state_dict : weight sau khi train (deepcopy)
-        avg_loss       : loss trung bình
+        state_dict   : weight sau train
+        avg_loss     : cross-entropy loss trung binh
+        train_time_s : thoi gian train (giay) -- de tach rieng training cost
     """
+    t0 = time.time()
     model.train()
     model.to(device)
 
     optimizer = optim.SGD(model.parameters(), lr=lr,
                           momentum=0.9, weight_decay=1e-4)
     criterion = nn.CrossEntropyLoss()
-
-    # FedProx: chuẩn bị anchor params (đóng băng, không tính gradient)
-    anchor_params = None
-    if algorithm == 'fedprox' and anchor_state is not None and mu > 0:
-        anchor_params = [
-            v.clone().detach().to(device)
-            for v in anchor_state.values()
-            if v.dtype.is_floating_point
-        ]
-
     total_loss = 0.0
     steps = 0
 
@@ -106,26 +90,14 @@ def local_train(model, dataloader, epochs, lr, device,
         for x, y in dataloader:
             x, y = x.to(device), y.to(device)
             optimizer.zero_grad()
-
-            # ── Task loss (CrossEntropy) ──
-            output = model(x)
-            loss = criterion(output, y)
-
-            # ── Proximal term (chỉ FedProx) ──
-            if anchor_params is not None:
-                float_params = [p for p in model.parameters()
-                                if p.requires_grad]
-                for p, p_a in zip(float_params, anchor_params):
-                    loss = loss + (mu / 2.0) * torch.norm(p - p_a) ** 2
-
+            loss = criterion(model(x), y)
             loss.backward()
             optimizer.step()
-
             total_loss += loss.item()
             steps += 1
 
     avg_loss = total_loss / max(steps, 1)
-    return copy.deepcopy(model.state_dict()), avg_loss
+    return copy.deepcopy(model.state_dict()), avg_loss, time.time() - t0
 
 
 # ─────────────────────────────────────────────
@@ -209,9 +181,34 @@ def fedavg_aggregate(weights_list, sizes_list):
     return result
 
 
-# FedProx dùng cùng aggregation với FedAvg
-# (proximal term chỉ ở bước local_train)
-fedprox_aggregate = fedavg_aggregate
+def fedprox_aggregate(own_weights, neighbor_weights,
+                      sizes_list, mu=0.1):
+    """
+    FedProx Aggregation -- buoc TONG HOP, xu ly client drift Non-IID.
+    (Theo feedback co 37:28: FedProx la co che tong hop, khong phai local train)
+
+    Buoc 1: Tinh w_avg theo FedAvg (trong so theo so mau)
+    Buoc 2: Proximal correction:
+            w_result = w_avg - mu*(w_own - w_avg)
+            => keo w_own ve phia w_avg, han che drift
+    mu=0 => FedProx = FedAvg.
+    """
+    all_w = [own_weights] + neighbor_weights
+    total = sum(sizes_list)
+    w_avg = OrderedDict()
+    for key in own_weights.keys():
+        w_avg[key] = torch.stack([
+            w[key].float() * (n / total)
+            for w, n in zip(all_w, sizes_list)
+        ]).sum(dim=0)
+    if mu <= 0:
+        return w_avg
+    result = OrderedDict()
+    for key in own_weights.keys():
+        w_o = own_weights[key].float()
+        w_a = w_avg[key].float()
+        result[key] = w_a - mu * (w_o - w_a)
+    return result
 
 
 # ─────────────────────────────────────────────

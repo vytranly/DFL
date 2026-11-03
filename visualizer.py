@@ -223,6 +223,73 @@ def plot_hub_leaf(df, nodes_info, title, save_path):
     _save(fig, save_path)
 
 
+# ── Per-node Comm vs Training cost (bo sung cho transcript 52:22) ────
+def plot_node_costs(nodes_info, node_comm_kb, node_train_s, client_sizes,
+                    title, save_path):
+    """
+    Ve 2 subplot bar chart: comm cost va training cost tung node.
+
+    Yeu cau (notification): comm cost va training cost la 2 TRUC DOC LAP --
+      - Comm theo DEGREE (topology): Hub cao, Leaf thap
+      - Training theo SO MAU (data size): node nhieu mau cao, it mau thap
+    Sap xep node theo degree giam dan (Hub truoc): bar Comm se giam dan,
+    nhung bar Training KHONG giam dan (vi training theo size, khong theo degree)
+    -> khoi "hub it mau = comm cao + training thap" va
+       "leaf nhieu mau = comm thap + training cao" hien ro.
+    Mau do = Hub, mau xanh = Leaf.
+    """
+    # Sap xep node theo degree giam dan, roi theo so mau giam dan (Hub truoc)
+    node_ids = sorted(nodes_info.keys(),
+                      key=lambda i: (-nodes_info[i]['degree'],
+                                     -client_sizes.get(i, 0)))
+    comm_kb  = [node_comm_kb.get(i, 0.0) for i in node_ids]
+    train_s  = [node_train_s.get(i, 0.0) for i in node_ids]
+    sizes    = [client_sizes.get(i, 0) for i in node_ids]
+    degs     = [nodes_info[i]['degree'] for i in node_ids]
+    colors   = ["salmon" if nodes_info[i]["type"] == "Hub" else "steelblue"
+                for i in node_ids]
+    xlabels  = [f"N{i}\n{nodes_info[i]['type'][0]}{nodes_info[i]['degree']}"
+                for i in node_ids]
+
+    fig, axes = plt.subplots(1, 2, figsize=(13, 5))
+    fig.suptitle(title, fontsize=12, fontweight="bold")
+
+    # --- Comm cost (KB) -- theo degree, giam dan ---
+    bars = axes[0].bar(range(len(node_ids)), comm_kb, color=colors,
+                       edgecolor="black", alpha=0.85)
+    axes[0].set_xticks(range(len(node_ids)))
+    axes[0].set_xticklabels(xlabels, fontsize=8)
+    axes[0].set_xlabel("Node (sap xep theo degree giam dan -> Hub truoc)")
+    axes[0].set_ylabel("Comm cost (KB tich luy)")
+    axes[0].set_title("Communication cost -- theo DEGREE (Hub cao, Leaf thap)")
+    axes[0].grid(True, axis="y", alpha=0.3)
+    for bar, v, sz in zip(bars, comm_kb, sizes):
+        axes[0].text(bar.get_x()+bar.get_width()/2, v+max(comm_kb)*0.01,
+                     f"{v:.0f}\nn={sz}", ha="center", fontsize=6)
+
+    # --- Training cost (s) -- theo so mau, KHONG theo degree ---
+    bars2 = axes[1].bar(range(len(node_ids)), train_s, color=colors,
+                        edgecolor="black", alpha=0.85)
+    axes[1].set_xticks(range(len(node_ids)))
+    axes[1].set_xticklabels(xlabels, fontsize=8)
+    axes[1].set_xlabel("Node (cung thu tu -> de thay training KHONG theo degree)")
+    axes[1].set_ylabel("Training time (s tich luy)")
+    axes[1].set_title("Training cost -- theo SO MAU (node nhieu mau = cao)")
+    axes[1].grid(True, axis="y", alpha=0.3)
+    for bar, v, sz in zip(bars2, train_s, sizes):
+        axes[1].text(bar.get_x()+bar.get_width()/2, v+max(train_s)*0.01,
+                     f"{v:.2f}\nn={sz}", ha="center", fontsize=6)
+
+    # Chu thich mau
+    from matplotlib.patches import Patch
+    axes[0].legend(handles=[Patch(color='salmon', label='Hub'),
+                            Patch(color='steelblue', label='Leaf')],
+                   fontsize=8, loc='upper right')
+
+    plt.tight_layout()
+    _save(fig, save_path)
+
+
 # ── Topology summary / Hub-Leaf classification ────────────────────────
 # (Tách từ topology.py: logic báo cáo/topology-summary thuộc về
 #  visualizer — module "Phân tích & Báo cáo"; topology.py giờ chỉ giữ
@@ -288,7 +355,7 @@ def print_topology_summary(graph, name=""):
           f"{leaf_nodes}")
     if spectral_gap is not None:
         print(f"  Spectral gap = {spectral_gap:.4f}  "
-              f"(lớn = hội tụ nhanh, nhỏ = hội tụ chậm)")
+              f"(lon = hoi tu nhanh, nho = hoi tu cham)")
     print(f"  Degree per node: "
           + "  ".join(f"N{k}={v['degree']}({v['type'][0]})"
                       for k, v in sorted(nodes_info.items())))

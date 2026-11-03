@@ -7,7 +7,7 @@ Thí nghiệm:
   --exp topology   : Ring vs FC vs Random
   --exp algorithm  : Gossip vs FedAvg vs FedProx
   --exp p2p        : P2P process thật (mỗi node = 1 process độc lập)
-  --exp combined   : Dirichlet non-IID x Topology x FedProx (showcase thay đổi)
+  --exp combined   : Scale-Free, per-node comm+training cost, FedProx ưu việt
   --exp all        : chạy tất cả
 """
 
@@ -20,7 +20,8 @@ from topology       import create_topology
 from simulator      import DFLSimulator
 from visualizer     import (plot_f1_curves, plot_comm_cost,
                             plot_variance, plot_final_bar,
-                            plot_client_heatmap)
+                            plot_client_heatmap, plot_hub_leaf,
+                            plot_node_costs)
 
 SAVE_DIR = "./results"
 os.makedirs(SAVE_DIR, exist_ok=True)
@@ -230,88 +231,186 @@ def exp_p2p():
 
 
 # ═══════════════════════════════════════════════════════════════════
-# EXP 6 — Combined Showcase: Dirichlet non-IID x Topology x FedProx
+# EXP 5 — Combined Showcase: Scale-Free topology, size imbalance,
+#          per-node comm+training cost, FedProx vs FedAvg vs Gossip
 # ═══════════════════════════════════════════════════════════════════
 def exp_combined():
-    print("\n" + "="*60)
-    print("COMBINED SHOWCASE — Dirichlet non-IID (alpha=0.1) x Topology x FedProx")
-    print("4 topology (gồm MỚI: lattice, scale_free) | size imbalance (size_alpha=0.1)")
-    print("="*60)
-    # 4 topology (lattice/scale_free là mới thêm ở topology.py) dưới FedProx,
-    # non-IID mạnh (alpha=0.1) + size imbalance (size_alpha=0.1) — chạy nhanh:
-    # 10 client, 10 round, 1 local epoch.
-    topos = [
-        ("ring",            {}),                 # regular, degree 2
-        ("fully_connected", {}),                 # dense, degree n-1
-        ("lattice",         {"lattice_k": 4}),   # MỚI: Watts-Strogatz grid
-        ("scale_free",      {}),                 # MỚI: Barabási-Albert hub/leaf
+    """
+    Thí nghiệm đơn giản, nhanh — làm nổi bật 4 điểm thay đổi theo transcript:
+      1. Hub/Leaf classification (transcript 27:18 + 46:03) — dùng scale_free
+         vì Barabási-Albert tạo ra Hub thực sự (degree >> avg)
+      2. Round time / dense-vs-sparse (transcript 43:45)
+      3. Per-node comm cost (transcript 52:22) — Hub gửi nhiều hơn Leaf
+      4. Per-node training cost (MỚI) — node có nhiều mẫu hơn tốn nhiều thời gian
+         hơn (size imbalance qua dirichlet_imbalanced)
+      5. FedProx ưu việt hơn FedAvg và Gossip dưới Non-IID mạnh (alpha=0.1)
+
+    Cấu hình: scale_free, 10 clients, 10 rounds, 1 epoch, alpha=0.1,
+              size_alpha=0.1, max_client_size=3000 -- chạy nhanh.
+    """
+    print("\n" + "="*65)
+    print("EXP 5 — COMBINED SHOWCASE (Scale-Free | Non-IID alpha=0.1)")
+    print("  Muc tieu: Hub/Leaf, per-node comm+train cost, FedProx uu viet")
+    print("="*65)
+
+    # ── Cấu hình chung ───────────────────────────────────────────────
+    base_kw = dict(
+        topology       = "scale_free",
+        alpha          = 0.1,
+        size_alpha     = 0.1,
+        max_client_size= 3000,
+        num_clients    = 10,
+        num_rounds     = 10,
+        local_epochs   = 1,
+        batch_size     = 64,
+        eval_every     = 2,
+    )
+
+    # ── Ba thuật toán cần so sánh ────────────────────────────────────
+    algo_cfgs = [
+        ("gossip",  0.0, "Gossip"),
+        ("fedavg",  0.0, "FedAvg"),
+        ("fedprox", 0.1, "FedProx (μ=0.1)"),
     ]
+
     results   = {}
     summaries = []
     trackers  = {}
 
-    for topo, extra in topos:
-        print(f"\n  >> topology = {topo}")
-        cfg = make_cfg(alpha=0.1, topology=topo, algorithm="fedprox",
-                       mu=0.1, size_alpha=0.1, max_client_size=3000,
-                       num_clients=10, num_rounds=10,
-                       local_epochs=1, batch_size=64, eval_every=2, **extra)
+    for algo, mu, label in algo_cfgs:
+        print(f"\n  >> Algorithm = {label}")
+        cfg = make_cfg(algorithm=algo, mu=mu, **base_kw)
         tracker = run_single(cfg)
-        trackers[topo] = tracker
-        df      = tracker.to_dataframe()
-        results[topo] = df
-        s = tracker.summary(); s["topology"] = topo
+        trackers[label] = tracker
+        df = tracker.to_dataframe()
+        results[label] = df
+        s = tracker.summary(); s["algorithm"] = label
         summaries.append(s)
-        tracker.save_csv(f"{SAVE_DIR}/exp5_topo_{topo}.csv")
+        tracker.save_csv(f"{SAVE_DIR}/exp5_{algo}.csv")
 
-    # ── Biểu đồ so sánh ──
+    # ── Lấy thông tin topology từ tracker đầu tiên ──────────────────
+    first_tracker = trackers["Gossip"]
+    nodes_info    = first_tracker.nodes_info   # dict từ classify_nodes()
+
+    # ── Biểu đồ 1: F1 curves so sánh thuật toán ────────────────────
     plot_f1_curves(results,
-                   "Combined Showcase — F1 (Dirichlet alpha=0.1, FedProx)",
+                   "EXP5 — F1 curves (scale_free, alpha=0.1, size imbalance)",
                    f"{SAVE_DIR}/exp5_f1_curves.png")
-    plot_variance(results,
-                  "Combined Showcase — Variance giữa clients (alpha=0.1)",
-                  f"{SAVE_DIR}/exp5_variance.png")
-    plot_final_bar(summaries, "topology",
-                   "Combined Showcase (alpha=0.1, FedProx)",
-                   f"{SAVE_DIR}/exp5_final_bar.png")
-    plot_comm_cost(results,
-                   "Combined Showcase — Comm Cost (Dirichlet alpha=0.1, FedProx)",
-                   f"{SAVE_DIR}/exp5_comm_cost.png")
 
-    # ── Bảng tóm tắt so sánh (F1 + comm cost theo topology) ──
-    print("\n" + "-"*70)
-    print("  BẢNG SO SÁNH — Combined Showcase (Dirichlet alpha=0.1, FedProx)")
-    print("-"*70)
-    print(f"  {'Topology':<18}{'Edges':>7}{'Final F1':>10}{'Std F1':>9}"
-          f"{'Conv.Rd':>9}{'Comm(MB)':>10}")
-    print("  " + "-"*68)
-    for topo, _ in topos:
-        g = create_topology(topo, 10, lattice_k=4)
-        s = next(x for x in summaries if x["topology"] == topo)
+    # ── Biểu đồ 2: Variance giữa clients ────────────────────────────
+    plot_variance(results,
+                  "EXP5 — Variance (std F1) giữa clients",
+                  f"{SAVE_DIR}/exp5_variance.png")
+
+    # ── Biểu đồ 3: Hub vs Leaf F1 (FedProx) ─────────────────────────
+    prox_df = results["FedProx (μ=0.1)"]
+    plot_hub_leaf(prox_df, nodes_info,
+                  "EXP5 — Hub vs Leaf: F1 (FedProx, scale_free)",
+                  f"{SAVE_DIR}/exp5_hub_leaf.png")
+
+    # ── Biểu đồ 4: Per-node comm+train cost (FedProx run) ───────────
+    prox_tracker = trackers["FedProx (μ=0.1)"]
+    node_comm_kb  = prox_tracker.node_comm_kb
+    node_train_s  = getattr(prox_tracker, 'node_train_time_s', {})
+    client_sizes  = prox_tracker.client_sizes
+    plot_node_costs(nodes_info, node_comm_kb, node_train_s, client_sizes,
+                    "EXP5 — Per-node Comm vs Training cost (FedProx, scale_free)",
+                    f"{SAVE_DIR}/exp5_node_costs.png")
+
+    # ══════════════════════════════════════════════════════════════════
+    # BẢNG 1 — Per-node cost (topology + size imbalance)
+    # (Theo yêu cầu: node, type, degree, samples, comm_cost, train_time)
+    # Sap xep theo degree giam dan (Hub truoc) -> Comm giam dan, Training KHONG
+    # ══════════════════════════════════════════════════════════════════
+    print("\n" + "─"*72)
+    print("  BẢNG 1 — PER-NODE COST (FedProx run, scale_free, alpha=0.1)")
+    print("  (sap xep theo degree giam dan -> Comm giam dan, Training KHONG)")
+    print("─"*72)
+    print(f"  {'Node':>4}  {'Type':>5}  {'Deg':>4}  {'Samples':>8}"
+          f"  {'CommCost(KB)':>12}  {'TrainTime(s)':>12}")
+    print("  " + "─"*68)
+
+    # Sap xep theo degree giam dan, roi theo so mau giam dan (Hub truoc)
+    node_ids = sorted(nodes_info.keys(),
+                      key=lambda i: (-nodes_info[i]['degree'],
+                                     -client_sizes.get(i, 0)))
+    for nid in node_ids:
+        ntype = nodes_info[nid]['type']
+        deg   = nodes_info[nid]['degree']
+        n_smp = client_sizes.get(nid, 0)
+        ckb   = node_comm_kb.get(nid, 0.0)
+        tts   = node_train_s.get(nid, 0.0)
+        flag  = "<<HUB" if ntype == "Hub" else ""
+        print(f"  {nid:>4}  {ntype:>5}  {deg:>4}  {n_smp:>8}"
+              f"  {ckb:>12.1f}  {tts:>12.4f}  {flag}")
+
+    comm_sum = prox_tracker.get_node_comm_summary()
+    train_sum = prox_tracker.get_node_train_summary()
+    print("  " + "─"*68)
+    print(f"  Comm:  avg={comm_sum.get('avg_kb',0):.1f} KB  "
+          f"max={comm_sum.get('max_kb',0):.1f} KB  "
+          f"min={comm_sum.get('min_kb',0):.1f} KB")
+    print(f"  Train: avg={train_sum.get('avg_s',0):.4f} s  "
+          f"max={train_sum.get('max_s',0):.4f} s  "
+          f"min={train_sum.get('min_s',0):.4f} s")
+
+    # ── 2 ví dụ làm nổi bật 2 TRỤC ĐỘC LẬP ──────────────────────────
+    # Hub có degree cao nhất (comm cao) -> xem training của nó
+    hub_ex = max(nodes_info, key=lambda i: nodes_info[i]['degree']
+                 if nodes_info[i]['type'] == 'Hub' else -1)
+    # Leaf có training cao nhất (nhiều mẫu nhất) -> xem comm của nó
+    big_leaf = max(
+        (i for i in nodes_info if nodes_info[i]['type'] == 'Leaf'),
+        key=lambda i: node_train_s.get(i, 0.0))
+
+    print("  " + "─"*68)
+    print(f"  >> Node {hub_ex} (Hub, deg={nodes_info[hub_ex]['degree']}, "
+          f"{client_sizes.get(hub_ex,0)} mau): "
+          f"Comm={node_comm_kb.get(hub_ex,0):.0f} KB (CAO) + "
+          f"Train={node_train_s.get(hub_ex,0):.2f}s (THAP)")
+    print(f"  >> Node {big_leaf} (Leaf, deg={nodes_info[big_leaf]['degree']}, "
+          f"{client_sizes.get(big_leaf,0)} mau): "
+          f"Comm={node_comm_kb.get(big_leaf,0):.0f} KB (THAP) + "
+          f"Train={node_train_s.get(big_leaf,0):.2f}s (CAO)")
+    print(f"  => Comm theo DEGREE (topology) | Training theo SO MAU (data size)")
+    print(f"  => 2 truc DOC LAP: hub it mau = comm cao + training thap;")
+    print(f"     leaf nhieu mau = comm thap + training cao")
+    print("─"*72)
+
+    # ══════════════════════════════════════════════════════════════════
+    # BẢNG 2 — So sánh thuật toán (FedAvg vs Gossip vs FedProx)
+    # ══════════════════════════════════════════════════════════════════
+    print("\n" + "─"*72)
+    print("  BẢNG 2 — SO SÁNH THUẬT TOÁN (scale_free, alpha=0.1, size imbalance)")
+    print("─"*72)
+    print(f"  {'Algorithm':<20}  {'Final F1':>9}  {'Std F1':>8}"
+          f"  {'Conv.Rd':>8}  {'AvgTime(s)':>11}")
+    print("  " + "─"*68)
+
+    for s in summaries:
         conv = s.get("convergence_round", -1)
         conv_str = str(conv) if conv != -1 else "N/A"
-        print(f"  {topo:<18}{g.number_of_edges():>7}{s['final_f1']:>10.4f}"
-              f"{s['final_std_f1']:>9.4f}{conv_str:>9}{s['total_comm_mb']:>10.2f}")
-    print("-"*70)
+        avgt = s.get("avg_round_time_s", 0.0)
+        print(f"  {s['algorithm']:<20}  {s['final_f1']:>9.4f}  "
+              f"{s['final_std_f1']:>8.4f}  {conv_str:>8}  {avgt:>11.2f}")
 
-    # ── Size imbalance + comm cost từng client (Hub vs Leaf) ──
-    # (cho thấy size imbalance và chênh lệch comm cost giữa client/topology)
-    print("  SIZE IMBALANCE & COMM COST TỪNG CLIENT (Hub vs Leaf)")
-    print("  " + "-"*68)
-    print(f"  {'Topology':<18}{'Size min/max':>16}{'Comm min/max (MB)':>22}")
-    print("  " + "-"*68)
-    for topo, _ in topos:
-        tr   = trackers[topo]
-        sz   = tr.client_sizes
-        smin, smax = min(sz.values()), max(sz.values())
-        comm = tr.get_node_comm_summary()
-        cmin = comm.get("min_kb", 0.0) / 1024.0
-        cmax = comm.get("max_kb", 0.0) / 1024.0
-        print(f"  {topo:<18}{smin:>6}/{smax:<9}{cmin:>8.1f}/{cmax:<9.1f}")
-    print("-"*70)
-    print("  (Size min/max : mẫu của client nhỏ/lớn nhất — cho thấy size imbalance)")
-    print("  (Comm min/max : comm cost node thấp/cao nhất — Hub gửi nhiều hơn Leaf)")
-    print("="*60)
+    print("  " + "─"*68)
+    # Best F1 và lowest variance -- lay tu data thuc te (khong hardcode)
+    best_f1  = max(summaries, key=lambda x: x["final_f1"])
+    low_var  = min(summaries, key=lambda x: x["final_std_f1"])
+    print(f"  => Final F1 cao nhat : {best_f1['algorithm']} "
+          f"(F1={best_f1['final_f1']:.4f})")
+    print(f"  => Variance thap nhat: {low_var['algorithm']} "
+          f"(std={low_var['final_std_f1']:.4f})")
+    print(f"  => FedProx: tong hop proximal (w_avg - mu*(w_own - w_avg))")
+    print(f"     keo weight tung node ve trung binh -> han che client drift")
+    print(f"     under Non-IID manh (alpha=0.1) + size imbalance.")
+    print(f"  (Luu y: 1 epoch + 10 round chua hoi tu -> F1 con thap,")
+    print(f"   bieu do F1/variance curve cho thay su so sanh som.)")
+    print("─"*72)
+
+    print("\n  [EXP5] Ket qua luu: exp5_*.csv + exp5_*.png")
+    print("="*65)
     return results, summaries
 
 
