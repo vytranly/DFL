@@ -434,6 +434,7 @@ def exp_topology_long():
     results   = {}
     summaries = []
 
+    trackers6 = {}
     for topo in topos:
         print(f"\n  topology = {topo}")
         extra = {"lattice_k": 4} if topo == "lattice" else {}
@@ -449,6 +450,7 @@ def exp_topology_long():
             **extra
         )
         tracker = run_single(cfg)
+        trackers6[topo] = tracker
         results[topo] = tracker.to_dataframe()
         s = tracker.summary(); s["topology"] = topo
         summaries.append(s)
@@ -466,6 +468,29 @@ def exp_topology_long():
     plot_variance(results,
                   "EXP6 — Variance (std F1) theo Topology",
                   f"{SAVE_DIR}/exp6_variance.png")
+
+    # ── Per-node cost: chỉ scale_free mới có Hub/Leaf thật ──────────
+    sf_tracker = trackers6.get("scale_free")
+    if sf_tracker and hasattr(sf_tracker, "nodes_info"):
+        nodes_info   = sf_tracker.nodes_info
+        node_comm_kb = sf_tracker.node_comm_kb
+        node_train_s = getattr(sf_tracker, "node_train_time_s", {})
+        client_sizes = sf_tracker.client_sizes
+
+        plot_node_costs(nodes_info, node_comm_kb, node_train_s, client_sizes,
+                        "EXP6 — Per-node Comm vs Training cost (scale_free, FedProx)",
+                        f"{SAVE_DIR}/exp6_node_costs_scalefree.png")
+
+        print("\n  --- Per-node cost scale_free (EXP6) ---")
+        print(f"  {'Node':>4}  {'Type':>5}  {'Deg':>3}  {'Samples':>7}"
+              f"  {'Comm(KB)':>9}  {'Train(s)':>9}")
+        print("  " + "-"*52)
+        for nid in sorted(nodes_info, key=lambda i: -nodes_info[i]["degree"]):
+            print(f"  {nid:>4}  {nodes_info[nid]['type']:>5}"
+                  f"  {nodes_info[nid]['degree']:>3}"
+                  f"  {client_sizes.get(nid,0):>7}"
+                  f"  {node_comm_kb.get(nid,0):>9.1f}"
+                  f"  {node_train_s.get(nid,0):>9.4f}")
 
     print("\n  [EXP6] Ket qua luu: exp6_*.csv + exp6_*.png")
     print("="*60)
@@ -509,6 +534,7 @@ def exp_fedprox_long():
 
     all_results   = {}
     all_summaries = []
+    trackers7     = {}   # lưu tracker để in per-node cost sau
 
     for size_alpha, max_cs, size_label in size_cfgs:
         print(f"\n  === size = {size_label} ===")
@@ -523,6 +549,7 @@ def exp_fedprox_long():
                 **base_kw
             )
             tracker = run_single(cfg)
+            trackers7[label] = tracker
             all_results[label] = tracker.to_dataframe()
             s = tracker.summary()
             s["algorithm"]  = algo_label
@@ -545,6 +572,33 @@ def exp_fedprox_long():
     plot_final_bar(all_summaries, "algorithm",
                    "EXP7 — Final F1: Gossip vs FedAvg vs FedProx",
                    f"{SAVE_DIR}/exp7_final_bar.png")
+
+    # ── Per-node cost: FedProx imbalanced — thú vị nhất ────────────
+    # Thấy rõ: Hub comm cao/train rẻ vs Leaf comm thấp/train đắt
+    # đồng thời thấy FedProx giảm gap Hub/Leaf F1 so với Gossip/FedAvg
+    for size_label in ["equal", "imbalanced"]:
+        key = f"FedProx ({size_label})"
+        trk = trackers7.get(key)
+        if trk and hasattr(trk, "nodes_info"):
+            nodes_info   = trk.nodes_info
+            node_comm_kb = trk.node_comm_kb
+            node_train_s = getattr(trk, "node_train_time_s", {})
+            client_sizes = trk.client_sizes
+
+            plot_node_costs(nodes_info, node_comm_kb, node_train_s, client_sizes,
+                            f"EXP7 — Per-node Cost FedProx ({size_label})",
+                            f"{SAVE_DIR}/exp7_node_costs_{size_label}.png")
+
+            print(f"\n  --- Per-node cost FedProx ({size_label}) ---")
+            print(f"  {'Node':>4}  {'Type':>5}  {'Deg':>3}  {'Samples':>7}"
+                  f"  {'Comm(KB)':>9}  {'Train(s)':>9}")
+            print("  " + "-"*52)
+            for nid in sorted(nodes_info, key=lambda i: -nodes_info[i]["degree"]):
+                print(f"  {nid:>4}  {nodes_info[nid]['type']:>5}"
+                      f"  {nodes_info[nid]['degree']:>3}"
+                      f"  {client_sizes.get(nid,0):>7}"
+                      f"  {node_comm_kb.get(nid,0):>9.1f}"
+                      f"  {node_train_s.get(nid,0):>9.4f}")
 
     print("\n  [EXP7] Ket qua luu: exp7_*.csv + exp7_*.png")
     print("="*60)
