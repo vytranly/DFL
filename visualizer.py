@@ -164,3 +164,131 @@ def _save(fig, path: str):
     fig.savefig(path, dpi=120, bbox_inches='tight')
     plt.close(fig)
     print(f"[Visualizer] Saved -> {path}")
+
+
+# ── Hub vs Leaf comparison (Theo yeu cau co transcript 46:03) ────────
+def plot_hub_leaf(df, nodes_info, title, save_path):
+    """
+    Ve bieu do so sanh F1 giua Hub node va Leaf node theo tung round.
+    Tra loi cau hoi cua co: "Node nao quan trong hon trong mang DFL?"
+
+    nodes_info: {node_id: {degree, type}} tu classify_nodes()
+    """
+    import numpy as np
+
+    hub_ids  = [k for k,v in nodes_info.items() if v["type"] == "Hub"]
+    leaf_ids = [k for k,v in nodes_info.items() if v["type"] == "Leaf"]
+
+    rounds = df["round"].tolist()
+
+    def mean_f1(ids):
+        cols = [f"f1_client_{i}" for i in ids if f"f1_client_{i}" in df.columns]
+        return df[cols].mean(axis=1).tolist() if cols else [0]*len(rounds)
+
+    hub_f1  = mean_f1(hub_ids)
+    leaf_f1 = mean_f1(leaf_ids)
+    mean_all = df["mean_f1"].tolist()
+
+    fig, axes = plt.subplots(1, 2, figsize=(13, 5))
+    fig.suptitle(title, fontsize=12, fontweight="bold")
+
+    # --- Plot 1: F1 theo round Hub vs Leaf ---
+    axes[0].plot(rounds, hub_f1,  "r-o", lw=2, markersize=4, label=f"Hub  nodes {hub_ids}")
+    axes[0].plot(rounds, leaf_f1, "b--s", lw=2, markersize=4, label=f"Leaf nodes {leaf_ids}")
+    axes[0].plot(rounds, mean_all, "g:", lw=1.5, label="Mean (all nodes)")
+    axes[0].axhline(0.75, color="gray", ls="--", lw=1, label="Target F1=0.75")
+    axes[0].set_xlabel("Round"); axes[0].set_ylabel("F1-score (macro)")
+    axes[0].set_title("Hub vs Leaf: F1 theo Round")
+    axes[0].legend(fontsize=8); axes[0].grid(True, alpha=0.3); axes[0].set_ylim(0, 1.05)
+
+    # --- Plot 2: Bar chart F1 cuoi cung tung node ---
+    last = df.iloc[-1]
+    all_ids = sorted(nodes_info.keys())
+    f1s     = [last.get(f"f1_client_{i}", 0) for i in all_ids]
+    colors  = ["salmon" if nodes_info[i]["type"] == "Hub" else "steelblue"
+               for i in all_ids]
+    degs    = [nodes_info[i]["degree"] for i in all_ids]
+
+    bars = axes[1].bar(all_ids, f1s, color=colors, edgecolor="black", alpha=0.85)
+    axes[1].axhline(float(np.mean(f1s)), color="green", ls="--", lw=1.5,
+                    label=f"Mean={np.mean(f1s):.3f}")
+    axes[1].set_xlabel("Node ID"); axes[1].set_ylabel("F1 (final round)")
+    axes[1].set_title("F1 tung node (Red=Hub, Blue=Leaf)")
+    axes[1].legend(fontsize=8); axes[1].grid(True, axis="y", alpha=0.3)
+    for bar, f1, d in zip(bars, f1s, degs):
+        axes[1].text(bar.get_x()+bar.get_width()/2, f1+0.005,
+                     f"{f1:.3f}\ndeg={d}", ha="center", fontsize=7)
+
+    plt.tight_layout()
+    _save(fig, save_path)
+
+
+# ── Topology summary / Hub-Leaf classification ────────────────────────
+# (Tách từ topology.py: logic báo cáo/topology-summary thuộc về
+#  visualizer — module "Phân tích & Báo cáo"; topology.py giờ chỉ giữ
+#  create_topology / get_neighbors / get_topology_info.)
+def classify_nodes(graph):
+    """
+    Phân loại Hub node và Leaf node (theo yêu cầu co transcript 27:18 + 46:03).
+
+    Định nghĩa:
+      Hub node : nhiều kết nối (degree > avg_degree)
+      Leaf node: ít kết nối    (degree <= avg_degree)
+
+    Returns:
+        dict : {node_id: {'degree': int, 'type': 'Hub' | 'Leaf'}}
+        float: avg_degree
+    """
+    degrees = dict(graph.degree())
+    n       = graph.number_of_nodes()
+    avg_deg = sum(degrees.values()) / n if n > 0 else 0
+
+    result = {}
+    for node_id, deg in degrees.items():
+        result[node_id] = {
+            'degree': deg,
+            'type'  : 'Hub' if deg > avg_deg else 'Leaf',
+        }
+    return result, avg_deg
+
+
+def print_topology_summary(graph, name=""):
+    """
+    In tóm tắt topology ra màn hình (theo yêu cầu co transcript 27:18):
+      - Phần trăm Hub node và Leaf node
+      - Degree distribution
+      - Spectral gap (đo tốc độ hội tụ của Gossip)
+    """
+    from topology import get_topology_info
+
+    info       = get_topology_info(graph)
+    nodes_info, avg_deg = classify_nodes(graph)
+    hub_nodes  = [k for k, v in nodes_info.items() if v['type'] == 'Hub']
+    leaf_nodes = [k for k, v in nodes_info.items() if v['type'] == 'Leaf']
+    n          = info['num_nodes']
+
+    # Spectral gap: tốc độ hội tụ của Gossip
+    # (cần Mixing Matrix W -- tính xấp xỉ từ eigenvalue của W)
+    try:
+        from trainer import get_mixing_matrix
+        W    = get_mixing_matrix(graph)
+        eigs = np.sort(np.linalg.eigvalsh(W))[::-1]
+        spectral_gap = float(1.0 - eigs[1]) if len(eigs) > 1 else 1.0
+    except Exception:
+        spectral_gap = None
+
+    print(f"\n  [Topology: {name.upper() if name else 'UNKNOWN'}]")
+    print(f"  Nodes={n}  Edges={info['num_edges']}  "
+          f"Connected={info['is_connected']}")
+    print(f"  Degree: avg={avg_deg:.2f}  "
+          f"max={info['max_degree']}  min={info['min_degree']}")
+    print(f"  Hub  nodes ({len(hub_nodes)}/{n} = {len(hub_nodes)/n*100:.0f}%): "
+          f"{hub_nodes}")
+    print(f"  Leaf nodes ({len(leaf_nodes)}/{n} = {len(leaf_nodes)/n*100:.0f}%): "
+          f"{leaf_nodes}")
+    if spectral_gap is not None:
+        print(f"  Spectral gap = {spectral_gap:.4f}  "
+              f"(lớn = hội tụ nhanh, nhỏ = hội tụ chậm)")
+    print(f"  Degree per node: "
+          + "  ".join(f"N{k}={v['degree']}({v['type'][0]})"
+                      for k, v in sorted(nodes_info.items())))

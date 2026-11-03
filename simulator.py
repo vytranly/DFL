@@ -12,6 +12,7 @@ Mỗi round:
 """
 
 import copy
+import time
 import numpy as np
 import torch
 from tqdm import tqdm
@@ -68,11 +69,24 @@ class DFLSimulator:
         num_edges         = graph.number_of_edges()
         self.comm_bytes_per_round = int(num_edges * model_kb * 1024 * 2)
 
+        # Per-node degree -- de tinh comm cost rieng tung node
+        # (Theo yeu cau co 52:22: tach training cost va communication cost)
+        self.node_degree = {cid: graph.degree(cid) for cid in range(self.num_clients)}
+        self.model_kb    = model_kb
+
+        # Phan loai Hub va Leaf node (Theo yeu cau co 27:18 + 46:03)
+        # (classify_nodes / print_topology_summary da chuyen sang visualizer.py)
+        from visualizer import classify_nodes, print_topology_summary
+        self.nodes_info, self.avg_degree = classify_nodes(graph)
+        print_topology_summary(graph, config.get('topology','unknown'))
+
         # Metrics tracker
         self.tracker = MetricsTracker(
             num_clients=self.num_clients,
             target_f1=config.get("target_f1", 0.75)
         )
+        # Lưu kích thước mỗi client để exp5 báo cáo size imbalance
+        self.tracker.client_sizes = dict(self.num_samples)
 
         print(f"\n{'='*55}")
         print(f"  DFL Simulator — {config.get('topology','ring').upper()}"
@@ -102,15 +116,12 @@ class DFLSimulator:
         # Bước 2: Local training (tất cả client)
         new_weights = {}
         for cid in range(self.num_clients):
-            state, _ = local_train(
-                model       = self.models[cid],
-                dataloader  = self.client_loaders[cid],
-                epochs      = epochs,
-                lr          = lr,
-                device      = self.device,
-                algorithm   = self.algorithm,
-                mu          = mu,
-                anchor_state= anchors.get(cid),
+            state, _, _tt = local_train(
+                model      = self.models[cid],
+                dataloader = self.client_loaders[cid],
+                epochs     = epochs,
+                lr         = lr,
+                device     = self.device,
             )
             new_weights[cid] = state
 
@@ -125,10 +136,17 @@ class DFLSimulator:
             nb_w     = [self.models[j].state_dict() for j in nbs]
             own_w    = self.models[cid].state_dict()
 
-            if self.algorithm in ("gossip", "fedprox"):
-                # Gossip: trọng số theo Mixing Matrix W
+            if self.algorithm == "gossip":
                 mixing = [self.W[cid][cid]] + [self.W[cid][j] for j in nbs]
                 aggregated[cid] = gossip_aggregate(own_w, nb_w, mixing)
+
+            elif self.algorithm == "fedprox":
+                nb_sizes = [self.num_samples[j] for j in nbs]
+                aggregated[cid] = fedprox_aggregate(
+                    own_w, nb_w,
+                    [self.num_samples[cid]] + nb_sizes,
+                    mu=cfg.get('mu', 0.1)
+                )
 
             elif self.algorithm == "fedavg":
                 # FedAvg: trọng số theo số mẫu
@@ -141,8 +159,14 @@ class DFLSimulator:
         for cid in range(self.num_clients):
             self.models[cid].load_state_dict(aggregated[cid])
 
-        # Cộng dồn comm cost
+        # Comm cost tong mang
         self.tracker.add_comm_bytes(self.comm_bytes_per_round)
+
+        # Per-node comm cost: Hub node nhieu ket noi gui nhieu hon Leaf
+        # (Theo yeu cau co 52:22 + 46:03)
+        for cid in range(self.num_clients):
+            sent_kb = self.node_degree[cid] * self.model_kb
+            self.tracker.add_node_comm(cid, sent_kb)
 
     # ── Đánh giá tất cả client ────────────────────────────────────────
     def eval_all(self):
@@ -161,19 +185,32 @@ class DFLSimulator:
         eval_every = cfg.get("eval_every", 5)
 
         for r in tqdm(range(1, num_rounds + 1), desc="Rounds"):
+            t_round = time.time()
             self.run_round(r)
 
             if r % eval_every == 0 or r == num_rounds:
                 per_client = self.eval_all()
-                self.tracker.log_round(r, per_client)
+                round_time = time.time() - t_round
+                self.tracker.add_round_time(round_time)
+                self.tracker.log_round(r, per_client, round_time_s=round_time)
 
                 last = self.tracker.history[-1]
                 tqdm.write(
                     f"  Round {r:4d} | "
-                    f"F1={last['mean_f1']:.4f} ± {last['std_f1']:.4f} | "
+                    f"F1={last['mean_f1']:.4f} +/- {last['std_f1']:.4f} | "
                     f"Acc={last['mean_acc']:.4f} | "
-                    f"Comm={last['comm_cost_mb']:.1f} MB"
+                    f"Comm={last['comm_cost_mb']:.1f} MB | "
+                    f"Time={last.get('round_time_s',0):.1f}s"
                 )
+                # In per-node F1 de thay Hub vs Leaf
+                node_f1s = {cid: last.get(f'f1_client_{cid}', 0)
+                            for cid in range(self.num_clients)}
+                hub_f1  = [node_f1s[c] for c,v in self.nodes_info.items() if v['type']=='Hub']
+                leaf_f1 = [node_f1s[c] for c,v in self.nodes_info.items() if v['type']=='Leaf']
+                import numpy as np
+                if hub_f1:
+                    tqdm.write(f"         Hub  F1={np.mean(hub_f1):.4f} | "
+                               f"Leaf F1={np.mean(leaf_f1):.4f}")
 
         self.tracker.print_summary()
         return self.tracker
