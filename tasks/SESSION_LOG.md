@@ -1133,3 +1133,10 @@ Mỗi phiên thêm một mục theo mẫu docs/HANDOFF_GUIDELINE.md §5.2. Mục
 - Cùng α cho cùng JS trên hai dataset (α = 0.1: 0.561 so với 0.573; #C = 2: 0.614 so với 0.613); CIFAR-10 có node nhỏ hơn nên ở α = 0.05 phải lấy mẫu lại 4.6 lần (MNIST 1.4). Cập nhật mục 2 của docs/report/PHAN_HOI_GOP_Y_BUOI_2.md
 - Sửa câu sai ở ADR-015: JSON chuẩn hóa của cấu hình cũ không đổi, nhưng `run_id` vẫn đổi vì băm cả `code_version`
 - Kiểm chứng: `make check-full` 1058 test xanh (cả e2e), `check-inv` 88 xanh, `pip check` không lỗi
+
+## 2026-11-03 — Phiên #22 — Chạy tiếp lưới, gộp `grid`, thẩm định T25
+- Pipeline lưới dừng ngày 22/10 lúc 14:37 giữa E1c (máy khởi động lại); chạy lại `pipeline2.sh` từ worktree `dfl-run` (`5426121`, code_version `eff6fa19`): E0a, E0b, E1, E2, E3a, E3b, E4a đã xong (239 lượt, SAN-1…5 đạt); E1c chạy lại, rồi E4, E2b, E8
+- Gộp `grid` vào `binh` (9e53893): xung đột ở plots.py (giữ P2–P11 và P14–P17), analysis_fakes.py, SESSION_LOG.md; dữ liệu giả E7 có đủ 4 mốc; 1092 test xanh
+- Kết luận sơ bộ (`python -m analysis.hypotheses`): H1, H2 ủng hộ; H7 gợi ý; H3, H4, H5 chưa kết luận; H6, H8, RQ4 chờ E1c, E8, E4
+- Security audit T25: gloo nghe trên địa chỉ link-local của card mạng thật (firewalld mở 1025–65535). Lưới (không được đổi src) chuyển sang `pipeline3.sh` đặt `GLOO_SOCKET_IFNAME=lo`, đã kiểm trên smoke processes: chỉ nghe 127.0.0.1, `rounds.jsonl` trùng từng byte. Trên `binh`, process runtime tự đặt interface loopback cho node con và observer (giữ giá trị người dùng đặt)
+- Không có Docker trên máy này (T22c tùy chọn, không làm được ở đây)

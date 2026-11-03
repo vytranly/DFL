@@ -29,20 +29,30 @@ chạy lượt kiêm observer (module sim; ADR-010; SPEC §9.2 T-INV-13).
   file, và nếu một tiến trình con thoát trước đó thì dừng ngay (NodeFailed), không đợi hết thời gian chờ của
   gloo. Rendezvous qua file:// trong cùng thư mục tạm, nên không tranh cổng TCP. Node nào thoát giữa chừng thì
   kết nối gloo đóng, phép gom tiếp theo của observer báo lỗi, và lượt ghi SummaryFailed.
+- Gloo chỉ nghe trên loopback (security audit T25): mặc định gloo nghe trên địa chỉ phân giải từ hostname,
+  có thể là card mạng thật, nên máy cùng mạng tới được cổng của nó. Node con nhận `GLOO_SOCKET_IFNAME` là
+  interface loopback ("lo" trên Linux, "lo0" trên macOS); observer chỉ đặt biến này lúc dựng process group.
+  Người dùng tự đặt biến thì giữ nguyên; không tìm thấy loopback thì để gloo tự chọn. Kết quả không đổi
+  byte nào.
 
-torch.distributed (init_process_group với timeout, all_gather, send, recv, destroy_process_group):
+torch.distributed (init_process_group với timeout, all_gather, send, recv, destroy_process_group;
+GLOO_SOCKET_IFNAME ở mục "Choosing the network interface to use"):
 https://docs.pytorch.org/docs/2.14/distributed.html
 subprocess.Popen: https://docs.python.org/3.12/library/subprocess.html#subprocess.Popen
+socket.if_nameindex: https://docs.python.org/3.12/library/socket.html#socket.if_nameindex
 """
 
 from __future__ import annotations
 
 import math
 import os
+import socket
 import subprocess
 import sys
 import tempfile
 import time
+from collections.abc import Iterator, Mapping
+from contextlib import contextmanager
 from datetime import timedelta
 from pathlib import Path
 
@@ -242,6 +252,40 @@ def _node_rounds(
 # ------------------------------------------------------------------------------------------------ observer
 
 
+GLOO_INTERFACE = "GLOO_SOCKET_IFNAME"
+
+
+def loopback_interface() -> str | None:
+    """Tên interface loopback của máy ("lo" trên Linux, "lo0" trên macOS); None nếu không tìm thấy."""
+    try:
+        names = {name for _, name in socket.if_nameindex()}
+    except OSError:
+        return None
+    return next((name for name in ("lo", "lo0") if name in names), None)
+
+
+def gloo_env(environ: Mapping[str, str]) -> dict[str, str]:
+    """Môi trường của tiến trình node: thêm interface loopback cho gloo, trừ khi người dùng đã chọn."""
+    loopback = loopback_interface()
+    if loopback is None or GLOO_INTERFACE in environ:
+        return dict(environ)
+    return {**environ, GLOO_INTERFACE: loopback}
+
+
+@contextmanager
+def gloo_loopback() -> Iterator[None]:
+    """Đặt interface loopback cho gloo của observer lúc dựng process group, rồi trả môi trường như cũ."""
+    loopback = loopback_interface()
+    if loopback is None or GLOO_INTERFACE in os.environ:
+        yield
+        return
+    os.environ[GLOO_INTERFACE] = loopback
+    try:
+        yield
+    finally:
+        del os.environ[GLOO_INTERFACE]
+
+
 class ProcessRun:
     """Driver của sim.run cho runtime processes: khởi chạy N tiến trình node rồi làm observer (rank N)."""
 
@@ -282,13 +326,14 @@ class ProcessRun:
             children = [self._spawn(i, config_path, init_method, scratch) for i in range(config.num_nodes)]
             try:
                 self._wait_ready(children, scratch)
-                dist.init_process_group(
-                    "gloo",
-                    init_method=init_method,
-                    rank=config.num_nodes,
-                    world_size=config.num_nodes + 1,
-                    timeout=timedelta(seconds=self._timeout),
-                )
+                with gloo_loopback():
+                    dist.init_process_group(
+                        "gloo",
+                        init_method=init_method,
+                        rank=config.num_nodes,
+                        world_size=config.num_nodes + 1,
+                        timeout=timedelta(seconds=self._timeout),
+                    )
                 try:
                     summary = self._observe(logger)
                 except RunDiverged:
@@ -324,7 +369,7 @@ class ProcessRun:
             [str(self._root / "src"), *filter(None, [os.environ.get("PYTHONPATH")])]
         )
         env = {
-            **os.environ,
+            **gloo_env(os.environ),
             "PYTHONPATH": python_path,
             **dict.fromkeys(THREAD_VARIABLES, str(config.threads)),
         }
