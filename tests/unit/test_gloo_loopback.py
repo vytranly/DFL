@@ -6,16 +6,23 @@ cổng của nó. `GLOO_SOCKET_IFNAME` chọn interface; người dùng tự đ�
 
 import os
 import socket
-import sys
 
 import pytest
 
 from dfl.sim import process_runtime
 
 
-@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="tên interface loopback của Linux")
-def test_the_loopback_interface_of_linux_is_lo() -> None:
-    assert process_runtime.loopback_interface() == "lo"
+@pytest.mark.parametrize(
+    ("interfaces", "loopback"),
+    [([(1, "lo"), (2, "enp2s0")], "lo"), ([(1, "lo0"), (4, "en0")], "lo0")],
+    ids=["linux", "macos"],
+)
+def test_the_loopback_interface_is_lo_on_linux_and_lo0_on_macos(
+    monkeypatch: pytest.MonkeyPatch, interfaces: list[tuple[int, str]], loopback: str
+) -> None:
+    monkeypatch.setattr(socket, "if_nameindex", lambda: interfaces)
+
+    assert process_runtime.loopback_interface() == loopback
 
 
 def test_no_loopback_interface_leaves_gloo_on_its_default(monkeypatch: pytest.MonkeyPatch) -> None:
