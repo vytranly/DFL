@@ -4,6 +4,8 @@ import dataclasses
 import json
 from pathlib import Path
 
+import pytest
+
 from analysis import aggregate, centrality, checks
 from dfl.config import EvalConfig, PartitionConfig, TopologyConfig, load_config
 from dfl.data import partition
@@ -56,3 +58,26 @@ def test_centrality_reads_a_real_e7_run_and_agrees_with_the_partitioner(tmp_path
     # ADR-015: lượt ghi trước ADR-014 không có graph_edges; bậc suy từ tải message phải trùng bậc thật.
     old = dataclasses.replace(entry.finished, manifest={**entry.finished.manifest, "graph_edges": None})
     assert centrality.degrees(old).tolist() == degree.tolist()
+
+
+def test_the_three_js_implementations_agree_on_a_split_with_empty_classes() -> None:
+    # Review T25: JS có ở dfl.data.heterogeneity, analysis.hypotheses và analysis.centrality (analysis không
+    # import được dfl.data); α = 0.05 để có nhiều ô node × lớp rỗng.
+    from types import SimpleNamespace
+
+    import numpy as np
+
+    from analysis import hypotheses
+    from dfl.data import datasets
+    from dfl.data.heterogeneity import summarize
+
+    labels = datasets.load("synthetic").train.y.numpy()
+    parts = partition.DirichletPartitioner(0.05, 16)(labels, 10, np.random.default_rng(3)).parts
+    stats = summarize(labels, parts)
+    counts = [list(row) for row in stats.node_class_counts]
+
+    assert any(0 in row for row in counts)
+    assert hypotheses.js_mean(counts) == pytest.approx(stats.js_mean, abs=1e-12)
+    assert centrality.js_mean(SimpleNamespace(manifest={"node_class_counts": counts})) == pytest.approx(
+        stats.js_mean, abs=1e-12
+    )

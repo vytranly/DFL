@@ -334,3 +334,121 @@ def test_cli_prints_each_verdict_and_reports_comparisons_without_data(
     out = capsys.readouterr().out
     assert "H1" in out and stats.SUPPORTED in out
     assert "H5: chưa đủ dữ liệu" in out
+
+
+# ------------------------------------------------------------------------- H9 (E7) và H10 (E9), ADR-014/015
+
+STAR = [[0, i] for i in range(1, 8)]  # node 0 là hub (bậc 7), 7 leaf (bậc 1)
+
+
+def graph_run(
+    root: Path, group: str, run_id: str, *, seed: int, partition: dict, acc: list[float], **kw
+) -> str:
+    cfg = config(
+        seed=seed,
+        num_nodes=8,
+        topology={"kind": "barabasi_albert", "m": 1, "p": None},
+        algorithm={"batch_size": 32, "lr": hypotheses.ETA, "mu": 0.0, "tau": 20},
+        partition={
+            "alpha": None,
+            "beta": None,
+            "holders": None,
+            "k": None,
+            "min_size": 64,
+            "placement": "random",
+            **partition,
+        },
+    )
+    write_run(
+        root,
+        run_id,
+        cfg=cfg,
+        graph_edges=STAR,
+        final_acc=acc,
+        rounds=curve([0.5, 0.7, 0.8, 0.85], nodes=8),
+        **kw,
+    )
+    return run_id
+
+
+def e7_results(root: Path, gaps: tuple[float, ...], *, diverged_seed: int | None = None) -> Path:
+    held = [[10] * 10] + [[10] * 5 + [0] * 5] * 7  # node 0 giữ lớp 5–9
+    ids = []
+    for seed, gap in zip(SEEDS3, gaps, strict=True):
+        for placement, acc in (("hub", 0.8 + gap), ("edge", 0.8)):
+            status = "diverged" if (seed == diverged_seed and placement == "hub") else "ok"
+            ids.append(
+                graph_run(
+                    root,
+                    "e7_centrality",
+                    f"e7-{placement}-{seed}",
+                    seed=seed,
+                    partition={"scheme": "rare_classes", "holders": 1, "placement": placement},
+                    acc=[0.99] + [acc] * 7,
+                    class_counts=held,
+                    status=status,
+                )
+            )
+    write_index(root, "e7_centrality", {"c" * 64: ids})
+    return root
+
+
+def test_h9_compares_non_holders_of_hub_against_edge_and_is_at_most_suggested(tmp_path: Path) -> None:
+    runs = hypotheses.load(e7_results(tmp_path, (0.10, 0.20, 0.15)), ["e7_centrality"])
+
+    outcome = hypotheses.h9(runs)
+
+    assert outcome.verdict == stats.SUGGESTED and outcome.values == pytest.approx((0.10, 0.20, 0.15))
+
+
+def test_h9_is_open_and_reports_the_diverged_seed(tmp_path: Path) -> None:
+    runs = hypotheses.load(e7_results(tmp_path, (0.10, 0.20, 0.15), diverged_seed=1), ["e7_centrality"])
+
+    outcome = hypotheses.h9(runs)
+
+    assert outcome.verdict == stats.OPEN and "1/6 lượt phân kỳ" in outcome.detail
+
+
+def test_h10_compares_hubs_with_leaves_on_ba_at_alpha_0_1(tmp_path: Path) -> None:
+    ids = [
+        graph_run(
+            tmp_path,
+            "e9",
+            f"e9-ba-{seed}",
+            seed=seed,
+            partition={"scheme": "dirichlet", "alpha": 0.1},
+            acc=[0.95] + [0.9 - 0.01 * seed] * 7,
+        )
+        for seed in SEEDS3
+    ]
+    write_index(tmp_path, "e9_topology_shapes", {"c" * 64: ids})
+
+    outcome = hypotheses.h10(hypotheses.load(tmp_path, ["e9_topology_shapes"]))
+
+    assert outcome.verdict == stats.SUGGESTED and outcome.values == pytest.approx((0.05, 0.06, 0.07))
+
+
+def test_each_comparison_reads_only_its_own_groups_so_e9_never_doubles_core_cells(tmp_path: Path) -> None:
+    # E9 chạy lại ô ring, FC ở α = 0.1 với cùng cấu hình như E1 (khác code_version); H4 chỉ đọc nhóm lõi.
+    results = Results(tmp_path)
+    for seed in SEEDS5:
+        for kind in ("ring", "fully_connected"):
+            results.add(
+                "e1_noniid",
+                seed=seed,
+                kind=kind,
+                part=("dirichlet", 0.1),
+                rounds=curve([0.8, 0.96, 0.97, 0.98]),
+            )
+    for seed in SEEDS3:
+        results.add(
+            "e9_topology_shapes",
+            seed=seed,
+            kind="ring",
+            part=("dirichlet", 0.1),
+            rounds=curve([0.8, 0.96, 0.97, 0.98]),
+        )
+
+    assert hypotheses.groups_of("H4") == hypotheses.GROUPS
+    assert hypotheses.groups_of("H10") == ("e9_topology_shapes",)
+    assert hypotheses.h4(hypotheses.load(results.index(), hypotheses.groups_of("H4"))).values

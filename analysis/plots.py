@@ -285,9 +285,13 @@ def draw_p7_describe(report: dict[str, Any], *, seed: int = 0) -> Figure:
 
 
 def topology_label(run: Run) -> str:
-    """Tên topology, kèm p của Erdős–Rényi để hai mức p không gộp làm một."""
-    p = run.config["topology"].get("p")
-    return f"{_kind(run)} p = {p:g}" if p is not None else _kind(run)
+    """Tên topology, kèm p của Erdős–Rényi hay m của Barabási–Albert, để hai mức không gộp làm một."""
+    topology = run.config["topology"]
+    if topology.get("p") is not None:
+        return f"{_kind(run)} p = {topology['p']:g}"
+    if topology.get("m") is not None:
+        return f"{_kind(run)} m = {topology['m']}"
+    return _kind(run)
 
 
 # Màu topology: Okabe–Ito bỏ vàng (#F0E442 quá sáng cho đường trên nền trắng) và đen (dành cho server ảo).
@@ -499,7 +503,10 @@ def draw_p14(runs: Sequence[Run], *, draft: bool) -> Figure | None:
             ax.scatter(x[~held], y[~held], label="không giữ lớp 5–9" if i == 0 else None, **OTHER_STYLE)
             ax.scatter(x[held], y[held], label="giữ lớp 5–9" if i == 0 else None, zorder=3, **HOLDER_STYLE)
         measure = 100 * np.mean([centrality.non_holder_accuracy(run) for run in group])
-        ax.set_title(f"{name} · node không giữ lớp 5–9: {measure:.1f}% ({len(group)} seed)", fontsize=9)
+        lost = sum(r.status == "diverged" and centrality.placement(r) == name for r in runs)
+        extra = f", {lost} phân kỳ" if lost else ""
+        title = f"{name} · node không giữ lớp 5–9: {measure:.1f}% ({len(group)} seed{extra})"
+        ax.set_title(title, fontsize=9)
         ax.set_xlabel("bậc của node")
         ax.grid(alpha=0.3)
     axes[0][0].set_ylabel("accuracy cuối trên đủ tập test (%)")
@@ -612,7 +619,10 @@ def draw_p16(runs: Sequence[Run], *, draft: bool) -> Figure | None:
     for row, name in enumerate(levels):
         for col, topology in enumerate(topologies):
             ax = axes[row][col]
-            ax.set_title(f"{topology} · {name}", fontsize=9)
+            lost = sum(
+                r.status == "diverged" and level(r) == name and topology_label(r) == topology for r in runs
+            )
+            ax.set_title(f"{topology} · {name}" + (f" · {lost} lượt phân kỳ" if lost else ""), fontsize=9)
             group = [r for r in shown if level(r) == name and topology_label(r) == topology]
             curves: dict[str, list[np.ndarray]] = defaultdict(list)
             steps: list[int] = []

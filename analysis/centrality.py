@@ -34,7 +34,8 @@ DEGREE_CLASSES = ("hub", "giữa", "leaf")
 
 
 def placement(run: Run) -> str:
-    return str(run.config["partition"]["placement"])
+    """Vị trí node của lượt; lượt ghi trước ADR-014 không có khóa này, tức hoán vị ngẫu nhiên."""
+    return str(run.config["partition"].get("placement", "random"))
 
 
 def degrees(run: Run) -> np.ndarray:

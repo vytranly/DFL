@@ -238,25 +238,29 @@ def test_a_draft_draws_p12_and_p13_with_their_provenance(tmp_path: Path) -> None
 E7_EDGES = [[0, 1], [0, 2], [0, 3], [0, 4], [1, 2], [2, 3]]
 
 
+def e7_config(placement: str, seed: int) -> dict[str, object]:
+    return config(
+        seed=seed,
+        num_nodes=5,
+        topology={"kind": "barabasi_albert", "m": 2, "p": None},
+        partition={
+            "alpha": None,
+            "beta": None,
+            "holders": 1,
+            "k": None,
+            "min_size": 64,
+            "placement": placement,
+            "scheme": "rare_classes",
+        },
+    )
+
+
 def e7_runs(root: Path, *, with_ring: bool = False) -> list[aggregate.Run]:
     """Ba vị trí × 2 seed trên cùng đồ thị 5 node; node giữ lớp hiếm là hub (0), lá (4) hay node 2."""
     holder = {"hub": 0, "edge": 4, "random": 2}
     for placement, node in holder.items():
         for seed in (0, 1):
-            cfg = config(
-                seed=seed,
-                num_nodes=5,
-                topology={"kind": "barabasi_albert", "m": 2, "p": None},
-                partition={
-                    "alpha": None,
-                    "beta": None,
-                    "holders": 1,
-                    "k": None,
-                    "min_size": 64,
-                    "placement": placement,
-                    "scheme": "rare_classes",
-                },
-            )
+            cfg = e7_config(placement, seed)
             counts = [[10] * 10 if i == node else [10] * 5 + [0] * 5 for i in range(5)]
             write_run(
                 root,
@@ -434,7 +438,7 @@ def shape_runs(root: Path) -> list[aggregate.Run]:
 def test_p16_takes_static_topologies_only(tmp_path: Path) -> None:
     runs = plots.select_p16(shape_runs(tmp_path), draft=False)
 
-    assert {plots.topology_label(r) for r in runs} == {"ring", "fully_connected", "barabasi_albert"}
+    assert {plots.topology_label(r) for r in runs} == {"ring", "fully_connected", "barabasi_albert m = 1"}
 
 
 def test_p16_has_a_row_per_level_and_a_column_per_topology_sorted_by_mean_degree(tmp_path: Path) -> None:
@@ -445,10 +449,10 @@ def test_p16_has_a_row_per_level_and_a_column_per_topology_sorted_by_mean_degree
     titles = [ax.get_title() for ax in figure.axes]
     # BA hình sao 4 node: bậc TB 1.5 < ring 2 < FC 3; hàng IID (JS 0) trước α = 0.1.
     assert titles == [
-        "barabasi_albert · IID",
+        "barabasi_albert m = 1 · IID",
         "ring · IID",
         "fully_connected · IID",
-        "barabasi_albert · α = 0.1",
+        "barabasi_albert m = 1 · α = 0.1",
         "ring · α = 0.1",
         "fully_connected · α = 0.1",
     ]
@@ -468,3 +472,32 @@ def test_a_draft_draws_p16_with_its_provenance(tmp_path: Path) -> None:
     record = json.loads((tmp_path / "out" / "PROVENANCE.json").read_text())
     assert (tmp_path / "out" / "P16.png").stat().st_size > 0
     assert len(record["figures"]["P16"]["run_ids"]) == 12
+
+
+def test_p14_and_p16_titles_report_diverged_runs(tmp_path: Path) -> None:
+    # Review T25 (R4): lượt phân kỳ không âm thầm biến mất khỏi hình.
+    e7_runs(tmp_path)
+    shape_runs(tmp_path / "shapes")
+    write_run(
+        tmp_path,
+        "hub-9",
+        cfg=e7_config("hub", 9),
+        rounds=curve([0.5, 0.7], nodes=5),
+        status="diverged",
+        graph_edges=E7_EDGES,
+    )
+    write_run(
+        tmp_path / "shapes",
+        "ring-a01-9",
+        cfg=config(seed=9, partition__scheme="dirichlet", partition__alpha=0.1),
+        rounds=curve([0.5, 0.7]),
+        status="diverged",
+    )
+    e7 = [a.finished for a in aggregate.scan(tmp_path) if a.finished is not None]
+    shapes = [a.finished for a in aggregate.scan(tmp_path / "shapes") if a.finished is not None]
+
+    p14 = plots.draw_p14(plots.select_e7(e7, draft=False), draft=False)
+    p16 = plots.draw_p16(plots.select_p16(shapes, draft=True), draft=True)
+
+    assert "1 phân kỳ" in p14.axes[0].get_title()
+    assert any("1 lượt phân kỳ" in ax.get_title() for ax in p16.axes)

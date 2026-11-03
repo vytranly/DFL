@@ -50,10 +50,16 @@ def test_the_label_k_steps_are_the_partitioner_of_the_project(labels: np.ndarray
     assert all(max(sizes) - min(sizes) <= 1 for sizes in chunks_of.values())
 
 
-def test_theory_cv_depends_on_n_times_alpha_only() -> None:
-    assert demo.theory_cv(20, 0.05) == pytest.approx(demo.theory_cv(20, 0.05))
-    assert demo.theory_cv(20, 1.0) == pytest.approx(np.sqrt(19 / 21))
-    assert demo.theory_cv(10, 0.1) < demo.theory_cv(20, 0.1) * 2
+@pytest.mark.parametrize(("nodes", "alpha"), [(20, 0.1), (20, 1.0), (10, 0.5)])
+def test_theory_cv_matches_the_beta_marginal_of_the_dirichlet_draw(nodes: int, alpha: float) -> None:
+    # Phần của một node trong Dir_N(α) có phân bố Beta(α, (N − 1)α); CV thực nghiệm phải khớp công thức.
+    shares = np.random.default_rng(0).dirichlet(np.full(nodes, alpha), size=200_000)[:, 0]
+
+    assert shares.std() / shares.mean() == pytest.approx(demo.theory_cv(nodes, alpha), rel=0.02)
+
+
+def test_theory_cv_vanishes_as_alpha_grows() -> None:
+    assert demo.theory_cv(20, 1e6) < 0.01 < demo.theory_cv(20, 0.05)
 
 
 def test_the_script_writes_every_section_and_its_figures(tmp_path: Path) -> None:

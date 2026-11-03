@@ -163,3 +163,13 @@ def test_hub_minus_leaf_is_undefined_without_both_kinds_of_node(tmp_path: Path) 
     (run,) = runs(tmp_path)
 
     assert centrality.hub_minus_leaf(run) is None
+
+
+def test_a_run_written_before_adr_014_has_the_random_placement(tmp_path: Path) -> None:
+    cfg = config()
+    del cfg["partition"]["placement"]
+    write_run(tmp_path, "old", cfg=cfg)
+
+    (run,) = runs(tmp_path)
+
+    assert centrality.placement(run) == "random"

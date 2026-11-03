@@ -71,7 +71,8 @@ def test_the_three_placements_of_a_seed_share_the_graph_and_the_parts(data: data
     # G9: hub, edge và random chỉ khác chỗ đặt các phần.
     assemblies = [run.assemble(e7(placement), data) for placement in ("hub", "edge", "random")]
 
-    graphs = {tuple(map(tuple, a.graph_edges or [])) for a in assemblies}
+    assert all(a.graph_edges is not None for a in assemblies)
+    graphs = {tuple(map(tuple, a.graph_edges)) for a in assemblies}
     parts = {tuple(sorted(tuple(p.tolist()) for p in a.partition.parts)) for a in assemblies}
 
     assert len(graphs) == 1 and len(parts) == 1
@@ -106,3 +107,23 @@ def test_a_run_writes_its_ba_graph_into_the_manifest(tmp_path: Path) -> None:
     graph = nx.Graph(record["graph_edges"])
     assert graph.number_of_nodes() == 8 and graph.number_of_edges() == 2 * (8 - 2)
     assert record["config"]["partition"]["placement"] == "hub"
+
+
+def test_the_ba_graphs_of_e9_have_the_hub_and_leaf_counts_its_card_registered() -> None:
+    # Thẻ docs/experiments/E9.md: seed 0, 1, 2 có 3, 3, 4 hub và 11, 12, 11 leaf (N = 20, m = 2); đổi luồng
+    # graph hay networkx mà đổi số này thì phải sửa thẻ trước khi chạy E9.
+    from dfl import seeding
+    from dfl.network import topology
+    from dfl.seeding import Stream
+
+    counts = []
+    for seed in (0, 1, 2):
+        degrees = [
+            d
+            for _, d in topology.barabasi_albert(20, 2, seeding.numpy_rng(seed, Stream.GRAPH))
+            .graph_at(0)
+            .degree()
+        ]
+        counts.append((sum(d >= 6 for d in degrees), sum(1 <= d <= 2 for d in degrees)))
+
+    assert counts == [(3, 11), (3, 12), (4, 11)]

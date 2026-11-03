@@ -28,7 +28,7 @@ from statistics import median
 
 import numpy as np
 
-from analysis import checks, stats
+from analysis import centrality, checks, stats
 from analysis.aggregate import AnalysisError, Run, read_experiment
 from analysis.convergence import Reach, bytes_at, run_reach
 
@@ -60,6 +60,15 @@ GROUPS = (
     "e3b_tau_mu",
     "e4_quantity",
 )
+# H9 (E7) và H10 (E9) chạy ở code_version khác lưới lõi, và E9 chạy lại các ô ring, FC, ER của E0b, E1, E2
+# với cùng cấu hình: mỗi phép so chỉ đọc nhóm của nó, nếu không ô lõi sẽ có hai lượt mỗi seed (ADR-014, 015).
+OWN_GROUPS = {"H9": ("e7_centrality",), "H10": ("e9_topology_shapes",)}
+BA = "barabasi_albert"
+
+
+def groups_of(name: str) -> tuple[str, ...]:
+    """Nhóm thí nghiệm mà phép so `name` đọc."""
+    return OWN_GROUPS.get(name, GROUPS)
 
 
 def js_mean(counts: Sequence[Sequence[int]]) -> float:
@@ -107,6 +116,8 @@ class Cell:
     # E8 là nhóm duy nhất chạy process runtime (N = 8); thiếu trường này thì ô smallcnn của E8 trùng ô của
     # lưới lõi.
     runtime: str = "inprocess"
+    # Vị trí node của E7 (ADR-014); lượt ghi trước ADR-014 không có khóa này, tức hoán vị ngẫu nhiên.
+    placement: str = "random"
 
     def matches(self, run: Run) -> bool:
         cfg, algorithm = run.config, run.config["algorithm"]
@@ -119,6 +130,7 @@ class Cell:
             and cfg["mixing"] == self.mixing
             and cfg["model"] == self.model
             and cfg["runtime"] == self.runtime
+            and cfg["partition"].get("placement", "random") == self.placement
         )
 
 
@@ -428,6 +440,36 @@ def rq4(runs: Sequence[Run]) -> Outcome:
     )
 
 
+def h9(runs: Sequence[Run]) -> Outcome:
+    """H9 (thẻ E7): accuracy cuối của node không giữ lớp 5–9, ô hub trừ ô edge, ghép theo seed."""
+    hub = cell(runs, Cell(BA, ("rare_classes", None), placement="hub"), SEEDS3)
+    edge = cell(runs, Cell(BA, ("rare_classes", None), placement="edge"), SEEDS3)
+
+    def value(s: int) -> float:
+        return centrality.non_holder_accuracy(hub[s]) - centrality.non_holder_accuracy(edge[s])
+
+    statistic = (
+        "d_s = A_s(hub) − A_s(edge), A = accuracy cuối TB của node không giữ lớp 5–9 (BA m = 2); kỳ vọng > 0"
+    )
+    return _paired("H9", statistic, [hub, edge], SEEDS3, value, expected=+1)
+
+
+def h10(runs: Sequence[Run]) -> Outcome:
+    """H10 (thẻ E9): accuracy cuối TB của hub (bậc ≥ 6) trừ của leaf (bậc 1–2), ô BA α = 0.1, trong lượt."""
+    ba = cell(runs, Cell(BA, A01), SEEDS3)
+
+    def value(s: int) -> float:
+        gap = centrality.hub_minus_leaf(ba[s])
+        if gap is None:
+            raise AnalysisError(
+                f"lượt {ba[s].run_id} (seed {s}) không có cả hub lẫn leaf, nên không đo được H10"
+            )
+        return gap
+
+    statistic = "d_s = Acc(hub, bậc ≥ 6) − Acc(leaf, bậc 1–2) trong lượt BA m = 2, α = 0.1; kỳ vọng > 0"
+    return _paired("H10", statistic, [ba], SEEDS3, value, expected=+1)
+
+
 COMPARISONS: dict[str, Callable[[Sequence[Run]], Outcome]] = {
     "H1": h1,
     "H2": h2,
@@ -438,6 +480,8 @@ COMPARISONS: dict[str, Callable[[Sequence[Run]], Outcome]] = {
     "H7": h7,
     "H8": h8,
     "RQ4": rq4,
+    "H9": h9,
+    "H10": h10,
 }
 
 
@@ -455,16 +499,19 @@ def load(results: Path, groups: Sequence[str] = GROUPS) -> list[Run]:
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="python -m analysis.hypotheses",
-        description="Kết luận H1–H8 và RQ4 theo thẻ thí nghiệm (ADR-007).",
+        description="Kết luận H1–H10 và RQ4 theo thẻ thí nghiệm (ADR-007).",
     )
     parser.add_argument("--results", type=Path, default=Path("results"))
     parser.add_argument("--only", nargs="*", default=list(COMPARISONS), choices=list(COMPARISONS))
     args = parser.parse_args(argv)
-    runs = load(args.results)
+    loaded: dict[tuple[str, ...], list[Run]] = {}
     report: list[str] = []
     for name in args.only:
+        groups = groups_of(name)
+        if groups not in loaded:
+            loaded[groups] = load(args.results, groups)
         try:
-            report += COMPARISONS[name](runs).lines()
+            report += COMPARISONS[name](loaded[groups]).lines()
         except AnalysisError as err:
             report.append(f"{name}: chưa đủ dữ liệu ({err})")
     if "H8" in args.only:
