@@ -188,26 +188,36 @@ def fedprox_aggregate(own_weights, neighbor_weights,
     (Theo feedback co 37:28: FedProx la co che tong hop, khong phai local train)
 
     Buoc 1: Tinh w_avg theo FedAvg (trong so theo so mau)
-    Buoc 2: Proximal correction:
-            w_result = w_avg - mu*(w_own - w_avg)
-            => keo w_own ve phia w_avg, han che drift
-    mu=0 => FedProx = FedAvg.
+    Buoc 2: Proximal interpolation:
+            w_result = (1 - mu) * w_own + mu * w_avg
+            => keo w_own mot phan ve phia w_avg, han che drift
+            => mu=0: giu nguyen w_own (khong aggregate)
+            => mu=1: lay toan bo w_avg (= FedAvg)
+            => mu=0.1: giu 90% local, keo 10% ve consensus
+
+    sizes_list: [own_size, nb1_size, nb2_size, ...]
     """
     all_w = [own_weights] + neighbor_weights
     total = sum(sizes_list)
+
+    # Buoc 1: weighted average
     w_avg = OrderedDict()
     for key in own_weights.keys():
         w_avg[key] = torch.stack([
             w[key].float() * (n / total)
             for w, n in zip(all_w, sizes_list)
         ]).sum(dim=0)
+
     if mu <= 0:
         return w_avg
+
+    # Buoc 2: proximal interpolation -- keo w_own ve w_avg
     result = OrderedDict()
     for key in own_weights.keys():
         w_o = own_weights[key].float()
         w_a = w_avg[key].float()
-        result[key] = w_a - mu * (w_o - w_a)
+        result[key] = (1.0 - mu) * w_o + mu * w_a
+
     return result
 
 
