@@ -778,14 +778,13 @@ def exp_test_fedprox():
 _EXP9_BASE = dict(
     topology        = "scale_free",
     alpha           = 0.05,
-    size_mode       = "bounded",   # full 60k MNIST, chênh lệch ≤ 2500 mẫu
-    max_diff        = 2500,        # max - min ≤ 2500 (~5250–7750 mẫu/client)
+    size_mode       = "bounded",
+    max_diff        = 2500,
     num_clients     = 8,
     num_rounds      = 50,
     local_epochs    = 5,
     eval_every      = 1,
     batch_size      = 32,
-    mu              = 0.1,
 )
 
 
