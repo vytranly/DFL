@@ -107,7 +107,7 @@ class DFLSimulator:
         epochs  = cfg.get("local_epochs", 5)
         mu      = cfg.get("mu", 0.0)
 
-        # Bước 1: Lưu anchor cho FedProx
+        # Bước 1: Lưu anchor cho FedProx (weight TRƯỚC local train)
         anchors = {}
         if self.algorithm == "fedprox":
             anchors = {
@@ -118,16 +118,19 @@ class DFLSimulator:
         # Bước 2: Local training (tất cả client)
         new_weights = {}
         for cid in range(self.num_clients):
+            # FedProx: truyền anchor + mu vào local_train
+            # Gossip/FedAvg: w_anchor=None, mu=0 → SGD thuần
+            w_anchor = anchors.get(cid) if self.algorithm == "fedprox" else None
             state, _, _tt = local_train(
                 model      = self.models[cid],
                 dataloader = self.client_loaders[cid],
                 epochs     = epochs,
                 lr         = lr,
                 device     = self.device,
+                w_anchor   = w_anchor,
+                mu         = mu if self.algorithm == "fedprox" else 0.0,
             )
             new_weights[cid] = state
-            # Training cost rieng tung node (wall-clock) -- node co nhieu
-            # mau hon se train lau hon (size imbalance). Bo sung cho transcript 52:22.
             self.tracker.add_node_train_time(cid, _tt)
 
         # Cập nhật weight sau local train

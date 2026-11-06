@@ -65,16 +65,24 @@ def get_model_size_kb(model):
 # 2. LOCAL TRAINING
 # ─────────────────────────────────────────────
 
-def local_train(model, dataloader, epochs, lr, device):
+def local_train(model, dataloader, epochs, lr, device,
+                w_anchor=None, mu=0.0):
     """
-    Huan luyen cuc bo SGD thuan tuy.
-    KHONG co proximal term o day -- FedProx xu ly o fedprox_aggregate().
-    (Theo feedback co 31:24: FedProx la co che tong hop, khong phai local train)
+    Huan luyen cuc bo SGD.
+    Neu w_anchor != None va mu > 0: them proximal term vao loss (FedProx goc).
+      loss_total = loss_CE + (mu/2) * ||w - w_anchor||^2
+      => keo tung buoc gradient ve phia w_anchor (weight truoc round nay),
+         ngan drift trong qua trinh train chu khong chi sua sau aggregate.
+
+    Args:
+        w_anchor : state_dict lam neo (weight truoc local train cua round nay)
+                   None => SGD thuan (Gossip / FedAvg)
+        mu       : he so proximal (0 = tat, 0.1 = nhe, 1.0 = manh)
 
     Returns:
         state_dict   : weight sau train
-        avg_loss     : cross-entropy loss trung binh
-        train_time_s : thoi gian train (giay) -- de tach rieng training cost
+        avg_loss     : cross-entropy loss trung binh (khong tinh prox term)
+        train_time_s : thoi gian train (giay)
     """
     t0 = time.time()
     model.train()
@@ -83,6 +91,15 @@ def local_train(model, dataloader, epochs, lr, device):
     optimizer = optim.SGD(model.parameters(), lr=lr,
                           momentum=0.9, weight_decay=1e-4)
     criterion = nn.CrossEntropyLoss()
+
+    # Chuan bi anchor tensor tren dung device (chi tinh 1 lan)
+    anchor_tensors = None
+    if w_anchor is not None and mu > 0:
+        anchor_tensors = {
+            k: v.clone().detach().to(device).float()
+            for k, v in w_anchor.items()
+        }
+
     total_loss = 0.0
     steps = 0
 
@@ -90,10 +107,21 @@ def local_train(model, dataloader, epochs, lr, device):
         for x, y in dataloader:
             x, y = x.to(device), y.to(device)
             optimizer.zero_grad()
+
             loss = criterion(model(x), y)
+
+            # Proximal term: (mu/2) * sum ||w_l - w_anchor_l||^2
+            if anchor_tensors is not None:
+                prox = sum(
+                    torch.norm(p.float() - anchor_tensors[n]) ** 2
+                    for n, p in model.named_parameters()
+                    if n in anchor_tensors
+                )
+                loss = loss + (mu / 2.0) * prox
+
             loss.backward()
             optimizer.step()
-            total_loss += loss.item()
+            total_loss += criterion(model(x), y).item()  # log CE thuan
             steps += 1
 
     avg_loss = total_loss / max(steps, 1)
