@@ -121,7 +121,7 @@ def local_train(model, dataloader, epochs, lr, device,
 
             loss.backward()
             optimizer.step()
-            total_loss += criterion(model(x), y).item()  # log CE thuan
+            total_loss += loss.item()  # log toan bo loss (CE + prox)
             steps += 1
 
     avg_loss = total_loss / max(steps, 1)

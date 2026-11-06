@@ -106,6 +106,10 @@ class DFLSimulator:
         lr      = cfg.get("lr", 0.01)
         epochs  = cfg.get("local_epochs", 5)
         mu      = cfg.get("mu", 0.0)
+        # mu_local: proximal trong local train (nhe hon, tranh cap hoc)
+        # mu_agg  : proximal trong aggregate interpolation
+        mu_local = mu * 0.3   # 30% mu dung cho local train
+        mu_agg   = mu         # 100% mu dung cho aggregate
 
         # Bước 1: Lưu anchor cho FedProx (weight TRƯỚC local train)
         anchors = {}
@@ -128,7 +132,7 @@ class DFLSimulator:
                 lr         = lr,
                 device     = self.device,
                 w_anchor   = w_anchor,
-                mu         = mu if self.algorithm == "fedprox" else 0.0,
+                mu         = mu_local if self.algorithm == "fedprox" else 0.0,
             )
             new_weights[cid] = state
             self.tracker.add_node_train_time(cid, _tt)
@@ -153,7 +157,7 @@ class DFLSimulator:
                 aggregated[cid] = fedprox_aggregate(
                     own_w, nb_w,
                     [self.num_samples[cid]] + nb_sizes,
-                    mu=cfg.get('mu', 0.1)
+                    mu=mu_agg
                 )
 
             elif self.algorithm == "fedavg":
