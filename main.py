@@ -701,12 +701,185 @@ def exp_straggler():
     return results, summaries
 
 
+# ═══════════════════════════════════════════════════════════════════
+# EXP TEST — Quick FedProx fix verification
+# ═══════════════════════════════════════════════════════════════════
+def exp_test_fedprox():
+    """
+    Test nhanh sau khi fix fedprox_aggregate.
+    scale_free, 5 clients, 20 rounds, 5 local epochs, alpha=0.05,
+    max_client_size=300 (ít sample, chạy nhanh).
+    So sánh Gossip / FedAvg / FedProx(mu=0.1).
+    FedProx phải có F1 >= FedAvg ở cuối (hoặc converge ổn hơn).
+    """
+    print("\n" + "="*60)
+    print("EXP TEST — FedProx fix check")
+    print("  scale_free | 5 clients | 10 rounds | 3 epochs")
+    print("  alpha=0.1  | max_samples=1000/client")
+    print("="*60)
+
+    base_kw = dict(
+        topology        = "scale_free",
+        alpha           = 0.1,
+        size_alpha      = None,
+        max_client_size = 1000,
+        num_clients     = 5,
+        num_rounds      = 6,
+        local_epochs    = 3,
+        eval_every      = 2,
+        batch_size      = 32,
+    )
+    algos = [
+        # ("gossip",  0.0, "Gossip"),
+        # ("fedavg",  0.0, "FedAvg"),
+        ("fedprox", 0.0, "FedProx μ=0.1"),
+    ]
+
+    results   = {}
+    summaries = []
+    for algo, mu, label in algos:
+        print(f"\n  >> {label}")
+        cfg     = make_cfg(algorithm=algo, mu=mu, **base_kw)
+        tracker = run_single(cfg)
+        df      = tracker.to_dataframe()
+        results[label] = df
+        s = tracker.summary(); s["algorithm"] = label
+        summaries.append(s)
+        tracker.save_csv(f"{SAVE_DIR}/exptest_{algo}.csv")
+
+    print("\n" + "─"*55)
+    print(f"  {'Algorithm':<18}  {'Final F1':>8}  {'Std F1':>7}  {'Conv.Rd':>7}")
+    print("  " + "─"*51)
+    for s in summaries:
+        conv = s.get("convergence_round", -1)
+        print(f"  {s['algorithm']:<18}  {s['final_f1']:>8.4f}"
+              f"  {s['final_std_f1']:>7.4f}  {str(conv):>7}")
+    best = max(summaries, key=lambda x: x["final_f1"])
+    print(f"\n  => Best: {best['algorithm']} (F1={best['final_f1']:.4f})")
+    print("─"*55)
+
+    plot_f1_curves(results,
+                   "EXP TEST — FedProx fix (scale_free, alpha=0.05)",
+                   f"{SAVE_DIR}/exptest_f1.png")
+    return results, summaries
+
+
+# ═══════════════════════════════════════════════════════════════════
+# EXP 9A/9B/9C — Benchmark 3 thuật toán, chạy song song
+# scale_free, 8 clients, 5 epochs, 50 rounds, alpha=0.05
+# size imbalance nhẹ: 300–1500 mẫu/client (biên độ ≤ 1500)
+# FedProx chỉ dùng proximal ở aggregate (mu_local=0)
+# Thể hiện: benchmark F1/round, training cost Hub vs Leaf
+# ═══════════════════════════════════════════════════════════════════
+
+# Cấu hình chung cho cả 3 exp
+_EXP9_BASE = dict(
+    topology        = "scale_free",
+    alpha           = 0.05,
+    size_alpha      = 0.5,       # lệch nhẹ: Dirichlet(0.5) → ~300–1500 mẫu
+    max_client_size = 1500,      # cap tối đa 1500
+    num_clients     = 8,
+    num_rounds      = 50,
+    local_epochs    = 5,
+    eval_every      = 1,         # benchmark mỗi round
+    batch_size      = 32,
+    mu              = 0.1,
+)
+
+
+def _run_exp9(algo: str, mu: float, label: str, prefix: str):
+    """Helper chạy 1 trong 3 thuật toán của exp9."""
+    print("\n" + "="*62)
+    print(f"  {prefix} — {label}")
+    print(f"  scale_free | 8 clients | 50 rounds | 5 epochs")
+    print(f"  alpha=0.05 | size_alpha=0.5 (300–1500 mau/client)")
+    print("="*62)
+
+    cfg = make_cfg(algorithm=algo, mu=mu, **_EXP9_BASE)
+    # FedProx chỉ dùng proximal ở aggregate, không trong local train
+    cfg["mu_local_override"] = 0.0
+
+    tracker = run_single(cfg)
+    df      = tracker.to_dataframe()
+    tracker.save_csv(f"{SAVE_DIR}/{prefix}_result.csv")
+
+    # ── Benchmark F1 mỗi round ───────────────────────────────────────
+    plot_f1_curves(
+        {label: df},
+        f"{prefix} — F1 Benchmark moi round ({label})",
+        f"{SAVE_DIR}/{prefix}_f1_benchmark.png"
+    )
+    plot_variance(
+        {label: df},
+        f"{prefix} — Variance F1 giua cac node ({label})",
+        f"{SAVE_DIR}/{prefix}_variance.png"
+    )
+    plot_comm_cost(
+        {label: df},
+        f"{prefix} — Communication Cost ({label})",
+        f"{SAVE_DIR}/{prefix}_comm_cost.png"
+    )
+
+    # ── Training cost Hub vs Leaf ────────────────────────────────────
+    nodes_info   = tracker.nodes_info
+    node_comm_kb = tracker.node_comm_kb
+    node_train_s = getattr(tracker, "node_train_time_s", {})
+    client_sizes = tracker.client_sizes
+
+    plot_node_costs(
+        nodes_info, node_comm_kb, node_train_s, client_sizes,
+        f"{prefix} — Per-node Comm vs Training Cost ({label})",
+        f"{SAVE_DIR}/{prefix}_node_costs.png"
+    )
+
+    # ── Hub vs Leaf F1 theo round ────────────────────────────────────
+    plot_hub_leaf(
+        df, nodes_info,
+        f"{prefix} — Hub vs Leaf F1 ({label})",
+        f"{SAVE_DIR}/{prefix}_hub_leaf.png"
+    )
+
+    # ── Bảng per-node in ra console ─────────────────────────────────
+    s = tracker.summary()
+    print(f"\n  Final F1={s['final_f1']:.4f}  Std={s['final_std_f1']:.4f}"
+          f"  Conv.Round={s['convergence_round']}")
+    print(f"\n  {'Node':>4}  {'Type':>5}  {'Deg':>3}  {'Samples':>7}"
+          f"  {'Comm(KB)':>9}  {'Train(s)':>9}")
+    print("  " + "-"*50)
+    for nid in sorted(nodes_info, key=lambda i: -nodes_info[i]["degree"]):
+        print(f"  {nid:>4}  {nodes_info[nid]['type']:>5}"
+              f"  {nodes_info[nid]['degree']:>3}"
+              f"  {client_sizes.get(nid,0):>7}"
+              f"  {node_comm_kb.get(nid,0):>9.1f}"
+              f"  {node_train_s.get(nid,0):>9.2f}")
+
+    print(f"\n  [DONE] {prefix} luu: {prefix}_*.csv + {prefix}_*.png")
+    return tracker, df, s
+
+
+def exp9a_gossip():
+    """EXP 9A — Gossip"""
+    return _run_exp9("gossip", 0.0, "Gossip", "exp9a_gossip")
+
+
+def exp9b_fedavg():
+    """EXP 9B — FedAvg"""
+    return _run_exp9("fedavg", 0.0, "FedAvg", "exp9b_fedavg")
+
+
+def exp9c_fedprox():
+    """EXP 9C — FedProx (proximal chi o aggregate)"""
+    return _run_exp9("fedprox", 0.1, "FedProx μ=0.1", "exp9c_fedprox")
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="DFL Experiments")
     parser.add_argument("--exp", default="all",
                         choices=["baseline", "noniid", "topology",
                                  "algorithm", "p2p", "combined",
-                                 "exp6", "exp7", "exp8", "all_long", "all"])
+                                 "exp6", "exp7", "exp8", "test",
+                                 "exp9a", "exp9b", "exp9c",
+                                 "all_long", "all"])
     args = parser.parse_args()
 
     if args.exp in ("baseline",  "all"): exp_baseline()
@@ -718,5 +891,9 @@ if __name__ == "__main__":
     if args.exp in ("exp6", "all_long"): exp_topology_long()
     if args.exp in ("exp7", "all_long"): exp_fedprox_long()
     if args.exp in ("exp8", "all_long"): exp_straggler()
+    if args.exp in ("test",):            exp_test_fedprox()
+    if args.exp in ("exp9a",):           exp9a_gossip()
+    if args.exp in ("exp9b",):           exp9b_fedavg()
+    if args.exp in ("exp9c",):           exp9c_fedprox()
 
     print(f"\n[DONE] Kết quả lưu tại: {SAVE_DIR}/")

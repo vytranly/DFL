@@ -106,10 +106,13 @@ class DFLSimulator:
         lr      = cfg.get("lr", 0.01)
         epochs  = cfg.get("local_epochs", 5)
         mu      = cfg.get("mu", 0.0)
-        # mu_local: proximal trong local train (nhe hon, tranh cap hoc)
-        # mu_agg  : proximal trong aggregate interpolation
-        mu_local = mu * 0.3   # 30% mu dung cho local train
-        mu_agg   = mu         # 100% mu dung cho aggregate
+        # mu_local: proximal trong local train
+        # mu_local_override=0.0 → FedProx chỉ dùng proximal ở aggregate
+        if "mu_local_override" in cfg:
+            mu_local = cfg["mu_local_override"]
+        else:
+            mu_local = mu * 0.3
+        mu_agg = mu
 
         # Bước 1: Lưu anchor cho FedProx (weight TRƯỚC local train)
         anchors = {}
