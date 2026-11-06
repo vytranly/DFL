@@ -48,6 +48,8 @@ def run_single(cfg: dict):
         data_dir       = cfg["data_dir"],
         size_alpha     = cfg.get("size_alpha"),
         max_client_size= cfg.get("max_client_size"),
+        size_mode      = cfg.get("size_mode", "default"),
+        max_diff       = cfg.get("max_diff", 1500),
     )
     graph   = create_topology(cfg["topology"], cfg["num_clients"],
                                random_p=cfg.get("random_p", 0.5),
@@ -776,12 +778,12 @@ def exp_test_fedprox():
 _EXP9_BASE = dict(
     topology        = "scale_free",
     alpha           = 0.05,
-    size_alpha      = 0.5,       # lệch nhẹ: Dirichlet(0.5) → ~300–1500 mẫu
-    max_client_size = 1500,      # cap tối đa 1500
+    size_mode       = "bounded",   # full 60k MNIST, chênh lệch ≤ 2500 mẫu
+    max_diff        = 2500,        # max - min ≤ 2500 (~5250–7750 mẫu/client)
     num_clients     = 8,
     num_rounds      = 50,
     local_epochs    = 5,
-    eval_every      = 1,         # benchmark mỗi round
+    eval_every      = 1,
     batch_size      = 32,
     mu              = 0.1,
 )
