@@ -788,59 +788,46 @@ _EXP9_BASE = dict(
 )
 
 
-def _run_exp9(algo: str, mu: float, label: str, prefix: str):
-    """Helper chạy 1 trong 3 thuật toán của exp9."""
+def _run_exp9(algo: str, mu: float, mu_local: float, mu_agg: float,
+              label: str, prefix: str):
+    """Helper chung cho exp9a/9b/9c/9d."""
     print("\n" + "="*62)
     print(f"  {prefix} — {label}")
     print(f"  scale_free | 8 clients | 50 rounds | 5 epochs")
-    print(f"  alpha=0.05 | size_alpha=0.5 (300–1500 mau/client)")
+    print(f"  alpha=0.05 | full MNIST (~57k) | diff<=2500")
+    if algo == "fedprox":
+        print(f"  mu_local={mu_local}  mu_agg={mu_agg}")
     print("="*62)
 
-    cfg = make_cfg(algorithm=algo, mu=mu, **_EXP9_BASE)
-    # FedProx chỉ dùng proximal ở aggregate, không trong local train
-    cfg["mu_local_override"] = 0.0
-
+    cfg = make_cfg(algorithm=algo, mu=mu,
+                   mu_local=mu_local, mu_agg=mu_agg,
+                   **_EXP9_BASE)
     tracker = run_single(cfg)
     df      = tracker.to_dataframe()
     tracker.save_csv(f"{SAVE_DIR}/{prefix}_result.csv")
 
-    # ── Benchmark F1 mỗi round ───────────────────────────────────────
-    plot_f1_curves(
-        {label: df},
-        f"{prefix} — F1 Benchmark moi round ({label})",
-        f"{SAVE_DIR}/{prefix}_f1_benchmark.png"
-    )
-    plot_variance(
-        {label: df},
-        f"{prefix} — Variance F1 giua cac node ({label})",
-        f"{SAVE_DIR}/{prefix}_variance.png"
-    )
-    plot_comm_cost(
-        {label: df},
-        f"{prefix} — Communication Cost ({label})",
-        f"{SAVE_DIR}/{prefix}_comm_cost.png"
-    )
+    plot_f1_curves({label: df},
+                   f"{prefix} — F1 Benchmark mỗi round ({label})",
+                   f"{SAVE_DIR}/{prefix}_f1_benchmark.png")
+    plot_variance({label: df},
+                  f"{prefix} — Variance F1 ({label})",
+                  f"{SAVE_DIR}/{prefix}_variance.png")
+    plot_comm_cost({label: df},
+                   f"{prefix} — Communication Cost ({label})",
+                   f"{SAVE_DIR}/{prefix}_comm_cost.png")
 
-    # ── Training cost Hub vs Leaf ────────────────────────────────────
     nodes_info   = tracker.nodes_info
     node_comm_kb = tracker.node_comm_kb
     node_train_s = getattr(tracker, "node_train_time_s", {})
     client_sizes = tracker.client_sizes
 
-    plot_node_costs(
-        nodes_info, node_comm_kb, node_train_s, client_sizes,
-        f"{prefix} — Per-node Comm vs Training Cost ({label})",
-        f"{SAVE_DIR}/{prefix}_node_costs.png"
-    )
+    plot_node_costs(nodes_info, node_comm_kb, node_train_s, client_sizes,
+                    f"{prefix} — Per-node Comm vs Training Cost ({label})",
+                    f"{SAVE_DIR}/{prefix}_node_costs.png")
+    plot_hub_leaf(df, nodes_info,
+                  f"{prefix} — Hub vs Leaf F1 ({label})",
+                  f"{SAVE_DIR}/{prefix}_hub_leaf.png")
 
-    # ── Hub vs Leaf F1 theo round ────────────────────────────────────
-    plot_hub_leaf(
-        df, nodes_info,
-        f"{prefix} — Hub vs Leaf F1 ({label})",
-        f"{SAVE_DIR}/{prefix}_hub_leaf.png"
-    )
-
-    # ── Bảng per-node in ra console ─────────────────────────────────
     s = tracker.summary()
     print(f"\n  Final F1={s['final_f1']:.4f}  Std={s['final_std_f1']:.4f}"
           f"  Conv.Round={s['convergence_round']}")
@@ -853,24 +840,42 @@ def _run_exp9(algo: str, mu: float, label: str, prefix: str):
               f"  {client_sizes.get(nid,0):>7}"
               f"  {node_comm_kb.get(nid,0):>9.1f}"
               f"  {node_train_s.get(nid,0):>9.2f}")
-
-    print(f"\n  [DONE] {prefix} luu: {prefix}_*.csv + {prefix}_*.png")
+    print(f"\n  [DONE] {prefix} -> {prefix}_*.csv + {prefix}_*.png")
     return tracker, df, s
 
 
 def exp9a_gossip():
-    """EXP 9A — Gossip"""
-    return _run_exp9("gossip", 0.0, "Gossip", "exp9a_gossip")
+    """EXP 9A — Gossip (không có proximal)"""
+    return _run_exp9("gossip", 0.0, 0.0, 0.0,
+                     "Gossip", "exp9a_gossip")
 
 
 def exp9b_fedavg():
-    """EXP 9B — FedAvg"""
-    return _run_exp9("fedavg", 0.0, "FedAvg", "exp9b_fedavg")
+    """EXP 9B — FedAvg (weighted mean, không có proximal)"""
+    return _run_exp9("fedavg", 0.0, 0.0, 0.0,
+                     "FedAvg", "exp9b_fedavg")
 
 
-def exp9c_fedprox():
-    """EXP 9C — FedProx (proximal chi o aggregate)"""
-    return _run_exp9("fedprox", 0.1, "FedProx μ=0.1", "exp9c_fedprox")
+def exp9c_fedprox_local():
+    """
+    EXP 9C — FedProx proximal CHỈ trong local train.
+    Mỗi gradient step kéo model về anchor (weight đầu round).
+    Aggregate = FedAvg thuần (mu_agg=0).
+    """
+    return _run_exp9("fedprox", 0.1, 0.1, 0.0,
+                     "FedProx local-train only (μ=0.1)",
+                     "exp9c_fedprox_local")
+
+
+def exp9d_fedprox_agg():
+    """
+    EXP 9D — FedProx proximal CHỈ trong aggregate.
+    Local train = SGD thuần (mu_local=0).
+    Sau aggregate: w = (1-μ)*w_own + μ*w_avg.
+    """
+    return _run_exp9("fedprox", 0.1, 0.0, 0.1,
+                     "FedProx aggregate only (μ=0.1)",
+                     "exp9d_fedprox_agg")
 
 
 if __name__ == "__main__":
@@ -879,7 +884,7 @@ if __name__ == "__main__":
                         choices=["baseline", "noniid", "topology",
                                  "algorithm", "p2p", "combined",
                                  "exp6", "exp7", "exp8", "test",
-                                 "exp9a", "exp9b", "exp9c",
+                                 "exp9a", "exp9b", "exp9c", "exp9d",
                                  "all_long", "all"])
     args = parser.parse_args()
 
@@ -895,6 +900,7 @@ if __name__ == "__main__":
     if args.exp in ("test",):            exp_test_fedprox()
     if args.exp in ("exp9a",):           exp9a_gossip()
     if args.exp in ("exp9b",):           exp9b_fedavg()
-    if args.exp in ("exp9c",):           exp9c_fedprox()
+    if args.exp in ("exp9c",):           exp9c_fedprox_local()
+    if args.exp in ("exp9d",):           exp9d_fedprox_agg()
 
     print(f"\n[DONE] Kết quả lưu tại: {SAVE_DIR}/")
