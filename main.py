@@ -776,14 +776,12 @@ def exp_test_fedprox():
 
 # Cấu hình chung cho cả 3 exp
 _EXP9_BASE = dict(
-    topology        = "random",    # random: degree phân bố tự nhiên → hub/leaf rõ,
-                                   # spectral gap cao hơn scale_free nhiều
-    random_p        = 0.4,         # p=0.4 với 8 node → ~11 edges, gap ~0.3-0.5
+    topology        = "scale_free",
     alpha           = 0.05,
     size_mode       = "bounded",
     max_diff        = 2500,
-    num_clients     = 8,
-    num_rounds      = 60,          # tăng lên 60 round
+    num_clients     = 10,
+    num_rounds      = 60,
     local_epochs    = 5,
     eval_every      = 1,
     batch_size      = 32,
