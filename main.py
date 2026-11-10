@@ -880,13 +880,26 @@ def exp9d_fedprox_agg():
                      "exp9d_proximal_agg")
 
 
+def exp9e_fedprox_fedavg():
+    """
+    EXP 9E — FedProx-FedAvg: công thức mới nghiệm dạng đóng.
+    Local train = SGD thuần (mu_local=0).
+    Aggregate: w_new = (1/(1+μ))×w_nb + (μ/(1+μ))×w_anchor
+               w_nb = FedAvg(n_j/N) — base tốt hơn Gossip.
+    So sánh với exp9b (FedAvg thuần) và exp9d (fedprox aggregate cũ).
+    """
+    return _run_exp9("fedprox_fedavg", 0.1, 0.0, 0.1,
+                     "FedProx-FedAvg closed-form (μ=0.1)",
+                     "exp9e_fedprox_fedavg")
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="DFL Experiments")
     parser.add_argument("--exp", default="all",
                         choices=["baseline", "noniid", "topology",
                                  "algorithm", "p2p", "combined",
                                  "exp6", "exp7", "exp8", "test",
-                                 "exp9a", "exp9b", "exp9c", "exp9d",
+                                 "exp9a", "exp9b", "exp9c", "exp9d", "exp9e",
                                  "all_long", "all"])
     args = parser.parse_args()
 
@@ -904,5 +917,6 @@ if __name__ == "__main__":
     if args.exp in ("exp9b",):           exp9b_fedavg()
     if args.exp in ("exp9c",):           exp9c_fedprox_local()
     if args.exp in ("exp9d",):           exp9d_fedprox_agg()
+    if args.exp in ("exp9e",):           exp9e_fedprox_fedavg()
 
     print(f"\n[DONE] Kết quả lưu tại: {SAVE_DIR}/")

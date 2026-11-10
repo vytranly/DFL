@@ -157,8 +157,78 @@ def get_mixing_matrix(graph):
 # ─────────────────────────────────────────────
 # 4. AGGREGATION
 # ─────────────────────────────────────────────
+# 4. AGGREGATION
+# ─────────────────────────────────────────────
 
 def gossip_aggregate(own_weights, neighbor_weights, mixing_row):
+    """
+    Gossip Aggregation — trọng số theo Mixing Matrix W.
+
+    Args:
+        own_weights      : state_dict của node i
+        neighbor_weights : list state_dict của các hàng xóm
+        mixing_row       : [W[i][i], W[i][j1], W[i][j2], ...]
+
+    Returns:
+        OrderedDict — state_dict mới sau aggregate
+    """
+    all_weights = [own_weights] + neighbor_weights
+    result = OrderedDict()
+    for key in own_weights.keys():
+        stacked = torch.stack([
+            w[key].float() * coeff
+            for w, coeff in zip(all_weights, mixing_row)
+        ])
+        result[key] = stacked.sum(dim=0)
+    return result
+
+
+def fedprox_fedavg_aggregate(own_weights, neighbor_weights,
+                             sizes_list, mu=0.1, w_anchor=None):
+    """
+    FedProx-FedAvg Aggregate — công thức mới cho DFL (exp9e).
+
+    Bài toán tối ưu:
+      min_w { Σ (n_j/N) ‖w − w̃_j‖² + μ‖w − w_anchor‖² }
+
+    Nghiệm dạng đóng:
+      w_nb  = Σ (n_j / N) × w̃_j          ← FedAvg weighted mean
+      w_new = (1/(1+μ)) × w_nb
+            + (μ/(1+μ)) × w_anchor
+
+    Ưu điểm so với exp9d:
+      - Hệ số 1/(1+μ) và μ/(1+μ) luôn dương dù μ bất kỳ
+      - Có nghiệm lý thuyết chặt chẽ, không phải heuristic
+      - Dùng n_j/N (FedAvg) thay vì W_ij (Gossip) → F1 cao hơn trên scale_free
+
+    sizes_list: [own_size, nb1_size, ...] — bao gồm own
+    w_anchor  : weight TRƯỚC local train của round này
+    """
+    all_w = [own_weights] + neighbor_weights
+    total = sum(sizes_list)
+
+    # Bước 1: FedAvg weighted mean
+    w_nb = OrderedDict()
+    for key in own_weights.keys():
+        w_nb[key] = torch.stack([
+            w[key].float() * (n / total)
+            for w, n in zip(all_w, sizes_list)
+        ]).sum(dim=0)
+
+    # Bước 2: nghiệm dạng đóng
+    if w_anchor is None or mu <= 0:
+        return w_nb
+
+    coeff_nb  = 1.0 / (1.0 + mu)
+    coeff_anc = mu  / (1.0 + mu)
+
+    result = OrderedDict()
+    for key in w_nb.keys():
+        w_n = w_nb[key].float()
+        w_a = w_anchor[key].float().to(w_n.device)
+        result[key] = coeff_nb * w_n + coeff_anc * w_a
+
+    return result
     """
     Gossip Aggregation — trọng số theo Mixing Matrix W.
 
