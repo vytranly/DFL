@@ -155,10 +155,13 @@ class DFLSimulator:
 
             elif self.algorithm == "fedprox":
                 nb_sizes = [self.num_samples[j] for j in nbs]
+                # Truyền w_anchor (weight trước local train) vào aggregate
+                # để áp dụng đúng proximal term: w - mu*(w_avg - w_anchor)
                 aggregated[cid] = fedprox_aggregate(
                     own_w, nb_w,
                     [self.num_samples[cid]] + nb_sizes,
-                    mu=mu_agg
+                    mu     = mu_agg,
+                    w_anchor = anchors.get(cid) if mu_agg > 0 else None,
                 )
 
             elif self.algorithm == "fedavg":

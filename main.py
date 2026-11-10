@@ -869,13 +869,15 @@ def exp9c_fedprox_local():
 
 def exp9d_fedprox_agg():
     """
-    EXP 9D — FedProx proximal CHỈ trong aggregate.
+    EXP 9D — Proximal Interpolation tại aggregate (custom DFL adaptation).
+    KHÔNG phải FedProx gốc — đây là biến thể tự thiết kế cho DFL:
     Local train = SGD thuần (mu_local=0).
-    Sau aggregate: w = (1-μ)*w_own + μ*w_avg.
+    Sau aggregate: w = (1-μ)*w_own + μ*w_avg  (kéo về consensus).
+    Dùng để so sánh với exp9c (FedProx gốc).
     """
     return _run_exp9("fedprox", 0.1, 0.0, 0.1,
-                     "FedProx aggregate only (μ=0.1)",
-                     "exp9d_fedprox_agg")
+                     "Proximal Interpolation aggregate (μ=0.1)",
+                     "exp9d_proximal_agg")
 
 
 if __name__ == "__main__":

@@ -210,25 +210,35 @@ def fedavg_aggregate(weights_list, sizes_list):
 
 
 def fedprox_aggregate(own_weights, neighbor_weights,
-                      sizes_list, mu=0.1):
+                      sizes_list, mu=0.1, w_anchor=None):
     """
-    FedProx Aggregation -- buoc TONG HOP, xu ly client drift Non-IID.
-    (Theo feedback co 37:28: FedProx la co che tong hop, khong phai local train)
+    FedProx Aggregation cho DFL — đúng công thức proximal term.
 
-    Buoc 1: Tinh w_avg theo FedAvg (trong so theo so mau)
-    Buoc 2: Proximal interpolation:
-            w_result = (1 - mu) * w_own + mu * w_avg
-            => keo w_own mot phan ve phia w_avg, han che drift
-            => mu=0: giu nguyen w_own (khong aggregate)
-            => mu=1: lay toan bo w_avg (= FedAvg)
-            => mu=0.1: giu 90% local, keo 10% ve consensus
+    Bước 1: Tính w_avg = FedAvg(self + neighbors) theo số mẫu.
 
-    sizes_list: [own_size, nb1_size, nb2_size, ...]
+    Bước 2 (nếu có w_anchor và mu > 0):
+      Áp dụng 1 bước gradient descent trên proximal term:
+        min_w { (μ/2) ‖w − w_anchor‖² }
+        ∇_w = μ × (w − w_anchor)
+        w_new = w_avg − μ × (w_avg − w_anchor)
+              = (1 − μ) × w_avg + μ × w_anchor
+
+      w_anchor = weight TRƯỚC local train của round này
+                 (đóng vai trò w_global trong FedProx gốc, adapt cho DFL)
+
+    Nếu w_anchor=None: trả về w_avg thuần (= FedAvg).
+
+    Args:
+        own_weights      : state_dict sau local train của node i
+        neighbor_weights : list state_dict của các neighbor
+        sizes_list       : [own_size, nb1_size, ...] — số mẫu
+        mu               : hệ số proximal (μ)
+        w_anchor         : state_dict trước local train (neo)
     """
     all_w = [own_weights] + neighbor_weights
     total = sum(sizes_list)
 
-    # Buoc 1: weighted average
+    # Bước 1: FedAvg weighted mean
     w_avg = OrderedDict()
     for key in own_weights.keys():
         w_avg[key] = torch.stack([
@@ -236,15 +246,17 @@ def fedprox_aggregate(own_weights, neighbor_weights,
             for w, n in zip(all_w, sizes_list)
         ]).sum(dim=0)
 
-    if mu <= 0:
+    # Bước 2: proximal correction về w_anchor
+    if w_anchor is None or mu <= 0:
         return w_avg
 
-    # Buoc 2: proximal interpolation -- keo w_own ve w_avg
     result = OrderedDict()
-    for key in own_weights.keys():
-        w_o = own_weights[key].float()
-        w_a = w_avg[key].float()
-        result[key] = (1.0 - mu) * w_o + mu * w_a
+    for key in w_avg.keys():
+        w_a   = w_avg[key].float()
+        w_anc = w_anchor[key].float().to(w_a.device)
+        # w_new = w_avg - mu * (w_avg - w_anchor)
+        #       = (1-mu)*w_avg + mu*w_anchor
+        result[key] = w_a - mu * (w_a - w_anc)
 
     return result
 
