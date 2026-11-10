@@ -167,35 +167,72 @@ def _save(fig, path: str):
 
 
 # ── Hub vs Leaf comparison (Theo yeu cau co transcript 46:03) ────────
-def plot_hub_leaf(df, nodes_info, title, save_path):
+def plot_hub_leaf(df, nodes_info, title, save_path, client_sizes=None):
     """
     Ve bieu do so sanh F1 giua Hub node va Leaf node theo tung round.
-    Tra loi cau hoi cua co: "Node nao quan trong hon trong mang DFL?"
-
-    nodes_info: {node_id: {degree, type}} tu classify_nodes()
+    F1 tinh bang weighted mean theo so mau (neu co client_sizes),
+    hoac simple mean neu khong co.
     """
     import numpy as np
 
     hub_ids  = [k for k,v in nodes_info.items() if v["type"] == "Hub"]
     leaf_ids = [k for k,v in nodes_info.items() if v["type"] == "Leaf"]
+    rounds   = df["round"].tolist()
 
-    rounds = df["round"].tolist()
-
-    def mean_f1(ids):
+    def weighted_f1(ids):
         cols = [f"f1_client_{i}" for i in ids if f"f1_client_{i}" in df.columns]
-        return df[cols].mean(axis=1).tolist() if cols else [0]*len(rounds)
+        if not cols:
+            return [0] * len(rounds)
+        if client_sizes:
+            weights = np.array([client_sizes.get(i, 1) for i in ids
+                                 if f"f1_client_{i}" in df.columns], dtype=float)
+            total_w = weights.sum()
+            if total_w > 0:
+                # weighted mean theo so mau
+                result = []
+                for _, row in df.iterrows():
+                    f1_vals = np.array([row.get(f"f1_client_{i}", 0)
+                                        for i in ids if f"f1_client_{i}" in df.columns])
+                    result.append(float((f1_vals * weights).sum() / total_w))
+                return result
+        # fallback: simple mean
+        return df[cols].mean(axis=1).tolist()
 
-    hub_f1  = mean_f1(hub_ids)
-    leaf_f1 = mean_f1(leaf_ids)
-    mean_all = df["mean_f1"].tolist()
+    def weighted_f1_all():
+        """Weighted mean toan bo node."""
+        all_ids = list(nodes_info.keys())
+        cols    = [f"f1_client_{i}" for i in all_ids if f"f1_client_{i}" in df.columns]
+        if not cols:
+            return df["mean_f1"].tolist()
+        if client_sizes:
+            weights = np.array([client_sizes.get(i, 1) for i in all_ids
+                                 if f"f1_client_{i}" in df.columns], dtype=float)
+            total_w = weights.sum()
+            if total_w > 0:
+                result = []
+                for _, row in df.iterrows():
+                    f1_vals = np.array([row.get(f"f1_client_{i}", 0)
+                                        for i in all_ids
+                                        if f"f1_client_{i}" in df.columns])
+                    result.append(float((f1_vals * weights).sum() / total_w))
+                return result
+        return df["mean_f1"].tolist()
+
+    hub_f1   = weighted_f1(hub_ids)
+    leaf_f1  = weighted_f1(leaf_ids)
+    mean_all = weighted_f1_all()
+
+    label_suffix = " (weighted)" if client_sizes else " (simple mean)"
 
     fig, axes = plt.subplots(1, 2, figsize=(13, 5))
     fig.suptitle(title, fontsize=12, fontweight="bold")
 
-    # --- Plot 1: F1 theo round Hub vs Leaf ---
-    axes[0].plot(rounds, hub_f1,  "r-o", lw=2, markersize=4, label=f"Hub  nodes {hub_ids}")
-    axes[0].plot(rounds, leaf_f1, "b--s", lw=2, markersize=4, label=f"Leaf nodes {leaf_ids}")
-    axes[0].plot(rounds, mean_all, "g:", lw=1.5, label="Mean (all nodes)")
+    axes[0].plot(rounds, hub_f1,  "r-o", lw=2, markersize=4,
+                 label=f"Hub  nodes {hub_ids}{label_suffix}")
+    axes[0].plot(rounds, leaf_f1, "b--s", lw=2, markersize=4,
+                 label=f"Leaf nodes {leaf_ids}{label_suffix}")
+    axes[0].plot(rounds, mean_all, "g:", lw=1.5,
+                 label=f"Mean (all){label_suffix}")
     axes[0].axhline(0.75, color="gray", ls="--", lw=1, label="Target F1=0.75")
     axes[0].set_xlabel("Round"); axes[0].set_ylabel("F1-score (macro)")
     axes[0].set_title("Hub vs Leaf: F1 theo Round")

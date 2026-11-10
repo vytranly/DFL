@@ -20,6 +20,7 @@ from tqdm import tqdm
 from trainer import (get_model, get_model_size_kb,
                      local_train, gossip_aggregate, fedavg_aggregate,
                      fedprox_aggregate, fedprox_fedavg_aggregate,
+                     fedprox_gossip_aggregate,
                      evaluate, get_mixing_matrix)
 from topology import get_neighbors
 from metrics import MetricsTracker
@@ -153,6 +154,16 @@ class DFLSimulator:
             if self.algorithm == "gossip":
                 mixing = [self.W[cid][cid]] + [self.W[cid][j] for j in nbs]
                 aggregated[cid] = gossip_aggregate(own_w, nb_w, mixing)
+
+            elif self.algorithm == "fedprox_gossip":
+                # FedProx-Gossip: Gossip base + proximal closed-form
+                # w_new = (1/(1+μ))×w_nb_gossip + (μ/(1+μ))×w_anchor
+                mixing = [self.W[cid][cid]] + [self.W[cid][j] for j in nbs]
+                aggregated[cid] = fedprox_gossip_aggregate(
+                    own_w, nb_w, mixing,
+                    mu       = mu_agg,
+                    w_anchor = anchors.get(cid) if mu_agg > 0 else None,
+                )
 
             elif self.algorithm == "fedprox":
                 nb_sizes = [self.num_samples[j] for j in nbs]

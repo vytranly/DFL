@@ -183,6 +183,48 @@ def gossip_aggregate(own_weights, neighbor_weights, mixing_row):
     return result
 
 
+def fedprox_gossip_aggregate(own_weights, neighbor_weights,
+                             mixing_row, mu=0.1, w_anchor=None):
+    """
+    FedProx-Gossip Aggregate — công thức closed-form dùng Gossip base.
+
+    Bài toán tối ưu:
+      min_w { Σ W_ij ‖w − w̃_j‖² + μ‖w − w_anchor‖² }
+
+    Nghiệm dạng đóng:
+      w_nb  = Σ W_ij × w̃_j              ← Gossip weighted mean
+      w_new = (1/(1+μ)) × w_nb
+            + (μ/(1+μ)) × w_anchor
+
+    mixing_row: [W[i][i], W[i][j1], ...] — hàng i của Mixing Matrix
+    w_anchor  : weight TRƯỚC local train (neo)
+    """
+    # Bước 1: Gossip weighted mean
+    all_weights = [own_weights] + neighbor_weights
+    w_nb = OrderedDict()
+    for key in own_weights.keys():
+        stacked = torch.stack([
+            w[key].float() * coeff
+            for w, coeff in zip(all_weights, mixing_row)
+        ])
+        w_nb[key] = stacked.sum(dim=0)
+
+    # Bước 2: nghiệm dạng đóng
+    if w_anchor is None or mu <= 0:
+        return w_nb
+
+    coeff_nb  = 1.0 / (1.0 + mu)
+    coeff_anc = mu  / (1.0 + mu)
+
+    result = OrderedDict()
+    for key in w_nb.keys():
+        w_n = w_nb[key].float()
+        w_a = w_anchor[key].float().to(w_n.device)
+        result[key] = coeff_nb * w_n + coeff_anc * w_a
+
+    return result
+
+
 def fedprox_fedavg_aggregate(own_weights, neighbor_weights,
                              sizes_list, mu=0.1, w_anchor=None):
     """

@@ -776,12 +776,14 @@ def exp_test_fedprox():
 
 # Cấu hình chung cho cả 3 exp
 _EXP9_BASE = dict(
-    topology        = "scale_free",
+    topology        = "random",    # random: degree phân bố tự nhiên → hub/leaf rõ,
+                                   # spectral gap cao hơn scale_free nhiều
+    random_p        = 0.4,         # p=0.4 với 8 node → ~11 edges, gap ~0.3-0.5
     alpha           = 0.05,
     size_mode       = "bounded",
     max_diff        = 2500,
     num_clients     = 8,
-    num_rounds      = 50,
+    num_rounds      = 60,          # tăng lên 60 round
     local_epochs    = 5,
     eval_every      = 1,
     batch_size      = 32,
@@ -826,7 +828,8 @@ def _run_exp9(algo: str, mu: float, mu_local: float, mu_agg: float,
                     f"{SAVE_DIR}/{prefix}_node_costs.png")
     plot_hub_leaf(df, nodes_info,
                   f"{prefix} — Hub vs Leaf F1 ({label})",
-                  f"{SAVE_DIR}/{prefix}_hub_leaf.png")
+                  f"{SAVE_DIR}/{prefix}_hub_leaf.png",
+                  client_sizes=client_sizes)
 
     s = tracker.summary()
     print(f"\n  Final F1={s['final_f1']:.4f}  Std={s['final_std_f1']:.4f}"
@@ -893,13 +896,26 @@ def exp9e_fedprox_fedavg():
                      "exp9e_fedprox_fedavg")
 
 
+def exp9f_fedprox_gossip():
+    """
+    EXP 9F — FedProx-Gossip: Gossip base + proximal closed-form.
+    Local train = SGD thuần (mu_local=0).
+    Aggregate: w_new = (1/(1+μ))×w_nb_gossip + (μ/(1+μ))×w_anchor
+    Topology: random (vừa có hub vừa có leaf, spectral gap tốt hơn scale_free).
+    60 rounds.
+    """
+    return _run_exp9("fedprox_gossip", 0.1, 0.0, 0.1,
+                     "FedProx-Gossip closed-form (μ=0.1)",
+                     "exp9f_fedprox_gossip")
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="DFL Experiments")
     parser.add_argument("--exp", default="all",
                         choices=["baseline", "noniid", "topology",
                                  "algorithm", "p2p", "combined",
                                  "exp6", "exp7", "exp8", "test",
-                                 "exp9a", "exp9b", "exp9c", "exp9d", "exp9e",
+                                 "exp9a", "exp9b", "exp9c", "exp9d", "exp9e", "exp9f",
                                  "all_long", "all"])
     args = parser.parse_args()
 
@@ -918,5 +934,6 @@ if __name__ == "__main__":
     if args.exp in ("exp9c",):           exp9c_fedprox_local()
     if args.exp in ("exp9d",):           exp9d_fedprox_agg()
     if args.exp in ("exp9e",):           exp9e_fedprox_fedavg()
+    if args.exp in ("exp9f",):           exp9f_fedprox_gossip()
 
     print(f"\n[DONE] Kết quả lưu tại: {SAVE_DIR}/")
