@@ -19,7 +19,7 @@ from tqdm import tqdm
 
 from trainer import (get_model, get_model_size_kb,
                      local_train, gossip_aggregate, fedavg_aggregate,
-                     fedprox_aggregate, fedprox_fedavg_aggregate,
+                     fedprox_aggregate, fedprox_aggregate,
                      fedprox_gossip_aggregate,
                      evaluate, get_mixing_matrix)
 from topology import get_neighbors
@@ -176,12 +176,12 @@ class DFLSimulator:
                     w_anchor = anchors.get(cid) if mu_agg > 0 else None,
                 )
 
-            elif self.algorithm == "fedprox_fedavg":
+            elif self.algorithm == "fedprox":
                 # Công thức mới: nghiệm dạng đóng
                 # w_new = (1/(1+μ))×w_nb + (μ/(1+μ))×w_anchor
                 # w_nb = FedAvg(n_j/N) — tốt hơn Gossip trên scale_free
                 nb_sizes = [self.num_samples[j] for j in nbs]
-                aggregated[cid] = fedprox_fedavg_aggregate(
+                aggregated[cid] = fedprox_aggregate(
                     own_w, nb_w,
                     [self.num_samples[cid]] + nb_sizes,
                     mu       = mu_agg,

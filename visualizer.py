@@ -1,13 +1,17 @@
 """
-Khối 6 — visualizer.py
-Module Phân tích & Báo cáo: vẽ các biểu đồ phân tích kết quả.
+visualizer.py
+Module Phan tich & Bao cao: ve cac bieu do phan tich ket qua.
 
-Các biểu đồ:
-  1. plot_f1_curves      — F1-score theo round (learning curve)
-  2. plot_comm_cost      — Communication cost tích lũy theo round
-  3. plot_variance       — Variance (std F1) giữa các client theo round
-  4. plot_final_bar      — Bar chart so sánh final F1 nhiều thí nghiệm
-  5. plot_client_heatmap — Heatmap F1 từng client theo round
+Cac ham:
+  1. plot_f1_curves        -- F1-score per round (learning curve)
+  2. plot_comm_cost        -- Communication cost cumulative per round
+  3. plot_variance         -- Variance (std F1) among clients per round
+  4. plot_final_bar        -- Bar chart comparing final F1 across experiments
+  5. plot_client_heatmap   -- Heatmap F1 per client per round
+  6. plot_hub_leaf         -- Hub vs Leaf F1 curves
+  7. plot_node_costs       -- Per-node comm vs training cost
+  8. plot_full_report      -- All 10 standard plots for one sub-exp
+  9. plot_combined_report  -- Overlay all sub-exps of a group
 """
 
 import os
@@ -325,6 +329,250 @@ def plot_node_costs(nodes_info, node_comm_kb, node_train_s, client_sizes,
 
     plt.tight_layout()
     _save(fig, save_path)
+
+
+# ── Full Report (10 plots) for a single sub-exp ───────────────────────
+def plot_full_report(tracker, nodes_info, client_sizes,
+                     title_prefix, save_dir, prefix):
+    """
+    Generate all 10 standard plots for one sub-experiment.
+
+    Plots produced (saved to save_dir/prefix_*.png):
+      1. F1 curves per round with std shading
+      2. Accuracy curves per round
+      3. Variance (std F1) per round
+      4. Communication cost cumulative per round
+      5. Final F1 bar chart with convergence round annotation
+      6. Client heatmap (F1 per client per round)
+      7. Hub vs Leaf F1 curves (weighted by sample count)
+      8. Per-node cost bar chart (comm KB vs train time)
+      9. Round time per round (straggler effect)
+      10. Convergence speed chart (rounds to reach F1 targets)
+
+    Args:
+        tracker      : MetricsTracker instance after a completed run
+        nodes_info   : dict {node_id: {'degree': int, 'type': 'Hub'|'Leaf'}}
+        client_sizes : dict {node_id: int} number of samples per client
+        title_prefix : string prefix shown in every plot title
+        save_dir     : directory to save PNG files
+        prefix       : filename prefix (e.g. 'expa1_mnist')
+    """
+    os.makedirs(save_dir, exist_ok=True)
+    df           = tracker.to_dataframe()
+    s            = tracker.summary()
+    num_clients  = tracker.num_clients
+    node_comm_kb = tracker.node_comm_kb
+    node_train_s = getattr(tracker, 'node_train_time_s', {})
+
+    def p(name):
+        return os.path.join(save_dir, f"{prefix}_{name}.png")
+
+    # ── 1. F1 curves with std shading ───────────────────────────────
+    plot_f1_curves(
+        {title_prefix: df},
+        f"{title_prefix} -- F1 per Round",
+        p("f1_curves")
+    )
+
+    # ── 2. Accuracy curves ───────────────────────────────────────────
+    _plot_acc_curves(df, title_prefix, p("acc_curves"))
+
+    # ── 3. Variance (std F1) ─────────────────────────────────────────
+    plot_variance(
+        {title_prefix: df},
+        f"{title_prefix} -- Variance (std F1) per Round",
+        p("variance")
+    )
+
+    # ── 4. Communication cost cumulative ────────────────────────────
+    plot_comm_cost(
+        {title_prefix: df},
+        f"{title_prefix} -- Cumulative Comm Cost (MB)",
+        p("comm_cost")
+    )
+
+    # ── 5. Final F1 bar + convergence round ─────────────────────────
+    summary_list = [dict(s, label=title_prefix)]
+    _plot_final_bar_single(summary_list, title_prefix, p("final_bar"))
+
+    # ── 6. Client heatmap ────────────────────────────────────────────
+    plot_client_heatmap(df, num_clients,
+                        f"{title_prefix} -- Client Heatmap",
+                        p("heatmap"))
+
+    # ── 7. Hub vs Leaf F1 curves ─────────────────────────────────────
+    if nodes_info:
+        plot_hub_leaf(df, nodes_info,
+                      f"{title_prefix} -- Hub vs Leaf F1",
+                      p("hub_leaf"),
+                      client_sizes=client_sizes)
+
+    # ── 8. Per-node cost bar chart ───────────────────────────────────
+    if nodes_info and (node_comm_kb or node_train_s):
+        plot_node_costs(nodes_info, node_comm_kb, node_train_s, client_sizes,
+                        f"{title_prefix} -- Per-node Comm vs Train Cost",
+                        p("node_costs"))
+
+    # ── 9. Round time per round ──────────────────────────────────────
+    _plot_round_time(df, title_prefix, p("round_time"))
+
+    # ── 10. Convergence speed chart ──────────────────────────────────
+    _plot_convergence_speed(df, title_prefix, p("conv_speed"))
+
+    print(f"[plot_full_report] 10 plots saved to {save_dir}/{prefix}_*.png")
+
+
+# ── Helper: Accuracy curves ────────────────────────────────────────────
+def _plot_acc_curves(df, title_prefix, save_path):
+    """
+    Plot accuracy curves per round (mean_acc with std_acc shading).
+    """
+    fig, ax = plt.subplots(figsize=(10, 5))
+    ax.plot(df["round"], df["mean_acc"], marker='o', markersize=3,
+            linewidth=1.8, color='steelblue', label="Mean Accuracy")
+    if "std_acc" in df.columns:
+        ax.fill_between(df["round"],
+                        df["mean_acc"] - df["std_acc"],
+                        df["mean_acc"] + df["std_acc"],
+                        alpha=0.15, color='steelblue')
+    ax.axhline(0.75, color='red', linestyle='--', linewidth=1,
+               label='Target Acc=0.75')
+    ax.set_xlabel("Round")
+    ax.set_ylabel("Accuracy")
+    ax.set_title(f"{title_prefix} -- Accuracy per Round")
+    ax.legend(fontsize=8)
+    ax.grid(True, alpha=0.3)
+    ax.set_ylim(0, 1.05)
+    _save(fig, save_path)
+
+
+# ── Helper: Final F1 bar for a single exp ─────────────────────────────
+def _plot_final_bar_single(summary_list, title_prefix, save_path):
+    """
+    Bar chart for a single experiment: final F1 and convergence round.
+    summary_list: list with one dict containing 'final_f1', 'convergence_round'.
+    """
+    s    = summary_list[0]
+    f1   = s.get("final_f1", 0.0)
+    conv = s.get("convergence_round", -1)
+
+    fig, axes = plt.subplots(1, 2, figsize=(10, 4))
+
+    axes[0].bar(["Final F1"], [f1], color='steelblue',
+                edgecolor='black', alpha=0.8)
+    axes[0].axhline(0.75, color='red', linestyle='--', linewidth=1,
+                    label='Target 0.75')
+    axes[0].set_ylim(0, 1.05)
+    axes[0].set_ylabel("F1-macro")
+    axes[0].set_title(f"{title_prefix} -- Final F1")
+    axes[0].text(0, f1 + 0.02, f"{f1:.3f}", ha='center', fontsize=10)
+    axes[0].legend(fontsize=8)
+
+    conv_val   = conv if conv != -1 else 0
+    conv_color = 'mediumseagreen' if conv != -1 else 'salmon'
+    conv_label = f"Round {conv}" if conv != -1 else "Not reached"
+    axes[1].bar(["Convergence"], [conv_val], color=conv_color,
+                edgecolor='black', alpha=0.8)
+    axes[1].set_ylabel("Round")
+    axes[1].set_title(f"{title_prefix} -- Convergence (F1>=0.75)")
+    axes[1].text(0, conv_val + 0.3, conv_label, ha='center', fontsize=9)
+
+    plt.tight_layout()
+    _save(fig, save_path)
+
+
+# ── Helper: Round time per round ──────────────────────────────────────
+def _plot_round_time(df, title_prefix, save_path):
+    """
+    Plot wall-clock time per round to highlight straggler effect.
+    Uses 'round_time_s' column if present.
+    """
+    if "round_time_s" not in df.columns:
+        return
+
+    fig, ax = plt.subplots(figsize=(10, 4))
+    ax.bar(df["round"], df["round_time_s"], color='darkorange',
+           edgecolor='black', alpha=0.75, width=0.6)
+    mean_t = df["round_time_s"].mean()
+    ax.axhline(mean_t, color='red', linestyle='--', linewidth=1.2,
+               label=f"Mean={mean_t:.2f}s")
+    ax.set_xlabel("Round")
+    ax.set_ylabel("Wall-clock time (s)")
+    ax.set_title(f"{title_prefix} -- Round Time (Straggler Effect)")
+    ax.legend(fontsize=8)
+    ax.grid(True, axis='y', alpha=0.3)
+    _save(fig, save_path)
+
+
+# ── Helper: Convergence speed (rounds to reach F1 targets) ────────────
+def _plot_convergence_speed(df, title_prefix, save_path):
+    """
+    Bar chart: rounds needed to first reach F1 targets [0.5, 0.6, 0.75].
+    Shows 'N/A' (bar=0, red) when target is never reached.
+    """
+    targets = [0.5, 0.6, 0.75]
+    conv_rounds = []
+    for tgt in targets:
+        hit = df[df["mean_f1"] >= tgt]["round"]
+        conv_rounds.append(int(hit.iloc[0]) if len(hit) > 0 else -1)
+
+    fig, ax = plt.subplots(figsize=(8, 4))
+    colors = ['mediumseagreen' if c != -1 else 'salmon' for c in conv_rounds]
+    vals   = [c if c != -1 else 0 for c in conv_rounds]
+    labels = [f"F1>={t}" for t in targets]
+    bars   = ax.bar(labels, vals, color=colors, edgecolor='black', alpha=0.85)
+    for bar, c in zip(bars, conv_rounds):
+        txt = str(c) if c != -1 else "N/A"
+        ax.text(bar.get_x() + bar.get_width() / 2,
+                bar.get_height() + 0.3,
+                txt, ha='center', fontsize=10)
+    ax.set_ylabel("Round")
+    ax.set_title(f"{title_prefix} -- Convergence Speed")
+    ax.grid(True, axis='y', alpha=0.3)
+    plt.tight_layout()
+    _save(fig, save_path)
+
+
+# ── Combined comparison plots (after a full group) ────────────────────
+def plot_combined_report(all_results, all_summaries, group_key,
+                         title, save_dir, prefix):
+    """
+    Overlay all sub-experiments of a group on shared axes.
+
+    Args:
+        all_results   : {label: DataFrame}
+        all_summaries : list of summary dicts (each has group_key field)
+        group_key     : str key to use as bar label (e.g. 'alpha', 'size_label')
+        title         : overall title string
+        save_dir      : directory to save PNGs
+        prefix        : filename prefix (e.g. 'expa_combined_mnist')
+    """
+    os.makedirs(save_dir, exist_ok=True)
+
+    def p(name):
+        return os.path.join(save_dir, f"{prefix}_{name}.png")
+
+    # F1 curves overlay
+    plot_f1_curves(all_results,
+                   f"{title} -- F1 Curves (all sub-exps)",
+                   p("f1_curves"))
+
+    # Variance overlay
+    plot_variance(all_results,
+                  f"{title} -- Variance (std F1) (all sub-exps)",
+                  p("variance"))
+
+    # Comm cost overlay
+    plot_comm_cost(all_results,
+                   f"{title} -- Cumulative Comm Cost (all sub-exps)",
+                   p("comm_cost"))
+
+    # Final F1 bar
+    plot_final_bar(all_summaries, group_key,
+                   f"{title} -- Final F1 Comparison",
+                   p("final_bar"))
+
+    print(f"[plot_combined_report] Combined plots saved to {save_dir}/{prefix}_*.png")
 
 
 # ── Topology summary / Hub-Leaf classification ────────────────────────

@@ -21,7 +21,8 @@ from simulator      import DFLSimulator
 from visualizer     import (plot_f1_curves, plot_comm_cost,
                             plot_variance, plot_final_bar,
                             plot_client_heatmap, plot_hub_leaf,
-                            plot_node_costs)
+                            plot_node_costs,
+                            plot_full_report, plot_combined_report)
 
 SAVE_DIR = "./results"
 os.makedirs(SAVE_DIR, exist_ok=True)
@@ -1003,6 +1004,485 @@ def exp10b_fedprox_gossip():
                       "exp10b_fedprox_gossip")
 
 
+# ===================================================================
+# SHARED SETTINGS for EXP A/B/C/D
+# Run command for each sub-exp: python main.py --exp exp_a1
+# ===================================================================
+
+# Common kwargs for all new experiments
+_NEW_EXP_BASE = dict(
+    num_clients  = 10,
+    num_rounds   = 50,
+    local_epochs = 5,
+    eval_every   = 1,
+    batch_size   = 32,
+    lr           = 0.01,
+)
+
+# Both datasets to compare
+_DATASETS = [("mnist", "mnist"), ("cifar10", "cifar")]
+
+
+def _run_new_exp(label, file_prefix, cfg_kwargs):
+    """
+    Helper: run one sub-exp for both mnist and cifar10.
+
+    Saves CSV + 10 plots per dataset.
+    Returns dict {dataset_key: (tracker, df, summary)}.
+    """
+    out = {}
+    for ds_name, ds_tag in _DATASETS:
+        pfx = f"{file_prefix}_{ds_tag}"
+        print(f"\n  >> {label} | dataset={ds_name}")
+        cfg     = make_cfg(dataset=ds_name, **cfg_kwargs)
+        tracker = run_single(cfg)
+        df      = tracker.to_dataframe()
+        tracker.save_csv(f"{SAVE_DIR}/{pfx}_result.csv")
+
+        nodes_info   = tracker.nodes_info
+        client_sizes = tracker.client_sizes
+
+        plot_full_report(
+            tracker      = tracker,
+            nodes_info   = nodes_info,
+            client_sizes = client_sizes,
+            title_prefix = f"{label} ({ds_name})",
+            save_dir     = SAVE_DIR,
+            prefix       = pfx,
+        )
+        s = tracker.summary()
+        print(f"  F1={s['final_f1']:.4f}  Std={s['final_std_f1']:.4f}"
+              f"  Conv={s['convergence_round']}")
+        out[ds_name] = (tracker, df, s)
+    return out
+
+
+# ===================================================================
+# EXP A -- Non-IID alpha sweep (label skew)
+# Fixed: scale_free, fedprox, equal size (default), 10 clients
+# Variable: alpha in [0.05, 0.1, 1.0, 50.0, 100.0]
+# Run: python main.py --exp exp_a1  (through exp_a5)
+# ===================================================================
+
+_EXP_A_BASE = dict(
+    topology  = "scale_free",
+    algorithm = "fedprox",
+    mu        = 0.1,
+    mu_local  = 0.0,
+    mu_agg    = 0.1,
+    size_mode = "default",
+    **_NEW_EXP_BASE,
+)
+
+_EXP_A_CONFIGS = [
+    ("exp_a1", 0.05,  "alpha=0.05"),
+    ("exp_a2", 0.1,   "alpha=0.1"),
+    ("exp_a3", 1.0,   "alpha=1.0"),
+    ("exp_a4", 50.0,  "alpha=50.0"),
+    ("exp_a5", 100.0, "alpha=100.0"),
+]
+
+
+def _run_expa(idx):
+    """
+    Run one sub-exp from EXP A (Non-IID alpha sweep).
+    idx: 0-based index into _EXP_A_CONFIGS (0=exp-a1, 4=exp-a5).
+    """
+    file_prefix, alpha_val, alpha_label = _EXP_A_CONFIGS[idx]
+    exp_name = file_prefix.replace("_", "-")
+    print("\n" + "="*62)
+    print(f"  EXP A -- Non-IID alpha sweep | {exp_name} | {alpha_label}")
+    print(f"  scale_free | fedprox | 10 clients | 50 rounds")
+    print(f"  BOTH mnist and cifar10")
+    print("="*62)
+    cfg_kw = dict(alpha=alpha_val, **_EXP_A_BASE)
+    return _run_new_exp(
+        label       = f"EXP-A ({alpha_label})",
+        file_prefix = file_prefix,
+        cfg_kwargs  = cfg_kw,
+    )
+
+
+def exp_a1(): return _run_expa(0)
+def exp_a2(): return _run_expa(1)
+def exp_a3(): return _run_expa(2)
+def exp_a4(): return _run_expa(3)
+def exp_a5(): return _run_expa(4)
+
+
+def _exp_a_combined(dataset_name, ds_tag):
+    """
+    Combined comparison plot for EXP A: overlay all 5 alpha values.
+    Loads CSVs saved by exp_a1..exp_a5 and plots on shared axes.
+    """
+    import pandas as pd
+    all_results   = {}
+    all_summaries = []
+    for file_prefix, alpha_val, alpha_label in _EXP_A_CONFIGS:
+        pfx = f"{file_prefix}_{ds_tag}"
+        csv_path = f"{SAVE_DIR}/{pfx}_result.csv"
+        if not os.path.exists(csv_path):
+            print(f"  [skip] {csv_path} not found -- run sub-exps first")
+            continue
+        df = pd.read_csv(csv_path)
+        all_results[alpha_label] = df
+        last = df.iloc[-1]
+        hit  = df[df["mean_f1"] >= 0.75]["round"]
+        all_summaries.append({
+            "alpha"             : str(alpha_val),
+            "final_f1"          : float(last["mean_f1"]),
+            "final_std_f1"      : float(last["std_f1"]),
+            "convergence_round" : int(hit.iloc[0]) if len(hit) > 0 else -1,
+        })
+    if not all_results:
+        return
+    plot_combined_report(
+        all_results   = all_results,
+        all_summaries = all_summaries,
+        group_key     = "alpha",
+        title         = f"EXP A -- Non-IID alpha sweep ({dataset_name})",
+        save_dir      = SAVE_DIR,
+        prefix        = f"expa_combined_{ds_tag}",
+    )
+
+
+def exp_a_combined():
+    """
+    Generate combined comparison plots for EXP A (all alpha levels).
+    Run after exp_a1 through exp_a5 have completed.
+    Run: python main.py --exp exp_a_combined
+    """
+    print("\n" + "="*62)
+    print("  EXP A -- Combined: overlay all 5 alpha values")
+    print("="*62)
+    for ds_name, ds_tag in _DATASETS:
+        _exp_a_combined(ds_name, ds_tag)
+
+
+# ===================================================================
+# EXP B -- Quantity skew (size imbalance)
+# Fixed: scale_free, fedprox, alpha=100.0 (IID), 10 clients
+# Variable: size imbalance level
+# Run: python main.py --exp exp_b1  (through exp_b4)
+# ===================================================================
+
+_EXP_B_BASE = dict(
+    topology  = "scale_free",
+    algorithm = "fedprox",
+    mu        = 0.1,
+    mu_local  = 0.0,
+    mu_agg    = 0.1,
+    alpha     = 100.0,
+    **_NEW_EXP_BASE,
+)
+
+_EXP_B_CONFIGS = [
+    # (file_prefix, size_mode, max_diff, size_alpha, max_client_size, label)
+    ("exp_b1", "default",    None,  None, None, "equal (default)"),
+    ("exp_b2", "bounded",    1500,  None, None, "bounded max_diff=1500"),
+    ("exp_b3", "bounded",    3000,  None, None, "bounded max_diff=3000"),
+    ("exp_b4", "imbalanced", None,  0.1,  8000, "imbalanced alpha=0.1 max=8000"),
+]
+
+
+def _run_expb(idx):
+    """
+    Run one sub-exp from EXP B (quantity skew / size imbalance sweep).
+    idx: 0-based index into _EXP_B_CONFIGS (0=exp-b1, 3=exp-b4).
+    """
+    file_prefix, size_mode, max_diff, size_alpha, max_cs, size_label = _EXP_B_CONFIGS[idx]
+    exp_name = file_prefix.replace("_", "-")
+    print("\n" + "="*62)
+    print(f"  EXP B -- Quantity skew | {exp_name} | {size_label}")
+    print(f"  scale_free | fedprox | alpha=100 (IID) | 10 clients")
+    print(f"  BOTH mnist and cifar10")
+    print("="*62)
+    extra = {}
+    if size_mode != "default":
+        extra["size_mode"] = size_mode
+    if max_diff is not None:
+        extra["max_diff"] = max_diff
+    if size_alpha is not None:
+        extra["size_alpha"] = size_alpha
+    if max_cs is not None:
+        extra["max_client_size"] = max_cs
+    cfg_kw = dict(**_EXP_B_BASE, **extra)
+    return _run_new_exp(
+        label       = f"EXP-B ({size_label})",
+        file_prefix = file_prefix,
+        cfg_kwargs  = cfg_kw,
+    )
+
+
+def exp_b1(): return _run_expb(0)
+def exp_b2(): return _run_expb(1)
+def exp_b3(): return _run_expb(2)
+def exp_b4(): return _run_expb(3)
+
+
+def _exp_b_combined(dataset_name, ds_tag):
+    """
+    Combined comparison plot for EXP B: overlay all 4 size configs.
+    """
+    import pandas as pd
+    all_results   = {}
+    all_summaries = []
+    for file_prefix, _sm, _md, _sa, _mc, size_label in _EXP_B_CONFIGS:
+        pfx = f"{file_prefix}_{ds_tag}"
+        csv_path = f"{SAVE_DIR}/{pfx}_result.csv"
+        if not os.path.exists(csv_path):
+            print(f"  [skip] {csv_path} not found -- run sub-exps first")
+            continue
+        df = pd.read_csv(csv_path)
+        all_results[size_label] = df
+        last = df.iloc[-1]
+        hit  = df[df["mean_f1"] >= 0.75]["round"]
+        all_summaries.append({
+            "size_label"        : size_label,
+            "final_f1"          : float(last["mean_f1"]),
+            "final_std_f1"      : float(last["std_f1"]),
+            "convergence_round" : int(hit.iloc[0]) if len(hit) > 0 else -1,
+        })
+    if not all_results:
+        return
+    plot_combined_report(
+        all_results   = all_results,
+        all_summaries = all_summaries,
+        group_key     = "size_label",
+        title         = f"EXP B -- Quantity skew ({dataset_name})",
+        save_dir      = SAVE_DIR,
+        prefix        = f"expb_combined_{ds_tag}",
+    )
+
+
+def exp_b_combined():
+    """
+    Generate combined comparison plots for EXP B (all size configs).
+    Run after exp_b1 through exp_b4 have completed.
+    Run: python main.py --exp exp_b_combined
+    """
+    print("\n" + "="*62)
+    print("  EXP B -- Combined: overlay all 4 size configs")
+    print("="*62)
+    for ds_name, ds_tag in _DATASETS:
+        _exp_b_combined(ds_name, ds_tag)
+
+
+# ===================================================================
+# EXP C -- Label skew + Quantity skew combined
+# Fixed: scale_free, fedprox, 10 clients
+# Variable: (alpha, size) combinations
+# Run: python main.py --exp exp_c1  (through exp_c4)
+# ===================================================================
+
+_EXP_C_BASE = dict(
+    topology  = "scale_free",
+    algorithm = "fedprox",
+    mu        = 0.1,
+    mu_local  = 0.0,
+    mu_agg    = 0.1,
+    **_NEW_EXP_BASE,
+)
+
+_EXP_C_CONFIGS = [
+    # (file_prefix, alpha, size_mode, max_diff, size_alpha, max_cs, label)
+    ("exp_c1", 0.05,  "default",    None, None, None,
+     "label-skew only (alpha=0.05, equal)"),
+    ("exp_c2", 100.0, "imbalanced", None, 0.1,  8000,
+     "qty-skew only (alpha=100, imbalanced)"),
+    ("exp_c3", 0.5,   "bounded",    2500, None, None,
+     "both medium (alpha=0.5, max_diff=2500)"),
+    ("exp_c4", 0.05,  "imbalanced", None, 0.1,  8000,
+     "both worst (alpha=0.05, imbalanced)"),
+]
+
+
+def _run_expc(idx):
+    """
+    Run one sub-exp from EXP C (combined label + quantity skew).
+    idx: 0-based index into _EXP_C_CONFIGS (0=exp-c1, 3=exp-c4).
+    """
+    (file_prefix, alpha_val, size_mode,
+     max_diff, size_alpha, max_cs, comb_label) = _EXP_C_CONFIGS[idx]
+    exp_name = file_prefix.replace("_", "-")
+    print("\n" + "="*62)
+    print(f"  EXP C -- Label+Qty skew | {exp_name} | {comb_label}")
+    print(f"  scale_free | fedprox | 10 clients | 50 rounds")
+    print(f"  BOTH mnist and cifar10")
+    print("="*62)
+    extra = {"alpha": alpha_val}
+    if size_mode != "default":
+        extra["size_mode"] = size_mode
+    if max_diff is not None:
+        extra["max_diff"] = max_diff
+    if size_alpha is not None:
+        extra["size_alpha"] = size_alpha
+    if max_cs is not None:
+        extra["max_client_size"] = max_cs
+    cfg_kw = dict(**_EXP_C_BASE, **extra)
+    return _run_new_exp(
+        label       = f"EXP-C ({comb_label})",
+        file_prefix = file_prefix,
+        cfg_kwargs  = cfg_kw,
+    )
+
+
+def exp_c1(): return _run_expc(0)
+def exp_c2(): return _run_expc(1)
+def exp_c3(): return _run_expc(2)
+def exp_c4(): return _run_expc(3)
+
+
+def _exp_c_combined(dataset_name, ds_tag):
+    """
+    Combined comparison plot for EXP C: overlay all 4 combinations.
+    """
+    import pandas as pd
+    all_results   = {}
+    all_summaries = []
+    for (file_prefix, _a, _sm, _md, _sa, _mc, comb_label) in _EXP_C_CONFIGS:
+        pfx = f"{file_prefix}_{ds_tag}"
+        csv_path = f"{SAVE_DIR}/{pfx}_result.csv"
+        if not os.path.exists(csv_path):
+            print(f"  [skip] {csv_path} not found -- run sub-exps first")
+            continue
+        df = pd.read_csv(csv_path)
+        all_results[comb_label] = df
+        last = df.iloc[-1]
+        hit  = df[df["mean_f1"] >= 0.75]["round"]
+        all_summaries.append({
+            "comb_label"        : comb_label,
+            "final_f1"          : float(last["mean_f1"]),
+            "final_std_f1"      : float(last["std_f1"]),
+            "convergence_round" : int(hit.iloc[0]) if len(hit) > 0 else -1,
+        })
+    if not all_results:
+        return
+    plot_combined_report(
+        all_results   = all_results,
+        all_summaries = all_summaries,
+        group_key     = "comb_label",
+        title         = f"EXP C -- Label+Qty skew ({dataset_name})",
+        save_dir      = SAVE_DIR,
+        prefix        = f"expc_combined_{ds_tag}",
+    )
+
+
+def exp_c_combined():
+    """
+    Generate combined comparison plots for EXP C.
+    Run after exp_c1 through exp_c4 have completed.
+    Run: python main.py --exp exp_c_combined
+    """
+    print("\n" + "="*62)
+    print("  EXP C -- Combined: label + quantity skew combinations")
+    print("="*62)
+    for ds_name, ds_tag in _DATASETS:
+        _exp_c_combined(ds_name, ds_tag)
+
+
+# ===================================================================
+# EXP D -- Topology sweep
+# Fixed: fedprox, alpha=0.1, equal size, 10 clients
+# Variable: topology
+# Run: python main.py --exp exp_d1  (through exp_d5)
+# ===================================================================
+
+_EXP_D_BASE = dict(
+    algorithm = "fedprox",
+    mu        = 0.1,
+    mu_local  = 0.0,
+    mu_agg    = 0.1,
+    alpha     = 0.1,
+    size_mode = "default",
+    **_NEW_EXP_BASE,
+)
+
+_EXP_D_CONFIGS = [
+    # (file_prefix, topology, extra_kw, label)
+    ("exp_d1", "ring",             {},               "ring"),
+    ("exp_d2", "fully_connected",  {},               "fully_connected"),
+    ("exp_d3", "random",           {"random_p": 0.4},"random (p=0.4)"),
+    ("exp_d4", "lattice",          {"lattice_k": 4}, "lattice (k=4)"),
+    ("exp_d5", "scale_free",       {},               "scale_free"),
+]
+
+
+def _run_expd(idx):
+    """
+    Run one sub-exp from EXP D (topology sweep).
+    idx: 0-based index into _EXP_D_CONFIGS (0=exp-d1, 4=exp-d5).
+    """
+    file_prefix, topo, extra_kw, topo_label = _EXP_D_CONFIGS[idx]
+    exp_name = file_prefix.replace("_", "-")
+    print("\n" + "="*62)
+    print(f"  EXP D -- Topology sweep | {exp_name} | {topo_label}")
+    print(f"  fedprox | alpha=0.1 | equal size | 10 clients | 50 rounds")
+    print(f"  BOTH mnist and cifar10")
+    print("="*62)
+    cfg_kw = dict(topology=topo, **_EXP_D_BASE, **extra_kw)
+    return _run_new_exp(
+        label       = f"EXP-D ({topo_label})",
+        file_prefix = file_prefix,
+        cfg_kwargs  = cfg_kw,
+    )
+
+
+def exp_d1(): return _run_expd(0)
+def exp_d2(): return _run_expd(1)
+def exp_d3(): return _run_expd(2)
+def exp_d4(): return _run_expd(3)
+def exp_d5(): return _run_expd(4)
+
+
+def _exp_d_combined(dataset_name, ds_tag):
+    """
+    Combined comparison plot for EXP D: overlay all 5 topologies.
+    """
+    import pandas as pd
+    all_results   = {}
+    all_summaries = []
+    for file_prefix, _t, _e, topo_label in _EXP_D_CONFIGS:
+        pfx = f"{file_prefix}_{ds_tag}"
+        csv_path = f"{SAVE_DIR}/{pfx}_result.csv"
+        if not os.path.exists(csv_path):
+            print(f"  [skip] {csv_path} not found -- run sub-exps first")
+            continue
+        df = pd.read_csv(csv_path)
+        all_results[topo_label] = df
+        last = df.iloc[-1]
+        hit  = df[df["mean_f1"] >= 0.75]["round"]
+        all_summaries.append({
+            "topology"          : topo_label,
+            "final_f1"          : float(last["mean_f1"]),
+            "final_std_f1"      : float(last["std_f1"]),
+            "convergence_round" : int(hit.iloc[0]) if len(hit) > 0 else -1,
+        })
+    if not all_results:
+        return
+    plot_combined_report(
+        all_results   = all_results,
+        all_summaries = all_summaries,
+        group_key     = "topology",
+        title         = f"EXP D -- Topology sweep ({dataset_name})",
+        save_dir      = SAVE_DIR,
+        prefix        = f"expd_combined_{ds_tag}",
+    )
+
+
+def exp_d_combined():
+    """
+    Generate combined comparison plots for EXP D (all topologies).
+    Run after exp_d1 through exp_d5 have completed.
+    Run: python main.py --exp exp_d_combined
+    """
+    print("\n" + "="*62)
+    print("  EXP D -- Combined: overlay all 5 topologies")
+    print("="*62)
+    for ds_name, ds_tag in _DATASETS:
+        _exp_d_combined(ds_name, ds_tag)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="DFL Experiments")
     parser.add_argument("--exp", default="all",
@@ -1011,6 +1491,14 @@ if __name__ == "__main__":
                                  "exp6", "exp7", "exp8", "test",
                                  "exp9a", "exp9b", "exp9c", "exp9d", "exp9e", "exp9f",
                                  "exp10a", "exp10b",
+                                 "exp_a1", "exp_a2", "exp_a3", "exp_a4", "exp_a5",
+                                 "exp_a_combined",
+                                 "exp_b1", "exp_b2", "exp_b3", "exp_b4",
+                                 "exp_b_combined",
+                                 "exp_c1", "exp_c2", "exp_c3", "exp_c4",
+                                 "exp_c_combined",
+                                 "exp_d1", "exp_d2", "exp_d3", "exp_d4", "exp_d5",
+                                 "exp_d_combined",
                                  "all_long", "all"])
     args = parser.parse_args()
 
@@ -1032,5 +1520,31 @@ if __name__ == "__main__":
     if args.exp in ("exp9f",):           exp9f_fedprox_gossip()
     if args.exp in ("exp10a",):          exp10a_fedprox_fedavg()
     if args.exp in ("exp10b",):          exp10b_fedprox_gossip()
+    # EXP A -- Non-IID alpha sweep
+    if args.exp in ("exp_a1",):          exp_a1()
+    if args.exp in ("exp_a2",):          exp_a2()
+    if args.exp in ("exp_a3",):          exp_a3()
+    if args.exp in ("exp_a4",):          exp_a4()
+    if args.exp in ("exp_a5",):          exp_a5()
+    if args.exp in ("exp_a_combined",):  exp_a_combined()
+    # EXP B -- Quantity skew
+    if args.exp in ("exp_b1",):          exp_b1()
+    if args.exp in ("exp_b2",):          exp_b2()
+    if args.exp in ("exp_b3",):          exp_b3()
+    if args.exp in ("exp_b4",):          exp_b4()
+    if args.exp in ("exp_b_combined",):  exp_b_combined()
+    # EXP C -- Label + Quantity skew combined
+    if args.exp in ("exp_c1",):          exp_c1()
+    if args.exp in ("exp_c2",):          exp_c2()
+    if args.exp in ("exp_c3",):          exp_c3()
+    if args.exp in ("exp_c4",):          exp_c4()
+    if args.exp in ("exp_c_combined",):  exp_c_combined()
+    # EXP D -- Topology sweep
+    if args.exp in ("exp_d1",):          exp_d1()
+    if args.exp in ("exp_d2",):          exp_d2()
+    if args.exp in ("exp_d3",):          exp_d3()
+    if args.exp in ("exp_d4",):          exp_d4()
+    if args.exp in ("exp_d5",):          exp_d5()
+    if args.exp in ("exp_d_combined",):  exp_d_combined()
 
-    print(f"\n[DONE] Kết quả lưu tại: {SAVE_DIR}/")
+    print(f"\n[DONE] Ket qua luu tai: {SAVE_DIR}/")

@@ -33,25 +33,69 @@ class SimpleCNN(nn.Module):
     """
     def __init__(self, num_classes=10):
         super().__init__()
-        self.conv1 = nn.Conv2d(1, 32, kernel_size=3, padding=1)   # (B,32,28,28)
-        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, padding=1)  # (B,64,14,14)
-        self.pool  = nn.MaxPool2d(2)                               # giảm 1/2
-        self.drop  = nn.Dropout(0.25)                              # chống overfit
-        self.fc1   = nn.Linear(64 * 7 * 7, 128)                   # 3136 → 128
-        self.fc2   = nn.Linear(128, num_classes)                   # 128 → 10
+        self.conv1 = nn.Conv2d(1, 32, kernel_size=3, padding=1)
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, padding=1)
+        self.pool  = nn.MaxPool2d(2)
+        self.drop  = nn.Dropout(0.25)
+        self.fc1   = nn.Linear(64 * 7 * 7, 128)
+        self.fc2   = nn.Linear(128, num_classes)
 
     def forward(self, x):
-        x = self.pool(F.relu(self.conv1(x)))   # (B,32,28,28) → (B,32,14,14)
-        x = self.pool(F.relu(self.conv2(x)))   # (B,64,14,14) → (B,64,7,7)
-        x = x.view(x.size(0), -1)             # flatten → (B,3136)
-        x = F.relu(self.fc1(self.drop(x)))     # (B,3136) → (B,128)
-        return self.fc2(x)                     # (B,128)  → (B,10)
+        x = self.pool(F.relu(self.conv1(x)))
+        x = self.pool(F.relu(self.conv2(x)))
+        x = x.view(x.size(0), -1)
+        x = F.relu(self.fc1(self.drop(x)))
+        return self.fc2(x)
+
+
+class CifarCNN(nn.Module):
+    """
+    CNN cho CIFAR-10.
+    Input:  (B, 3, 32, 32)  — ảnh màu RGB
+    Output: (B, 10)         — logits 10 class
+    Params: ~1.2M
+    3 conv blocks + BN + Dropout để handle CIFAR phức tạp hơn MNIST.
+    """
+    def __init__(self, num_classes=10):
+        super().__init__()
+        # Block 1
+        self.conv1 = nn.Conv2d(3, 64, kernel_size=3, padding=1)
+        self.bn1   = nn.BatchNorm2d(64)
+        self.conv2 = nn.Conv2d(64, 64, kernel_size=3, padding=1)
+        self.bn2   = nn.BatchNorm2d(64)
+        self.pool1 = nn.MaxPool2d(2)   # 32→16
+        # Block 2
+        self.conv3 = nn.Conv2d(64, 128, kernel_size=3, padding=1)
+        self.bn3   = nn.BatchNorm2d(128)
+        self.conv4 = nn.Conv2d(128, 128, kernel_size=3, padding=1)
+        self.bn4   = nn.BatchNorm2d(128)
+        self.pool2 = nn.MaxPool2d(2)   # 16→8
+        # Block 3
+        self.conv5 = nn.Conv2d(128, 256, kernel_size=3, padding=1)
+        self.bn5   = nn.BatchNorm2d(256)
+        self.pool3 = nn.MaxPool2d(2)   # 8→4
+        # FC
+        self.drop  = nn.Dropout(0.4)
+        self.fc1   = nn.Linear(256 * 4 * 4, 512)
+        self.fc2   = nn.Linear(512, num_classes)
+
+    def forward(self, x):
+        x = F.relu(self.bn1(self.conv1(x)))
+        x = self.pool1(F.relu(self.bn2(self.conv2(x))))
+        x = F.relu(self.bn3(self.conv3(x)))
+        x = self.pool2(F.relu(self.bn4(self.conv4(x))))
+        x = self.pool3(F.relu(self.bn5(self.conv5(x))))
+        x = x.view(x.size(0), -1)
+        x = F.relu(self.fc1(self.drop(x)))
+        return self.fc2(x)
 
 
 def get_model(dataset_name='mnist', num_classes=10):
     """Tạo model phù hợp với dataset."""
     if dataset_name.lower() in ('mnist', 'fashionmnist'):
         return SimpleCNN(num_classes=num_classes)
+    if dataset_name.lower() == 'cifar10':
+        return CifarCNN(num_classes=num_classes)
     raise ValueError(f"Chua ho tro dataset: {dataset_name}")
 
 
@@ -225,7 +269,7 @@ def fedprox_gossip_aggregate(own_weights, neighbor_weights,
     return result
 
 
-def fedprox_fedavg_aggregate(own_weights, neighbor_weights,
+def fedprox_aggregate(own_weights, neighbor_weights,
                              sizes_list, mu=0.1, w_anchor=None):
     """
     FedProx-FedAvg Aggregate — công thức mới cho DFL (exp9e).
