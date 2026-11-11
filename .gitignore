@@ -31,3 +31,7 @@ _smoke*.txt
 
 # Agent tasks
 .agents/
+
+# File test local (khong up len git)
+test_mu_comparison.py
+results/test_mu/
