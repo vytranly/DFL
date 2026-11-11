@@ -55,6 +55,15 @@ python main.py --exp <ten_exp> --dataset <both|mnist|cifar10>
 | `python main.py --exp exp_d5 --dataset mnist` | scale_free | ~1.5h |
 | `python main.py --exp exp_d_combined` | Tong hop sau khi d1-d5 xong | ~30s |
 
+## EXP E -- Algorithm sweep (Gossip vs FedAvg vs FedProx)
+
+| Lenh | Mo ta | Thoi gian |
+|------|-------|-----------|
+| `python main.py --exp exp_e1 --dataset mnist` | Gossip | ~1.5h |
+| `python main.py --exp exp_e2 --dataset mnist` | FedAvg | ~1.5h |
+| `python main.py --exp exp_e3 --dataset mnist` | FedProx (mu=0.1) | ~1.5h |
+| `python main.py --exp exp_e_combined` | Tong hop sau khi e1-e3 xong | ~30s |
+
 ## Chay song song (khuyen nghi)
 
 Mo nhieu terminal, moi terminal 1 sub-exp:
