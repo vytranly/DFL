@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.env
+
+# Data (tu dong tai xuong khi chay)
+data/MNIST/
+data/CIFAR-10/
+data/cifar-10-batches-py/
+
+# Ket qua thi nghiem (khong up len git - qua nang)
+results/*.png
+results/*.csv
+results/*.pkl
+results/*.log
+results/*.json
+results/*.txt
+results/p2p_partitions/
+
+# Script tam thoi
+_fix_*.py
+_find_*.py
+_smoke*.py
+_smoke*.txt
+
+# IDE
+.vscode/
+.idea/
+
+# Agent tasks
+.agents/
