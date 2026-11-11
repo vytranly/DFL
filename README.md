@@ -13,6 +13,37 @@ cd code_dfl_main/DFL
 python main.py --exp <ten_exp> --dataset <both|mnist|cifar10>
 ```
 
+---
+
+## Lenh chay nhanh -- Chay ca nhom (all_X)
+
+Chay toan bo mot nhom thi nghiem tuan tu (tu dong goi combined khi xong):
+
+```bash
+# Chay full EXP A (a1->a2->a3->a4->a5->combined)
+python main.py --exp all_a --dataset mnist
+python main.py --exp all_a --dataset cifar10
+python main.py --exp all_a                   # ca 2 dataset
+
+# Chay full EXP B
+python main.py --exp all_b --dataset mnist
+python main.py --exp all_b --dataset cifar10
+
+# Chay full EXP C
+python main.py --exp all_c --dataset mnist
+python main.py --exp all_c --dataset cifar10
+
+# Chay full EXP D
+python main.py --exp all_d --dataset mnist
+python main.py --exp all_d --dataset cifar10
+
+# Chay full EXP E
+python main.py --exp all_e --dataset mnist
+python main.py --exp all_e --dataset cifar10
+```
+
+---
+
 ## EXP A -- Non-IID alpha sweep (label skew)
 
 | Lenh | Mo ta | Thoi gian |
@@ -23,6 +54,7 @@ python main.py --exp <ten_exp> --dataset <both|mnist|cifar10>
 | `python main.py --exp exp_a4 --dataset mnist` | alpha=50.0 Gan IID | ~1.5h |
 | `python main.py --exp exp_a5 --dataset mnist` | alpha=100.0 IID hoan toan | ~1.5h |
 | `python main.py --exp exp_a_combined` | Tong hop sau khi a1-a5 xong | ~30s |
+| `python main.py --exp all_a --dataset mnist` | **Chay tuan tu a1->a5->combined** | ~8h |
 
 ## EXP B -- Quantity skew (size imbalance)
 
@@ -33,6 +65,7 @@ python main.py --exp <ten_exp> --dataset <both|mnist|cifar10>
 | `python main.py --exp exp_b3 --dataset mnist` | Size lech trung binh (diff<=3000) | ~1.5h |
 | `python main.py --exp exp_b4 --dataset mnist` | Size lech manh (size_alpha=0.1) | ~1.5h |
 | `python main.py --exp exp_b_combined` | Tong hop sau khi b1-b4 xong | ~30s |
+| `python main.py --exp all_b --dataset mnist` | **Chay tuan tu b1->b4->combined** | ~6h |
 
 ## EXP C -- Label + Quantity skew ket hop
 
@@ -43,6 +76,7 @@ python main.py --exp <ten_exp> --dataset <both|mnist|cifar10>
 | `python main.py --exp exp_c3 --dataset mnist` | Ca 2 muc trung binh | ~1.5h |
 | `python main.py --exp exp_c4 --dataset mnist` | Ca 2 muc nang nhat | ~1.5h |
 | `python main.py --exp exp_c_combined` | Tong hop sau khi c1-c4 xong | ~30s |
+| `python main.py --exp all_c --dataset mnist` | **Chay tuan tu c1->c4->combined** | ~6h |
 
 ## EXP D -- Topology sweep
 
@@ -54,6 +88,7 @@ python main.py --exp <ten_exp> --dataset <both|mnist|cifar10>
 | `python main.py --exp exp_d4 --dataset mnist` | lattice | ~1.5h |
 | `python main.py --exp exp_d5 --dataset mnist` | scale_free | ~1.5h |
 | `python main.py --exp exp_d_combined` | Tong hop sau khi d1-d5 xong | ~30s |
+| `python main.py --exp all_d --dataset mnist` | **Chay tuan tu d1->d5->combined** | ~8h |
 
 ## EXP E -- Algorithm sweep (Gossip vs FedAvg vs FedProx)
 
@@ -63,8 +98,11 @@ python main.py --exp <ten_exp> --dataset <both|mnist|cifar10>
 | `python main.py --exp exp_e2 --dataset mnist` | FedAvg | ~1.5h |
 | `python main.py --exp exp_e3 --dataset mnist` | FedProx (mu=0.1) | ~1.5h |
 | `python main.py --exp exp_e_combined` | Tong hop sau khi e1-e3 xong | ~30s |
+| `python main.py --exp all_e --dataset mnist` | **Chay tuan tu e1->e3->combined** | ~5h |
 
-## Chay song song (khuyen nghi)
+---
+
+## Chay song song (khuyen nghi khi co nhieu GPU/CPU)
 
 Mo nhieu terminal, moi terminal 1 sub-exp:
 
@@ -79,6 +117,14 @@ python main.py --exp exp_a2 --dataset mnist
 python main.py --exp exp_a3 --dataset mnist
 ...
 ```
+
+Sau khi tat ca sub-exp xong, chay combined de tong hop:
+
+```bash
+python main.py --exp exp_a_combined
+```
+
+---
 
 ## Output
 
