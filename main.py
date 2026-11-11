@@ -1104,11 +1104,63 @@ def _run_expa(idx):
     )
 
 
-def exp_a1(): return _run_expa(0)
-def exp_a2(): return _run_expa(1)
-def exp_a3(): return _run_expa(2)
-def exp_a4(): return _run_expa(3)
-def exp_a5(): return _run_expa(4)
+def exp_a1():
+    """
+    EXP A1 -- Non-IID cuc manh (alpha=0.05).
+    Moi client chi co 1-2 class, gradient keo nguoc nhau hoan toan.
+
+    Lenh chay:
+      python main.py --exp exp_a1                  # ca 2 dataset
+      python main.py --exp exp_a1 --dataset mnist   # chi MNIST (~1.5h)
+      python main.py --exp exp_a1 --dataset cifar10 # chi CIFAR-10 (~2.5h)
+
+    Output: results/exp_a1_mnist_*.png + results/exp_a1_cifar_*.png (10 bieu do moi)
+    """
+    return _run_expa(0)
+
+def exp_a2():
+    """
+    EXP A2 -- Non-IID manh (alpha=0.1).
+    Moi client tap trung 2-3 class chinh.
+
+    Lenh chay:
+      python main.py --exp exp_a2 --dataset mnist
+      python main.py --exp exp_a2 --dataset cifar10
+    """
+    return _run_expa(1)
+
+def exp_a3():
+    """
+    EXP A3 -- Non-IID trung binh (alpha=1.0).
+    Diem be gay: tu day tro di F1 tang ro ret.
+
+    Lenh chay:
+      python main.py --exp exp_a3 --dataset mnist
+      python main.py --exp exp_a3 --dataset cifar10
+    """
+    return _run_expa(2)
+
+def exp_a4():
+    """
+    EXP A4 -- Gan IID (alpha=50.0).
+    Phan phoi class kha dong deu, convergence tot.
+
+    Lenh chay:
+      python main.py --exp exp_a4 --dataset mnist
+      python main.py --exp exp_a4 --dataset cifar10
+    """
+    return _run_expa(3)
+
+def exp_a5():
+    """
+    EXP A5 -- IID hoan toan (alpha=100.0).
+    Upper bound cua he thong. Dung lam baseline so sanh.
+
+    Lenh chay:
+      python main.py --exp exp_a5 --dataset mnist
+      python main.py --exp exp_a5 --dataset cifar10
+    """
+    return _run_expa(4)
 
 
 def _exp_a_combined(dataset_name, ds_tag):
@@ -1152,9 +1204,19 @@ def _exp_a_combined(dataset_name, ds_tag):
 
 def exp_a_combined():
     """
-    Generate combined plots for EXP A (all alpha levels).
-    Run after exp_a1 through exp_a5 have completed.
-    Run: python main.py --exp exp_a_combined
+    Tong hop EXP A: overlay 5 muc alpha tren cung bieu do.
+    PHAI chay sau khi da co it nhat 1 sub-exp (exp_a1..exp_a5).
+    Sub-exp nao chua chay se bi bo qua tu dong.
+
+    Lenh chay (sau khi cac sub-exp xong):
+      python main.py --exp exp_a_combined             # ca 2 dataset + cross-dataset
+      python main.py --exp exp_a_combined --dataset mnist   # chi MNIST
+      python main.py --exp exp_a_combined --dataset cifar10 # chi CIFAR
+
+    Output (7 bieu do per dataset + 3 cross-dataset):
+      results/expa_combined_mnist_*.png
+      results/expa_combined_cifar_*.png
+      results/expa_cross_*.png  (so sanh MNIST vs CIFAR-10)
     """
     print("\n" + "="*62)
     print("  EXP A -- Combined: overlay all 5 alpha values")
@@ -1231,10 +1293,49 @@ def _run_expb(idx):
     )
 
 
-def exp_b1(): return _run_expb(0)
-def exp_b2(): return _run_expb(1)
-def exp_b3(): return _run_expb(2)
-def exp_b4(): return _run_expb(3)
+def exp_b1():
+    """
+    EXP B1 -- Size bang nhau (~6000 mau/client), label IID.
+    Baseline khong co straggler. Training cost deu nhau.
+
+    Lenh chay:
+      python main.py --exp exp_b1 --dataset mnist
+      python main.py --exp exp_b1 --dataset cifar10
+    """
+    return _run_expb(0)
+
+def exp_b2():
+    """
+    EXP B2 -- Size lech nhe (max_diff=1500, ~5250-7500 mau/client).
+    Straggler effect bat dau xuat hien nhe.
+
+    Lenh chay:
+      python main.py --exp exp_b2 --dataset mnist
+      python main.py --exp exp_b2 --dataset cifar10
+    """
+    return _run_expb(1)
+
+def exp_b3():
+    """
+    EXP B3 -- Size lech trung binh (max_diff=3000, ~4500-7500 mau/client).
+    Round time tang ro vi straggler.
+
+    Lenh chay:
+      python main.py --exp exp_b3 --dataset mnist
+      python main.py --exp exp_b3 --dataset cifar10
+    """
+    return _run_expb(2)
+
+def exp_b4():
+    """
+    EXP B4 -- Size lech manh (size_alpha=0.1, ~200-8000 mau/client).
+    Worst case: gap training cost >10x giua client lon nhat va nho nhat.
+
+    Lenh chay:
+      python main.py --exp exp_b4 --dataset mnist
+      python main.py --exp exp_b4 --dataset cifar10
+    """
+    return _run_expb(3)
 
 
 def _exp_b_combined(dataset_name, ds_tag):
@@ -1277,9 +1378,14 @@ def _exp_b_combined(dataset_name, ds_tag):
 
 def exp_b_combined():
     """
-    Generate combined plots for EXP B (all size configs).
-    Run after exp_b1 through exp_b4 have completed.
-    Run: python main.py --exp exp_b_combined
+    Tong hop EXP B: overlay 4 muc size imbalance.
+    PHAI chay sau khi da co it nhat 1 sub-exp (exp_b1..exp_b4).
+
+    Lenh chay:
+      python main.py --exp exp_b_combined
+      python main.py --exp exp_b_combined --dataset mnist
+
+    Output: results/expb_combined_*.png + results/expb_cross_*.png
     """
     print("\n" + "="*62)
     print("  EXP B -- Combined: overlay all 4 size configs")
@@ -1360,10 +1466,49 @@ def _run_expc(idx):
     )
 
 
-def exp_c1(): return _run_expc(0)
-def exp_c2(): return _run_expc(1)
-def exp_c3(): return _run_expc(2)
-def exp_c4(): return _run_expc(3)
+def exp_c1():
+    """
+    EXP C1 -- Chi label skew (alpha=0.05, size equal).
+    Baseline: chi co Non-IID label, khong co size imbalance.
+
+    Lenh chay:
+      python main.py --exp exp_c1 --dataset mnist
+      python main.py --exp exp_c1 --dataset cifar10
+    """
+    return _run_expc(0)
+
+def exp_c2():
+    """
+    EXP C2 -- Chi quantity skew (alpha=100 IID, size imbalanced).
+    Baseline: chi co size lech, label IID.
+
+    Lenh chay:
+      python main.py --exp exp_c2 --dataset mnist
+      python main.py --exp exp_c2 --dataset cifar10
+    """
+    return _run_expc(1)
+
+def exp_c3():
+    """
+    EXP C3 -- Ca 2 muc trung binh (alpha=0.5, bounded max_diff=2500).
+    Realistic: giong du lieu thuc te nhat.
+
+    Lenh chay:
+      python main.py --exp exp_c3 --dataset mnist
+      python main.py --exp exp_c3 --dataset cifar10
+    """
+    return _run_expc(2)
+
+def exp_c4():
+    """
+    EXP C4 -- Ca 2 muc nang nhat (alpha=0.05, size imbalanced).
+    Worst case: label cuc Non-IID + size lech manh cung luc.
+
+    Lenh chay:
+      python main.py --exp exp_c4 --dataset mnist
+      python main.py --exp exp_c4 --dataset cifar10
+    """
+    return _run_expc(3)
 
 
 def _exp_c_combined(dataset_name, ds_tag):
@@ -1406,9 +1551,14 @@ def _exp_c_combined(dataset_name, ds_tag):
 
 def exp_c_combined():
     """
-    Generate combined plots for EXP C.
-    Run after exp_c1 through exp_c4 have completed.
-    Run: python main.py --exp exp_c_combined
+    Tong hop EXP C: overlay 4 to hop label+size skew.
+    PHAI chay sau khi da co it nhat 1 sub-exp (exp_c1..exp_c4).
+
+    Lenh chay:
+      python main.py --exp exp_c_combined
+      python main.py --exp exp_c_combined --dataset mnist
+
+    Output: results/expc_combined_*.png + results/expc_cross_*.png
     """
     print("\n" + "="*62)
     print("  EXP C -- Combined: label + quantity skew combinations")
@@ -1477,11 +1627,63 @@ def _run_expd(idx):
     )
 
 
-def exp_d1(): return _run_expd(0)
-def exp_d2(): return _run_expd(1)
-def exp_d3(): return _run_expd(2)
-def exp_d4(): return _run_expd(3)
-def exp_d5(): return _run_expd(4)
+def exp_d1():
+    """
+    EXP D1 -- Topology: ring.
+    2 neighbor/node, spectral gap thap nhat -> hoi tu cham nhat.
+    Comm cost thap nhat (2N edges).
+
+    Lenh chay:
+      python main.py --exp exp_d1 --dataset mnist
+      python main.py --exp exp_d1 --dataset cifar10
+    """
+    return _run_expd(0)
+
+def exp_d2():
+    """
+    EXP D2 -- Topology: fully_connected.
+    Moi node noi voi tat ca -> spectral gap = 1.0 -> hoi tu nhanh nhat.
+    Comm cost cao nhat (N*(N-1)/2 edges).
+
+    Lenh chay:
+      python main.py --exp exp_d2 --dataset mnist
+      python main.py --exp exp_d2 --dataset cifar10
+    """
+    return _run_expd(1)
+
+def exp_d3():
+    """
+    EXP D3 -- Topology: random (Erdos-Renyi p=0.4).
+    Degree phan bo ngau nhien, co hub/leaf nhe. Trung binh.
+
+    Lenh chay:
+      python main.py --exp exp_d3 --dataset mnist
+      python main.py --exp exp_d3 --dataset cifar10
+    """
+    return _run_expd(2)
+
+def exp_d4():
+    """
+    EXP D4 -- Topology: lattice (Watts-Strogatz k=4).
+    Mang luoi deu, moi node degree=4, khong co hub/leaf.
+
+    Lenh chay:
+      python main.py --exp exp_d4 --dataset mnist
+      python main.py --exp exp_d4 --dataset cifar10
+    """
+    return _run_expd(3)
+
+def exp_d5():
+    """
+    EXP D5 -- Topology: scale_free (Barabasi-Albert).
+    Hub/Leaf ro rang nhat. Spectral gap thap -> hoi tu cham.
+    Thich hop nhat de quan sat biet biet Hub vs Leaf F1.
+
+    Lenh chay:
+      python main.py --exp exp_d5 --dataset mnist
+      python main.py --exp exp_d5 --dataset cifar10
+    """
+    return _run_expd(4)
 
 
 def _exp_d_combined(dataset_name, ds_tag):
@@ -1524,9 +1726,14 @@ def _exp_d_combined(dataset_name, ds_tag):
 
 def exp_d_combined():
     """
-    Generate combined plots for EXP D (all topologies).
-    Run after exp_d1 through exp_d5 have completed.
-    Run: python main.py --exp exp_d_combined
+    Tong hop EXP D: overlay 5 topology.
+    PHAI chay sau khi da co it nhat 1 sub-exp (exp_d1..exp_d5).
+
+    Lenh chay:
+      python main.py --exp exp_d_combined
+      python main.py --exp exp_d_combined --dataset mnist
+
+    Output: results/expd_combined_*.png + results/expd_cross_*.png
     """
     print("\n" + "="*62)
     print("  EXP D -- Combined: overlay all 5 topologies")
