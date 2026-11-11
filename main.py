@@ -1565,7 +1565,18 @@ if __name__ == "__main__":
                                  "exp_d1", "exp_d2", "exp_d3", "exp_d4", "exp_d5",
                                  "exp_d_combined",
                                  "all_long", "all"])
+    parser.add_argument("--dataset", default="both",
+                        choices=["both", "mnist", "cifar10"],
+                        help="Dataset to run: both (default), mnist only, or cifar10 only")
     args = parser.parse_args()
+
+    # Filter _DATASETS based on --dataset flag
+    import main as _self
+    if args.dataset == "mnist":
+        _self._DATASETS = [("mnist", "mnist")]
+    elif args.dataset == "cifar10":
+        _self._DATASETS = [("cifar10", "cifar")]
+    # else: both (default, no change)
 
     if args.exp in ("baseline",  "all"): exp_baseline()
     if args.exp in ("noniid",    "all"): exp_noniid()
