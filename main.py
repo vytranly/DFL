@@ -22,7 +22,8 @@ from visualizer     import (plot_f1_curves, plot_comm_cost,
                             plot_variance, plot_final_bar,
                             plot_client_heatmap, plot_hub_leaf,
                             plot_node_costs,
-                            plot_full_report, plot_combined_report)
+                            plot_full_report, plot_combined_report,
+                            plot_cross_dataset)
 
 SAVE_DIR = "./results"
 os.makedirs(SAVE_DIR, exist_ok=True)
@@ -1137,7 +1138,7 @@ def _exp_a_combined(dataset_name, ds_tag):
             "_df"               : df,
         })
     if not all_results:
-        return
+        return [], {}
     plot_combined_report(
         all_results   = all_results,
         all_summaries = all_summaries,
@@ -1146,19 +1147,33 @@ def _exp_a_combined(dataset_name, ds_tag):
         save_dir      = SAVE_DIR,
         prefix        = f"expa_combined_{ds_tag}",
     )
+    return all_summaries, all_results
 
 
 def exp_a_combined():
     """
-    Generate combined comparison plots for EXP A (all alpha levels).
+    Generate combined plots for EXP A (all alpha levels).
     Run after exp_a1 through exp_a5 have completed.
     Run: python main.py --exp exp_a_combined
     """
     print("\n" + "="*62)
     print("  EXP A -- Combined: overlay all 5 alpha values")
     print("="*62)
+    summaries_per_ds = {}
     for ds_name, ds_tag in _DATASETS:
-        _exp_a_combined(ds_name, ds_tag)
+        s = _exp_a_combined(ds_name, ds_tag)
+        summaries_per_ds[ds_tag] = s
+    # Cross-dataset comparison
+    if "mnist" in summaries_per_ds and "cifar" in summaries_per_ds:
+        mnist_s, mnist_r = summaries_per_ds["mnist"]
+        cifar_s, cifar_r = summaries_per_ds["cifar"]
+        plot_cross_dataset(
+            mnist_results=mnist_r, cifar_results=cifar_r,
+            mnist_summaries=mnist_s, cifar_summaries=cifar_s,
+            group_key="alpha",
+            title="EXP A -- Non-IID alpha sweep",
+            save_dir=SAVE_DIR, prefix="expa",
+        )
 
 
 # ===================================================================
@@ -1248,7 +1263,7 @@ def _exp_b_combined(dataset_name, ds_tag):
             "_df"               : df,
         })
     if not all_results:
-        return
+        return [], {}
     plot_combined_report(
         all_results   = all_results,
         all_summaries = all_summaries,
@@ -1257,19 +1272,33 @@ def _exp_b_combined(dataset_name, ds_tag):
         save_dir      = SAVE_DIR,
         prefix        = f"expb_combined_{ds_tag}",
     )
+    return all_summaries, all_results
 
 
 def exp_b_combined():
     """
-    Generate combined comparison plots for EXP B (all size configs).
+    Generate combined plots for EXP B (all size configs).
     Run after exp_b1 through exp_b4 have completed.
     Run: python main.py --exp exp_b_combined
     """
     print("\n" + "="*62)
     print("  EXP B -- Combined: overlay all 4 size configs")
     print("="*62)
+    summaries_per_ds = {}
     for ds_name, ds_tag in _DATASETS:
-        _exp_b_combined(ds_name, ds_tag)
+        s = _exp_b_combined(ds_name, ds_tag)
+        summaries_per_ds[ds_tag] = s
+    if "mnist" in summaries_per_ds and "cifar" in summaries_per_ds:
+        mnist_s, mnist_r = summaries_per_ds["mnist"]
+        cifar_s, cifar_r = summaries_per_ds["cifar"]
+        if mnist_s and cifar_s:
+            plot_cross_dataset(
+                mnist_results=mnist_r, cifar_results=cifar_r,
+                mnist_summaries=mnist_s, cifar_summaries=cifar_s,
+                group_key="size_label",
+                title="EXP B -- Quantity skew",
+                save_dir=SAVE_DIR, prefix="expb",
+            )
 
 
 # ===================================================================
@@ -1363,7 +1392,7 @@ def _exp_c_combined(dataset_name, ds_tag):
             "_df"               : df,
         })
     if not all_results:
-        return
+        return [], {}
     plot_combined_report(
         all_results   = all_results,
         all_summaries = all_summaries,
@@ -1372,19 +1401,33 @@ def _exp_c_combined(dataset_name, ds_tag):
         save_dir      = SAVE_DIR,
         prefix        = f"expc_combined_{ds_tag}",
     )
+    return all_summaries, all_results
 
 
 def exp_c_combined():
     """
-    Generate combined comparison plots for EXP C.
+    Generate combined plots for EXP C.
     Run after exp_c1 through exp_c4 have completed.
     Run: python main.py --exp exp_c_combined
     """
     print("\n" + "="*62)
     print("  EXP C -- Combined: label + quantity skew combinations")
     print("="*62)
+    summaries_per_ds = {}
     for ds_name, ds_tag in _DATASETS:
-        _exp_c_combined(ds_name, ds_tag)
+        s = _exp_c_combined(ds_name, ds_tag)
+        summaries_per_ds[ds_tag] = s
+    if "mnist" in summaries_per_ds and "cifar" in summaries_per_ds:
+        mnist_s, mnist_r = summaries_per_ds["mnist"]
+        cifar_s, cifar_r = summaries_per_ds["cifar"]
+        if mnist_s and cifar_s:
+            plot_cross_dataset(
+                mnist_results=mnist_r, cifar_results=cifar_r,
+                mnist_summaries=mnist_s, cifar_summaries=cifar_s,
+                group_key="comb_label",
+                title="EXP C -- Label+Qty skew",
+                save_dir=SAVE_DIR, prefix="expc",
+            )
 
 
 # ===================================================================
@@ -1467,7 +1510,7 @@ def _exp_d_combined(dataset_name, ds_tag):
             "_df"               : df,
         })
     if not all_results:
-        return
+        return [], {}
     plot_combined_report(
         all_results   = all_results,
         all_summaries = all_summaries,
@@ -1476,19 +1519,33 @@ def _exp_d_combined(dataset_name, ds_tag):
         save_dir      = SAVE_DIR,
         prefix        = f"expd_combined_{ds_tag}",
     )
+    return all_summaries, all_results
 
 
 def exp_d_combined():
     """
-    Generate combined comparison plots for EXP D (all topologies).
+    Generate combined plots for EXP D (all topologies).
     Run after exp_d1 through exp_d5 have completed.
     Run: python main.py --exp exp_d_combined
     """
     print("\n" + "="*62)
     print("  EXP D -- Combined: overlay all 5 topologies")
     print("="*62)
+    summaries_per_ds = {}
     for ds_name, ds_tag in _DATASETS:
-        _exp_d_combined(ds_name, ds_tag)
+        s = _exp_d_combined(ds_name, ds_tag)
+        summaries_per_ds[ds_tag] = s
+    if "mnist" in summaries_per_ds and "cifar" in summaries_per_ds:
+        mnist_s, mnist_r = summaries_per_ds["mnist"]
+        cifar_s, cifar_r = summaries_per_ds["cifar"]
+        if mnist_s and cifar_s:
+            plot_cross_dataset(
+                mnist_results=mnist_r, cifar_results=cifar_r,
+                mnist_summaries=mnist_s, cifar_summaries=cifar_s,
+                group_key="topology",
+                title="EXP D -- Topology sweep",
+                save_dir=SAVE_DIR, prefix="expd",
+            )
 
 
 if __name__ == "__main__":

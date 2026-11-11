@@ -591,6 +591,98 @@ def plot_combined_report(all_results, all_summaries, group_key,
     print(f"[plot_combined_report] 7 combined plots saved to {save_dir}/{prefix}_*.png")
 
 
+def plot_cross_dataset(mnist_results, cifar_results,
+                       mnist_summaries, cifar_summaries,
+                       group_key, title, save_dir, prefix):
+    """
+    So sanh tuong quan MNIST vs CIFAR-10 tren cung thi nghiem.
+    Sinh 3 bieu do dat 2 dataset canh nhau:
+      1. Final F1 bar: MNIST vs CIFAR grouped bar
+      2. F1 curves overlay: MNIST (lien) vs CIFAR (dut) cung axes
+      3. Convergence speed: MNIST vs CIFAR side-by-side
+    """
+    os.makedirs(save_dir, exist_ok=True)
+
+    def p(name):
+        return os.path.join(save_dir, f"{prefix}_cross_{name}.png")
+
+    labels = [str(s[group_key]) for s in mnist_summaries]
+    x      = np.arange(len(labels))
+    width  = 0.35
+
+    # ── 1. Final F1 grouped bar: MNIST vs CIFAR ──────────────────────
+    mnist_f1s = [s.get("final_f1", 0.0) for s in mnist_summaries]
+    cifar_f1s = [s.get("final_f1", 0.0) for s in cifar_summaries]
+
+    fig, ax = plt.subplots(figsize=(11, 5))
+    bars1 = ax.bar(x - width/2, mnist_f1s, width,
+                   label="MNIST",   color="steelblue", edgecolor="black", alpha=0.85)
+    bars2 = ax.bar(x + width/2, cifar_f1s, width,
+                   label="CIFAR-10", color="coral",    edgecolor="black", alpha=0.85)
+    for bar, v in zip(bars1, mnist_f1s):
+        ax.text(bar.get_x()+bar.get_width()/2, v+0.01,
+                f"{v:.3f}", ha="center", fontsize=7)
+    for bar, v in zip(bars2, cifar_f1s):
+        ax.text(bar.get_x()+bar.get_width()/2, v+0.01,
+                f"{v:.3f}", ha="center", fontsize=7)
+    ax.set_xticks(x); ax.set_xticklabels(labels, rotation=15)
+    ax.set_ylabel("Final F1-macro"); ax.set_ylim(0, 1.1)
+    ax.axhline(0.75, color="red", linestyle="--", linewidth=1, label="Target 0.75")
+    ax.set_title(f"{title} -- Final F1: MNIST vs CIFAR-10")
+    ax.legend(fontsize=9); ax.grid(True, axis="y", alpha=0.3)
+    plt.tight_layout()
+    _save(fig, p("final_f1_bar"))
+
+    # ── 2. F1 curves: MNIST (solid) vs CIFAR (dashed) ────────────────
+    fig, ax = plt.subplots(figsize=(11, 5))
+    colors = plt.cm.tab10.colors
+    for idx, (lbl, s_m, s_c) in enumerate(
+            zip(labels, mnist_summaries, cifar_summaries)):
+        df_m = s_m.get("_df")
+        df_c = s_c.get("_df")
+        col  = colors[idx % len(colors)]
+        if df_m is not None:
+            ax.plot(df_m["round"], df_m["mean_f1"],
+                    color=col, linestyle="-",  linewidth=1.8,
+                    label=f"{lbl} MNIST")
+        if df_c is not None:
+            ax.plot(df_c["round"], df_c["mean_f1"],
+                    color=col, linestyle="--", linewidth=1.8,
+                    label=f"{lbl} CIFAR")
+    ax.axhline(0.75, color="red", linestyle=":", linewidth=1, label="Target 0.75")
+    ax.set_xlabel("Round"); ax.set_ylabel("F1-macro")
+    ax.set_title(f"{title} -- F1 Curves: MNIST (solid) vs CIFAR (dashed)")
+    ax.legend(fontsize=7, ncol=2); ax.grid(True, alpha=0.3); ax.set_ylim(0, 1.05)
+    plt.tight_layout()
+    _save(fig, p("f1_curves"))
+
+    # ── 3. Convergence speed: MNIST vs CIFAR side-by-side ────────────
+    mnist_conv = [s.get("convergence_round", -1) for s in mnist_summaries]
+    cifar_conv = [s.get("convergence_round", -1) for s in cifar_summaries]
+    mnist_v = [c if c != -1 else 0 for c in mnist_conv]
+    cifar_v = [c if c != -1 else 0 for c in cifar_conv]
+
+    fig, ax = plt.subplots(figsize=(11, 5))
+    b1 = ax.bar(x - width/2, mnist_v, width,
+                label="MNIST",    color="steelblue", edgecolor="black", alpha=0.85)
+    b2 = ax.bar(x + width/2, cifar_v, width,
+                label="CIFAR-10", color="coral",     edgecolor="black", alpha=0.85)
+    for bar, c in zip(b1, mnist_conv):
+        ax.text(bar.get_x()+bar.get_width()/2, bar.get_height()+0.3,
+                str(c) if c != -1 else "N/A", ha="center", fontsize=8)
+    for bar, c in zip(b2, cifar_conv):
+        ax.text(bar.get_x()+bar.get_width()/2, bar.get_height()+0.3,
+                str(c) if c != -1 else "N/A", ha="center", fontsize=8)
+    ax.set_xticks(x); ax.set_xticklabels(labels, rotation=15)
+    ax.set_ylabel("Convergence Round (F1>=0.75)")
+    ax.set_title(f"{title} -- Convergence Speed: MNIST vs CIFAR-10")
+    ax.legend(fontsize=9); ax.grid(True, axis="y", alpha=0.3)
+    plt.tight_layout()
+    _save(fig, p("conv_speed"))
+
+    print(f"[plot_cross_dataset] 3 cross-dataset plots -> {save_dir}/{prefix}_cross_*.png")
+
+
 # ── Trend helpers for combined reports ───────────────────────────────
 
 def _plot_convergence_trend(summaries, group_key, title, save_path):
