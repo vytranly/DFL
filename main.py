@@ -1755,7 +1755,151 @@ def exp_d_combined():
             )
 
 
-if __name__ == "__main__":
+# -------------------------------------------------------------------
+# EXP E -- Algorithm sweep: Gossip vs FedAvg vs FedProx
+# Co dinh: scale_free, alpha=0.1, equal size, 10 clients, 50 rounds
+# Thay doi: algorithm (3 thuat toan)
+# -------------------------------------------------------------------
+
+_EXP_E_BASE = dict(
+    topology     = "scale_free",
+    alpha        = 0.1,
+    size_mode    = "default",
+    num_clients  = 10,
+    num_rounds   = 50,
+    local_epochs = 5,
+    eval_every   = 1,
+    batch_size   = 32,
+)
+
+_EXP_E_CONFIGS = [
+    # (file_prefix, algorithm, mu, algo_label)
+    ("exp_e1", "gossip",  0.0, "Gossip"),
+    ("exp_e2", "fedavg",  0.0, "FedAvg"),
+    ("exp_e3", "fedprox", 0.1, "FedProx"),
+]
+
+
+def _run_expe(idx):
+    """Run one sub-exp from EXP E (algorithm sweep)."""
+    file_prefix, algo, mu, algo_label = _EXP_E_CONFIGS[idx]
+    exp_name = file_prefix.replace("_", "-")
+    print("\n" + "="*62)
+    print(f"  EXP E -- Algorithm sweep | {exp_name} | {algo_label}")
+    print(f"  scale_free | alpha=0.1 | 10 clients | 50 rounds")
+    print(f"  BOTH mnist and cifar10")
+    print("="*62)
+    cfg_kw = dict(algorithm=algo, mu=mu, **_EXP_E_BASE)
+    return _run_new_exp(
+        label       = f"EXP-E ({algo_label})",
+        file_prefix = file_prefix,
+        cfg_kwargs  = cfg_kw,
+    )
+
+
+def exp_e1():
+    """
+    EXP E1 -- Gossip aggregation.
+    Tong hop theo Mixing Matrix W (theo degree).
+    Khong co co che chong client drift.
+
+    Lenh chay:
+      python main.py --exp exp_e1 --dataset mnist
+      python main.py --exp exp_e1 --dataset cifar10
+    """
+    return _run_expe(0)
+
+
+def exp_e2():
+    """
+    EXP E2 -- FedAvg aggregation.
+    Tong hop theo so mau (weighted mean).
+    Tot hon Gossip vi khong phu thuoc spectral gap.
+
+    Lenh chay:
+      python main.py --exp exp_e2 --dataset mnist
+      python main.py --exp exp_e2 --dataset cifar10
+    """
+    return _run_expe(1)
+
+
+def exp_e3():
+    """
+    EXP E3 -- FedProx aggregation (closed-form, mu=0.1).
+    FedAvg + proximal term keo ve anchor -> han che client drift.
+    Du kien tot nhat ve F1 va variance thap nhat.
+
+    Lenh chay:
+      python main.py --exp exp_e3 --dataset mnist
+      python main.py --exp exp_e3 --dataset cifar10
+    """
+    return _run_expe(2)
+
+
+def _exp_e_combined(dataset_name, ds_tag):
+    """Load CSVs from exp_e1-e3 and generate combined plots."""
+    all_results   = {}
+    all_summaries = []
+    for file_prefix, _a, _m, algo_label in _EXP_E_CONFIGS:
+        pfx      = f"{file_prefix}_{ds_tag}"
+        csv_path = f"{SAVE_DIR}/{pfx}_result.csv"
+        if not os.path.exists(csv_path):
+            print(f"  [skip] {csv_path} not found -- run sub-exps first")
+            continue
+        df   = pd.read_csv(csv_path)
+        last = df.iloc[-1]
+        hit  = df[df["mean_f1"] >= 0.75]["round"]
+        all_results[algo_label] = df
+        all_summaries.append({
+            "algorithm"         : algo_label,
+            "final_f1"          : float(last["mean_f1"]),
+            "final_std_f1"      : float(last["std_f1"]),
+            "convergence_round" : int(hit.iloc[0]) if len(hit) > 0 else -1,
+            "avg_round_time_s"  : float(df["round_time_s"].mean()) if "round_time_s" in df.columns else 0.0,
+            "_df"               : df,
+        })
+    if not all_results:
+        return [], {}
+    plot_combined_report(
+        all_results   = all_results,
+        all_summaries = all_summaries,
+        group_key     = "algorithm",
+        title         = f"EXP E -- Algorithm sweep ({dataset_name})",
+        save_dir      = SAVE_DIR,
+        prefix        = f"expe_combined_{ds_tag}",
+    )
+    return all_summaries, all_results
+
+
+def exp_e_combined():
+    """
+    Tong hop EXP E: overlay 3 thuat toan tren cung bieu do.
+    PHAI chay sau khi da co it nhat 1 sub-exp (exp_e1..exp_e3).
+
+    Lenh chay:
+      python main.py --exp exp_e_combined
+      python main.py --exp exp_e_combined --dataset mnist
+
+    Output: results/expe_combined_*.png + results/expe_cross_*.png
+    """
+    print("\n" + "="*62)
+    print("  EXP E -- Combined: overlay 3 algorithms")
+    print("="*62)
+    summaries_per_ds = {}
+    for ds_name, ds_tag in _DATASETS:
+        s = _exp_e_combined(ds_name, ds_tag)
+        summaries_per_ds[ds_tag] = s
+    if "mnist" in summaries_per_ds and "cifar" in summaries_per_ds:
+        mnist_s, mnist_r = summaries_per_ds["mnist"]
+        cifar_s, cifar_r = summaries_per_ds["cifar"]
+        if mnist_s and cifar_s:
+            plot_cross_dataset(
+                mnist_results=mnist_r, cifar_results=cifar_r,
+                mnist_summaries=mnist_s, cifar_summaries=cifar_s,
+                group_key="algorithm",
+                title="EXP E -- Algorithm sweep",
+                save_dir=SAVE_DIR, prefix="expe",
+            )
     parser = argparse.ArgumentParser(description="DFL Experiments")
     parser.add_argument("--exp", default="all",
                         choices=["baseline", "noniid", "topology",
@@ -1829,5 +1973,94 @@ if __name__ == "__main__":
     if args.exp in ("exp_d4",):          exp_d4()
     if args.exp in ("exp_d5",):          exp_d5()
     if args.exp in ("exp_d_combined",):  exp_d_combined()
+
+    print(f"\n[DONE] Ket qua luu tai: {SAVE_DIR}/")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="DFL Experiments")
+    parser.add_argument("--exp", default="all",
+                        choices=["baseline", "noniid", "topology",
+                                 "algorithm", "p2p", "combined",
+                                 "exp6", "exp7", "exp8", "test",
+                                 "exp9a", "exp9b", "exp9c", "exp9d", "exp9e", "exp9f",
+                                 "exp10a", "exp10b",
+                                 "exp_a1", "exp_a2", "exp_a3", "exp_a4", "exp_a5",
+                                 "exp_a_combined",
+                                 "exp_b1", "exp_b2", "exp_b3", "exp_b4",
+                                 "exp_b_combined",
+                                 "exp_c1", "exp_c2", "exp_c3", "exp_c4",
+                                 "exp_c_combined",
+                                 "exp_d1", "exp_d2", "exp_d3", "exp_d4", "exp_d5",
+                                 "exp_d_combined",
+                                 "exp_e1", "exp_e2", "exp_e3",
+                                 "exp_e_combined",
+                                 "all_long", "all"])
+    parser.add_argument("--dataset", default="both",
+                        choices=["both", "mnist", "cifar10"],
+                        help="Dataset to run: both (default), mnist only, or cifar10 only")
+    args = parser.parse_args()
+
+    # Filter _DATASETS based on --dataset flag
+    import main as _self
+    if args.dataset == "mnist":
+        _self._DATASETS = [("mnist", "mnist")]
+    elif args.dataset == "cifar10":
+        _self._DATASETS = [("cifar10", "cifar")]
+
+    if args.exp in ("baseline",  "all"): exp_baseline()
+    if args.exp in ("noniid",    "all"): exp_noniid()
+    if args.exp in ("topology",  "all"): exp_topology()
+    if args.exp in ("algorithm", "all"): exp_algorithm()
+    if args.exp in ("p2p",       "all"): exp_p2p()
+    if args.exp in ("combined",  "all"): exp_combined()
+    if args.exp in ("exp6", "all_long"): exp_topology_long()
+    if args.exp in ("exp7", "all_long"): exp_fedprox_long()
+    if args.exp in ("exp8", "all_long"): exp_straggler()
+    if args.exp in ("test",):            exp_test_fedprox()
+    if args.exp in ("exp9a",):           exp9a_gossip()
+    if args.exp in ("exp9b",):           exp9b_fedavg()
+    if args.exp in ("exp9c",):           exp9c_fedprox_local()
+    if args.exp in ("exp9d",):           exp9d_fedprox_agg()
+    if args.exp in ("exp9e",):           exp9e_fedprox_fedavg()
+    if args.exp in ("exp9f",):           exp9f_fedprox_gossip()
+    if args.exp in ("exp10a",):          exp10a_fedprox_fedavg()
+    if args.exp in ("exp10b",):          exp10b_fedprox_gossip()
+
+    # EXP A -- Non-IID alpha sweep
+    if args.exp in ("exp_a1",):          exp_a1()
+    if args.exp in ("exp_a2",):          exp_a2()
+    if args.exp in ("exp_a3",):          exp_a3()
+    if args.exp in ("exp_a4",):          exp_a4()
+    if args.exp in ("exp_a5",):          exp_a5()
+    if args.exp in ("exp_a_combined",):  exp_a_combined()
+
+    # EXP B -- Quantity skew
+    if args.exp in ("exp_b1",):          exp_b1()
+    if args.exp in ("exp_b2",):          exp_b2()
+    if args.exp in ("exp_b3",):          exp_b3()
+    if args.exp in ("exp_b4",):          exp_b4()
+    if args.exp in ("exp_b_combined",):  exp_b_combined()
+
+    # EXP C -- Label + Quantity skew combined
+    if args.exp in ("exp_c1",):          exp_c1()
+    if args.exp in ("exp_c2",):          exp_c2()
+    if args.exp in ("exp_c3",):          exp_c3()
+    if args.exp in ("exp_c4",):          exp_c4()
+    if args.exp in ("exp_c_combined",):  exp_c_combined()
+
+    # EXP D -- Topology sweep
+    if args.exp in ("exp_d1",):          exp_d1()
+    if args.exp in ("exp_d2",):          exp_d2()
+    if args.exp in ("exp_d3",):          exp_d3()
+    if args.exp in ("exp_d4",):          exp_d4()
+    if args.exp in ("exp_d5",):          exp_d5()
+    if args.exp in ("exp_d_combined",):  exp_d_combined()
+
+    # EXP E -- Algorithm sweep
+    if args.exp in ("exp_e1",):          exp_e1()
+    if args.exp in ("exp_e2",):          exp_e2()
+    if args.exp in ("exp_e3",):          exp_e3()
+    if args.exp in ("exp_e_combined",):  exp_e_combined()
 
     print(f"\n[DONE] Ket qua luu tai: {SAVE_DIR}/")
