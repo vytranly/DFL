@@ -1133,6 +1133,8 @@ def _exp_a_combined(dataset_name, ds_tag):
             "final_f1"          : float(last["mean_f1"]),
             "final_std_f1"      : float(last["std_f1"]),
             "convergence_round" : int(hit.iloc[0]) if len(hit) > 0 else -1,
+            "avg_round_time_s"  : float(df["round_time_s"].mean()) if "round_time_s" in df.columns else 0.0,
+            "_df"               : df,
         })
     if not all_results:
         return
@@ -1242,6 +1244,8 @@ def _exp_b_combined(dataset_name, ds_tag):
             "final_f1"          : float(last["mean_f1"]),
             "final_std_f1"      : float(last["std_f1"]),
             "convergence_round" : int(hit.iloc[0]) if len(hit) > 0 else -1,
+            "avg_round_time_s"  : float(df["round_time_s"].mean()) if "round_time_s" in df.columns else 0.0,
+            "_df"               : df,
         })
     if not all_results:
         return
@@ -1355,6 +1359,8 @@ def _exp_c_combined(dataset_name, ds_tag):
             "final_f1"          : float(last["mean_f1"]),
             "final_std_f1"      : float(last["std_f1"]),
             "convergence_round" : int(hit.iloc[0]) if len(hit) > 0 else -1,
+            "avg_round_time_s"  : float(df["round_time_s"].mean()) if "round_time_s" in df.columns else 0.0,
+            "_df"               : df,
         })
     if not all_results:
         return
@@ -1457,6 +1463,8 @@ def _exp_d_combined(dataset_name, ds_tag):
             "final_f1"          : float(last["mean_f1"]),
             "final_std_f1"      : float(last["std_f1"]),
             "convergence_round" : int(hit.iloc[0]) if len(hit) > 0 else -1,
+            "avg_round_time_s"  : float(df["round_time_s"].mean()) if "round_time_s" in df.columns else 0.0,
+            "_df"               : df,
         })
     if not all_results:
         return

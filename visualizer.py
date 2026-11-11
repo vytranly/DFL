@@ -456,7 +456,7 @@ def _plot_final_bar_single(summary_list, title_prefix, save_path):
     f1   = s.get("final_f1", 0.0)
     conv = s.get("convergence_round", -1)
 
-    fig, axes = plt.subplots(1, 2, figsize=(10, 4))
+    fig, axes = plt.subplots(1, 2, figsize=(10, 5), constrained_layout=True)
 
     axes[0].bar(["Final F1"], [f1], color='steelblue',
                 edgecolor='black', alpha=0.8)
@@ -516,7 +516,7 @@ def _plot_convergence_speed(df, title_prefix, save_path):
         hit = df[df["mean_f1"] >= tgt]["round"]
         conv_rounds.append(int(hit.iloc[0]) if len(hit) > 0 else -1)
 
-    fig, ax = plt.subplots(figsize=(8, 4))
+    fig, ax = plt.subplots(figsize=(8, 5), constrained_layout=True)
     colors = ['mediumseagreen' if c != -1 else 'salmon' for c in conv_rounds]
     vals   = [c if c != -1 else 0 for c in conv_rounds]
     labels = [f"F1>={t}" for t in targets]
@@ -529,7 +529,6 @@ def _plot_convergence_speed(df, title_prefix, save_path):
     ax.set_ylabel("Round")
     ax.set_title(f"{title_prefix} -- Convergence Speed")
     ax.grid(True, axis='y', alpha=0.3)
-    plt.tight_layout()
     _save(fig, save_path)
 
 
@@ -572,7 +571,132 @@ def plot_combined_report(all_results, all_summaries, group_key,
                    f"{title} -- Final F1 Comparison",
                    p("final_bar"))
 
-    print(f"[plot_combined_report] Combined plots saved to {save_dir}/{prefix}_*.png")
+    # Convergence speed trend line (line chart across ordered group values)
+    # Shows: rounds-to-target vs group variable (alpha / topology / size)
+    _plot_convergence_trend(all_summaries, group_key,
+                            f"{title} -- Convergence Speed Trend",
+                            p("conv_trend"))
+
+    # Round time trend (avg round time vs group variable -> straggler effect)
+    _plot_round_time_trend(all_summaries, group_key,
+                           f"{title} -- Avg Round Time Trend",
+                           p("round_time_trend"))
+
+    # Hub vs Leaf final F1 comparison across sub-exps
+    # (requires hub_f1 / leaf_f1 in summaries if available)
+    _plot_hub_leaf_trend(all_summaries, group_key,
+                         f"{title} -- Hub vs Leaf F1 Trend",
+                         p("hub_leaf_trend"))
+
+    print(f"[plot_combined_report] 7 combined plots saved to {save_dir}/{prefix}_*.png")
+
+
+# ── Trend helpers for combined reports ───────────────────────────────
+
+def _plot_convergence_trend(summaries, group_key, title, save_path):
+    """
+    Line chart: convergence round vs ordered group variable.
+    Shows clearly how convergence speed degrades as Non-IID increases
+    (or improves with better topology/algorithm).
+    """
+    labels  = [str(s[group_key]) for s in summaries]
+    targets = {'F1>=0.50': 0.50, 'F1>=0.60': 0.60, 'F1>=0.75': 0.75}
+    x       = np.arange(len(labels))
+
+    fig, ax = plt.subplots(figsize=(10, 5))
+    for tgt_label, tgt_val in targets.items():
+        conv_vals = []
+        for s in summaries:
+            df = s.get('_df')
+            if df is not None:
+                hit = df[df['mean_f1'] >= tgt_val]['round']
+                conv_vals.append(int(hit.iloc[0]) if len(hit) > 0 else None)
+            else:
+                conv_vals.append(None)
+        # Plot with None as gaps
+        y_plot = [v if v is not None else float('nan') for v in conv_vals]
+        ax.plot(x, y_plot, marker='o', linewidth=2, label=tgt_label)
+        for xi, v in zip(x, conv_vals):
+            lbl = str(v) if v is not None else 'N/A'
+            ax.annotate(lbl, (xi, y_plot[xi] if not np.isnan(y_plot[xi]) else 0),
+                        textcoords='offset points', xytext=(0, 6),
+                        ha='center', fontsize=8)
+
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels, rotation=15)
+    ax.set_xlabel(group_key)
+    ax.set_ylabel("Convergence Round")
+    ax.set_title(title)
+    ax.legend(fontsize=9)
+    ax.grid(True, alpha=0.3)
+    plt.tight_layout()
+    _save(fig, save_path)
+
+
+def _plot_round_time_trend(summaries, group_key, title, save_path):
+    """
+    Bar chart: avg round time vs group variable.
+    Straggler effect visible when size imbalance increases.
+    """
+    labels    = [str(s[group_key]) for s in summaries]
+    avg_times = [s.get('avg_round_time_s', 0.0) for s in summaries]
+
+    fig, ax = plt.subplots(figsize=(9, 4))
+    bars = ax.bar(labels, avg_times, color='coral', edgecolor='black', alpha=0.85)
+    for bar, v in zip(bars, avg_times):
+        ax.text(bar.get_x() + bar.get_width() / 2, v + 0.5,
+                f"{v:.1f}s", ha='center', fontsize=8)
+    ax.set_xlabel(group_key)
+    ax.set_ylabel("Avg Round Time (s)")
+    ax.set_title(title)
+    ax.grid(True, axis='y', alpha=0.3)
+    plt.tight_layout()
+    _save(fig, save_path)
+
+
+def _plot_hub_leaf_trend(summaries, group_key, title, save_path):
+    """
+    Grouped bar chart: Hub final F1 vs Leaf final F1 per sub-exp.
+    Shows whether Hub/Leaf gap changes with the group variable.
+    Requires summaries to have 'hub_final_f1' and 'leaf_final_f1' keys.
+    If missing, plots placeholder noting data not available.
+    """
+    labels    = [str(s[group_key]) for s in summaries]
+    hub_f1s   = [s.get('hub_final_f1', None) for s in summaries]
+    leaf_f1s  = [s.get('leaf_final_f1', None) for s in summaries]
+    mean_f1s  = [s.get('final_f1', 0.0) for s in summaries]
+
+    has_data = any(v is not None for v in hub_f1s)
+
+    x    = np.arange(len(labels))
+    width = 0.25
+    fig, ax = plt.subplots(figsize=(11, 5))
+
+    ax.bar(x - width, mean_f1s, width, label='Mean F1 (all)',
+           color='steelblue', edgecolor='black', alpha=0.8)
+    if has_data:
+        hub_vals  = [v if v is not None else 0.0 for v in hub_f1s]
+        leaf_vals = [v if v is not None else 0.0 for v in leaf_f1s]
+        ax.bar(x,         hub_vals,  width, label='Hub F1',
+               color='salmon',     edgecolor='black', alpha=0.8)
+        ax.bar(x + width, leaf_vals, width, label='Leaf F1',
+               color='lightblue',  edgecolor='black', alpha=0.8)
+    else:
+        ax.text(0.5, 0.5, 'Hub/Leaf data not available\n(scale_free topology needed)',
+                transform=ax.transAxes, ha='center', va='center',
+                fontsize=12, color='gray')
+
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels, rotation=15)
+    ax.set_xlabel(group_key)
+    ax.set_ylabel("F1-macro")
+    ax.set_title(title)
+    ax.set_ylim(0, 1.1)
+    ax.axhline(0.75, color='red', linestyle='--', linewidth=1, label='Target 0.75')
+    ax.legend(fontsize=9)
+    ax.grid(True, axis='y', alpha=0.3)
+    plt.tight_layout()
+    _save(fig, save_path)
 
 
 # ── Topology summary / Hub-Leaf classification ────────────────────────
