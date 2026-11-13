@@ -154,7 +154,7 @@ _EXP_A_CONFIGS = [
     ("exp_a2", 0.1,   "alpha=0.1"),
     ("exp_a3", 1.0,   "alpha=1.0"),
     ("exp_a4", 50.0,  "alpha=50.0"),
-    ("exp_a5", 100.0, "alpha=100.0"),
+    # alpha=100 (IID) khong chay lai -- dung B1 lam baseline IID
 ]
 
 
@@ -317,18 +317,19 @@ def exp_a_combined():
 
 def run_all_a():
     """
-    Chay toan bo EXP A tuan tu: a1->a2->a3->a4->a5->combined.
+    Chay toan bo EXP A tuan tu: a1->a2->a3->a4->combined.
+    (A5 alpha=100 da bo, dung B1 lam IID baseline thay the)
 
     Lenh chay:
-      python main.py --exp all_a --dataset mnist   # chay tuan tu a1->a5->combined
-      python main.py --exp all_a --dataset cifar10
+      python main.py --exp all_a --dataset mnist   # chi MNIST
+      python main.py --exp all_a --dataset cifar10 # chi CIFAR-10
       python main.py --exp all_a                   # ca 2 dataset
     """
     print("\n" + "="*62)
     print("  RUN ALL A -- Chay toan bo EXP A tuan tu")
-    print("  a1 -> a2 -> a3 -> a4 -> a5 -> combined")
+    print("  a1 -> a2 -> a3 -> a4 -> combined")
     print("="*62)
-    for fn in [exp_a1, exp_a2, exp_a3, exp_a4, exp_a5]:
+    for fn in [exp_a1, exp_a2, exp_a3, exp_a4]:
         fn()
     exp_a_combined()
 
