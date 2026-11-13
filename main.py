@@ -543,12 +543,12 @@ _EXP_C_CONFIGS = [
     # C1: chi label skew, topology ring (khac A: ring thay vi scale_free)
     ("exp_c1", 0.05,  "default",    None, None, None,
      "label-only alpha=0.05 ring"),
-    # C2: chi size skew, alpha=0.5 (khac B4: alpha trung binh thay vi 100)
-    ("exp_c2", 0.5,   "imbalanced", None, 0.1,  8000,
-     "size-only alpha=0.5 imbalanced"),
-    # C3: ca 2 muc trung binh (alpha=0.5, bounded) -- realistic nhat
-    ("exp_c3", 0.5,   "bounded",    2500, None, None,
-     "both medium alpha=0.5 bounded"),
+    # C2: chi size skew, alpha=10.0 (Non-IID nhe, de tach rieng effect size)
+    ("exp_c2", 10.0,  "imbalanced", None, 0.1,  8000,
+     "size-only alpha=10.0 imbalanced"),
+    # C3: ca 2 muc trung binh (alpha=10.0, bounded) -- realistic nhat
+    ("exp_c3", 10.0,  "bounded",    2500, None, None,
+     "both medium alpha=10.0 bounded"),
     # C4: ca 2 muc nang nhat (alpha=0.05, imbalanced) -- worst case
     ("exp_c4", 0.05,  "imbalanced", None, 0.1,  8000,
      "both worst alpha=0.05 imbalanced"),
