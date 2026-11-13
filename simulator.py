@@ -176,18 +176,6 @@ class DFLSimulator:
                     w_anchor = anchors.get(cid) if mu_agg > 0 else None,
                 )
 
-            elif self.algorithm == "fedprox":
-                # Công thức mới: nghiệm dạng đóng
-                # w_new = (1/(1+μ))×w_nb + (μ/(1+μ))×w_anchor
-                # w_nb = FedAvg(n_j/N) — tốt hơn Gossip trên scale_free
-                nb_sizes = [self.num_samples[j] for j in nbs]
-                aggregated[cid] = fedprox_aggregate(
-                    own_w, nb_w,
-                    [self.num_samples[cid]] + nb_sizes,
-                    mu       = mu_agg,
-                    w_anchor = anchors.get(cid) if mu_agg > 0 else None,
-                )
-
             elif self.algorithm == "fedavg":
                 # FedAvg: trọng số theo số mẫu
                 nb_sizes  = [self.num_samples[j] for j in nbs]

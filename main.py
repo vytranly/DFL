@@ -2,9 +2,9 @@
 main.py — Dieu phoi toan bo he thong DFL.
 
 Thi nghiem:
-  --exp exp_a1..exp_a5     : EXP A -- Non-IID alpha sweep (label skew)
-  --exp exp_a_combined     : EXP A -- Tong hop sau khi a1-a5 xong
-  --exp all_a              : Chay tuan tu a1->a2->a3->a4->a5->combined
+  --exp exp_a1..exp_a4     : EXP A -- Non-IID alpha sweep (label skew, alpha=0.05..50)
+  --exp exp_a_combined     : EXP A -- Tong hop sau khi a1-a4 xong
+  --exp all_a              : Chay tuan tu a1->a3->a4->combined (a2 reuse D5)
 
   --exp exp_b1..exp_b4     : EXP B -- Quantity skew (size imbalance)
   --exp exp_b_combined     : EXP B -- Tong hop sau khi b1-b4 xong
@@ -135,8 +135,8 @@ def _run_new_exp(label, file_prefix, cfg_kwargs):
 # ===================================================================
 # EXP A -- Non-IID alpha sweep (label skew)
 # Fixed: scale_free, fedprox, equal size (default), 10 clients
-# Variable: alpha in [0.05, 0.1, 1.0, 50.0, 100.0]
-# Run: python main.py --exp exp_a1  (through exp_a5)
+# Variable: alpha in [0.05, 0.1, 1.0, 50.0]
+# Run: python main.py --exp exp_a1  (through exp_a4)
 # ===================================================================
 
 _EXP_A_BASE = dict(
@@ -161,7 +161,7 @@ _EXP_A_CONFIGS = [
 def _run_expa(idx):
     """
     Run one sub-exp from EXP A (Non-IID alpha sweep).
-    idx: 0-based index into _EXP_A_CONFIGS (0=exp-a1, 4=exp-a5).
+    idx: 0-based index into _EXP_A_CONFIGS (0=exp-a1, 3=exp-a4).
     """
     file_prefix, alpha_val, alpha_label = _EXP_A_CONFIGS[idx]
     exp_name = file_prefix.replace("_", "-")
@@ -195,14 +195,15 @@ def exp_a1():
 
 def exp_a2():
     """
-    EXP A2 -- Non-IID manh (alpha=0.1).
-    Moi client tap trung 2-3 class chinh.
+    EXP A2 da bi bo -- alpha=0.1 trung lap hoan toan voi D5 (scale_free,
+    alpha=0.1, fedprox, default size). Dung D5 lam nguon cho diem
+    alpha=0.1 trong exp_a_combined.
 
-    Lenh chay:
-      python main.py --exp exp_a2 --dataset mnist
-      python main.py --exp exp_a2 --dataset cifar10
+    Lenh chay (thay the):
+      python main.py --exp exp_d5 --dataset mnist
+      python main.py --exp exp_d5 --dataset cifar10
     """
-    return _run_expa(1)
+    print("  [skip] exp_a2 da bi bo -- dung exp_d5 (alpha=0.1, scale_free) thay the.")
 
 
 def exp_a3():
@@ -229,27 +230,19 @@ def exp_a4():
     return _run_expa(3)
 
 
-def exp_a5():
-    """
-    EXP A5 -- IID hoan toan (alpha=100.0).
-    Upper bound cua he thong. Dung lam baseline so sanh.
-
-    Lenh chay:
-      python main.py --exp exp_a5 --dataset mnist
-      python main.py --exp exp_a5 --dataset cifar10
-    """
-    return _run_expa(4)
-
-
 def _exp_a_combined(dataset_name, ds_tag):
     """
-    Combined comparison plot for EXP A: overlay all 5 alpha values.
-    Loads CSVs saved by exp_a1..exp_a5 and plots on shared axes.
+    Combined comparison plot for EXP A: overlay a1..a4 (alpha=0.05..50).
+    Loads CSVs saved by exp_a1..exp_a4 and plots on shared axes.
+    IID baseline (alpha=100) lay tu B1 neu co san.
     """
+    # A2 (alpha=0.1) reuse D5's CSV -- config trung lap voi D5
+    _CSV_SOURCE = {"exp_a2": "exp_d5"}
     all_results   = {}
     all_summaries = []
     for file_prefix, alpha_val, alpha_label in _EXP_A_CONFIGS:
-        pfx = f"{file_prefix}_{ds_tag}"
+        csv_src = _CSV_SOURCE.get(file_prefix, file_prefix)
+        pfx = f"{csv_src}_{ds_tag}"
         csv_path = f"{SAVE_DIR}/{pfx}_result.csv"
         if not os.path.exists(csv_path):
             print(f"  [skip] {csv_path} not found -- run sub-exps first")
@@ -281,22 +274,24 @@ def _exp_a_combined(dataset_name, ds_tag):
 
 def exp_a_combined():
     """
-    Tong hop EXP A: overlay 5 muc alpha tren cung bieu do.
-    PHAI chay sau khi da co it nhat 1 sub-exp (exp_a1..exp_a5).
+    Tong hop EXP A: overlay a1..a4 (alpha=0.05..50) + B1 lam IID baseline.
+    A2 (alpha=0.1) reuse CSV cua D5 (trung config) -- can chay D5 truoc.
+    PHAI chay sau khi da co it nhat 1 sub-exp (exp_a1, exp_a3, exp_a4)
+    va D5 (cho diem alpha=0.1).
     Sub-exp nao chua chay se bi bo qua tu dong.
 
     Lenh chay (sau khi cac sub-exp xong):
       python main.py --exp exp_a_combined             # ca 2 dataset + cross-dataset
-      python main.py --exp exp_a_combined --dataset mnist   # chi MNIST
-      python main.py --exp exp_a_combined --dataset cifar10 # chi CIFAR
+      python main.py --exp exp_a_combined --dataset mnist
+      python main.py --exp exp_a_combined --dataset cifar10
 
     Output (7 bieu do per dataset + 3 cross-dataset):
       results/expa_combined_mnist_*.png
       results/expa_combined_cifar_*.png
-      results/expa_cross_*.png  (so sanh MNIST vs CIFAR-10)
+      results/expa_cross_*.png
     """
     print("\n" + "="*62)
-    print("  EXP A -- Combined: overlay all 5 alpha values")
+    print("  EXP A -- Combined: overlay a1..a4 (4 alpha values)")
     print("="*62)
     summaries_per_ds = {}
     for ds_name, ds_tag in _DATASETS:
@@ -317,8 +312,8 @@ def exp_a_combined():
 
 def run_all_a():
     """
-    Chay toan bo EXP A tuan tu: a1->a2->a3->a4->combined.
-    (A5 alpha=100 da bo, dung B1 lam IID baseline thay the)
+    Chay toan bo EXP A tuan tu: a1->a3->a4->combined.
+    (A2 alpha=0.1 reuse D5; A5 alpha=100 da bo, dung B1 lam IID baseline)
 
     Lenh chay:
       python main.py --exp all_a --dataset mnist   # chi MNIST
@@ -327,9 +322,9 @@ def run_all_a():
     """
     print("\n" + "="*62)
     print("  RUN ALL A -- Chay toan bo EXP A tuan tu")
-    print("  a1 -> a2 -> a3 -> a4 -> combined")
+    print("  a1 -> a3 -> a4 -> combined (a2 reuse D5)")
     print("="*62)
-    for fn in [exp_a1, exp_a2, exp_a3, exp_a4]:
+    for fn in [exp_a1, exp_a3, exp_a4]:
         fn()
     exp_a_combined()
 
@@ -544,9 +539,9 @@ _EXP_C_CONFIGS = [
     # C1: chi label skew, topology ring (khac A: ring thay vi scale_free)
     ("exp_c1", 0.05,  "default",    None, None, None,
      "label-only alpha=0.05 ring"),
-    # C2: chi size skew, alpha=10.0 (Non-IID nhe, de tach rieng effect size)
-    ("exp_c2", 10.0,  "imbalanced", None, 0.1,  8000,
-     "size-only alpha=10.0 imbalanced"),
+    # C2: chi size skew, alpha=100.0 (IID label, de tach rieng effect size)
+    ("exp_c2", 100.0, "imbalanced", None, 0.1,  8000,
+     "size-only alpha=100.0 IID imbalanced"),
     # C3: ca 2 muc trung binh (alpha=10.0, bounded) -- realistic nhat
     ("exp_c3", 10.0,  "bounded",    2500, None, None,
      "both medium alpha=10.0 bounded"),
@@ -615,7 +610,7 @@ def exp_c2():
 
 def exp_c3():
     """
-    EXP C3 -- Ca 2 muc trung binh (alpha=0.5, bounded max_diff=2500).
+    EXP C3 -- Ca 2 muc trung binh (alpha=10.0, bounded max_diff=2500).
     Realistic: giong du lieu thuc te nhat.
 
     Lenh chay:
@@ -934,6 +929,7 @@ _EXP_E_BASE = dict(
     local_epochs = 5,
     eval_every   = 1,
     batch_size   = 32,
+    lr           = 0.01,
 )
 
 _EXP_E_CONFIGS = [
@@ -1008,7 +1004,7 @@ def _exp_e_combined(dataset_name, ds_tag):
     """Load CSVs from exp_e1-e3 and generate combined plots."""
     all_results   = {}
     all_summaries = []
-    for file_prefix, _a, _m, algo_label in _EXP_E_CONFIGS:
+    for file_prefix, _a, _m, _ml, algo_label in _EXP_E_CONFIGS:
         pfx      = f"{file_prefix}_{ds_tag}"
         csv_path = f"{SAVE_DIR}/{pfx}_result.csv"
         if not os.path.exists(csv_path):
@@ -1108,7 +1104,7 @@ Vi du:
         "--exp", default="exp_a1",
         choices=[
             # EXP A
-            "exp_a1", "exp_a2", "exp_a3", "exp_a4", "exp_a5",
+            "exp_a1", "exp_a2", "exp_a3", "exp_a4",
             "exp_a_combined", "all_a",
             # EXP B
             "exp_b1", "exp_b2", "exp_b3", "exp_b4",
@@ -1146,7 +1142,6 @@ Vi du:
     elif args.exp == "exp_a2":        exp_a2()
     elif args.exp == "exp_a3":        exp_a3()
     elif args.exp == "exp_a4":        exp_a4()
-    elif args.exp == "exp_a5":        exp_a5()
     elif args.exp == "exp_a_combined": exp_a_combined()
     elif args.exp == "all_a":         run_all_a()
 
