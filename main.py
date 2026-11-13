@@ -540,14 +540,18 @@ _EXP_C_BASE = dict(
 
 _EXP_C_CONFIGS = [
     # (file_prefix, alpha, size_mode, max_diff, size_alpha, max_cs, label)
+    # C1: chi label skew, topology ring (khac A: ring thay vi scale_free)
     ("exp_c1", 0.05,  "default",    None, None, None,
-     "label-skew only (alpha=0.05, equal)"),
-    ("exp_c2", 100.0, "imbalanced", None, 0.1,  8000,
-     "qty-skew only (alpha=100, imbalanced)"),
+     "label-only alpha=0.05 ring"),
+    # C2: chi size skew, alpha=0.5 (khac B4: alpha trung binh thay vi 100)
+    ("exp_c2", 0.5,   "imbalanced", None, 0.1,  8000,
+     "size-only alpha=0.5 imbalanced"),
+    # C3: ca 2 muc trung binh (alpha=0.5, bounded) -- realistic nhat
     ("exp_c3", 0.5,   "bounded",    2500, None, None,
-     "both medium (alpha=0.5, max_diff=2500)"),
+     "both medium alpha=0.5 bounded"),
+    # C4: ca 2 muc nang nhat (alpha=0.05, imbalanced) -- worst case
     ("exp_c4", 0.05,  "imbalanced", None, 0.1,  8000,
-     "both worst (alpha=0.05, imbalanced)"),
+     "both worst alpha=0.05 imbalanced"),
 ]
 
 
@@ -555,16 +559,19 @@ def _run_expc(idx):
     """
     Run one sub-exp from EXP C (combined label + quantity skew).
     idx: 0-based index into _EXP_C_CONFIGS (0=exp-c1, 3=exp-c4).
+    C1 dung ring topology (khac scale_free cua A/B/D/E) de tranh trung.
     """
     (file_prefix, alpha_val, size_mode,
      max_diff, size_alpha, max_cs, comb_label) = _EXP_C_CONFIGS[idx]
     exp_name = file_prefix.replace("_", "-")
+    # C1 va C2 dung ring; C3 va C4 dung scale_free (worst case voi hub/leaf)
+    topo = "ring" if idx < 2 else "scale_free"
     print("\n" + "="*62)
     print(f"  EXP C -- Label+Qty skew | {exp_name} | {comb_label}")
-    print(f"  scale_free | fedprox | 10 clients | 50 rounds")
+    print(f"  topology={topo} | fedprox | 10 clients | 50 rounds")
     print(f"  BOTH mnist and cifar10")
     print("="*62)
-    extra = {"alpha": alpha_val}
+    extra = {"alpha": alpha_val, "topology": topo}
     if size_mode != "default":
         extra["size_mode"] = size_mode
     if max_diff is not None:
@@ -929,23 +936,27 @@ _EXP_E_BASE = dict(
 )
 
 _EXP_E_CONFIGS = [
-    # (file_prefix, algorithm, mu, algo_label)
-    ("exp_e1", "gossip",  0.0, "Gossip"),
-    ("exp_e2", "fedavg",  0.0, "FedAvg"),
-    ("exp_e3", "fedprox", 0.1, "FedProx"),
+    # (file_prefix, algorithm, mu, mu_local, algo_label)
+    ("exp_e1", "gossip",  0.0, 0.0, "Gossip"),
+    ("exp_e2", "fedavg",  0.0, 0.0, "FedAvg"),
+    # E3: FedProx voi proximal ca trong local train (mu_local=0.1) lan aggregate
+    # -> khac voi A/D/B dung mu_local=0 (chi proximal o aggregate)
+    ("exp_e3", "fedprox", 0.1, 0.1, "FedProx (local+agg)"),
 ]
 
 
 def _run_expe(idx):
     """Run one sub-exp from EXP E (algorithm sweep)."""
-    file_prefix, algo, mu, algo_label = _EXP_E_CONFIGS[idx]
+    file_prefix, algo, mu, mu_local, algo_label = _EXP_E_CONFIGS[idx]
     exp_name = file_prefix.replace("_", "-")
     print("\n" + "="*62)
     print(f"  EXP E -- Algorithm sweep | {exp_name} | {algo_label}")
     print(f"  scale_free | alpha=0.1 | 10 clients | 50 rounds")
     print(f"  BOTH mnist and cifar10")
     print("="*62)
-    cfg_kw = dict(algorithm=algo, mu=mu, **_EXP_E_BASE)
+    cfg_kw = dict(algorithm=algo, mu=mu,
+                  mu_local=mu_local, mu_agg=mu,
+                  **_EXP_E_BASE)
     return _run_new_exp(
         label       = f"EXP-E ({algo_label})",
         file_prefix = file_prefix,
@@ -1120,13 +1131,14 @@ Vi du:
     )
     args = parser.parse_args()
 
-    # Filter _DATASETS based on --dataset flag
-    import main as _self
+    # Fix --dataset flag: sua truc tiep bien module-level thay vi import main
+    import sys
+    current_module = sys.modules[__name__]
     if args.dataset == "mnist":
-        _self._DATASETS = [("mnist", "mnist")]
+        current_module._DATASETS = [("mnist", "mnist")]
     elif args.dataset == "cifar10":
-        _self._DATASETS = [("cifar10", "cifar")]
-    # else: both (default, no change)
+        current_module._DATASETS = [("cifar10", "cifar")]
+    # else both: giu nguyen _DATASETS mac dinh
 
     # EXP A -- Non-IID alpha sweep
     if args.exp == "exp_a1":          exp_a1()
