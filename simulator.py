@@ -49,10 +49,6 @@ class DFLSimulator:
         self.num_clients    = config["num_clients"]
         self.algorithm      = config.get("algorithm", "gossip")
 
-        # GPU optimization: auto-tune cuDNN for faster conv
-        if self.device == "cuda":
-            torch.backends.cudnn.benchmark = True
-
         # Số mẫu từng client
         self.num_samples = {
             cid: len(client_indices[cid])
