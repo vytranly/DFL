@@ -18,6 +18,7 @@ results/*.log
 results/*.json
 results/*.txt
 results/p2p_partitions/
+results/checkpoints/
 
 # Script tam thoi
 _fix_*.py

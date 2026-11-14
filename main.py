@@ -26,6 +26,7 @@ Vi du:
   python main.py --exp all_a --dataset mnist
   python main.py --exp all_a --dataset cifar10
   python main.py --exp all_a                   # ca 2 dataset
+  python main.py --exp all_a --fresh            # bo qua checkpoint, chay lai
 """
 
 import os, copy, argparse
@@ -97,6 +98,9 @@ _NEW_EXP_BASE = dict(
 # Both datasets to compare
 _DATASETS = [("mnist", "mnist"), ("cifar10", "cifar")]
 
+# Fresh start flag (set by --fresh in __main__)
+_FRESH = False
+
 
 def _run_new_exp(label, file_prefix, cfg_kwargs):
     """
@@ -106,10 +110,14 @@ def _run_new_exp(label, file_prefix, cfg_kwargs):
     Returns dict {dataset_key: (tracker, df, summary)}.
     """
     out = {}
+    ckpt_dir = os.path.join(SAVE_DIR, "checkpoints")
+    os.makedirs(ckpt_dir, exist_ok=True)
     for ds_name, ds_tag in _DATASETS:
         pfx = f"{file_prefix}_{ds_tag}"
         print(f"\n  >> {label} | dataset={ds_name}")
         cfg     = make_cfg(dataset=ds_name, **cfg_kwargs)
+        cfg["ckpt_path"] = os.path.join(ckpt_dir, f"{pfx}_ckpt.pt")
+        cfg["fresh"]     = _FRESH
         tracker = run_single(cfg)
         df      = tracker.to_dataframe()
         tracker.save_csv(f"{SAVE_DIR}/{pfx}_result.csv")
@@ -1126,6 +1134,10 @@ Vi du:
         choices=["both", "mnist", "cifar10"],
         help="Dataset: both (default), mnist only, hoac cifar10 only"
     )
+    parser.add_argument(
+        "--fresh", action="store_true",
+        help="Bo qua checkpoint, chay lai tu dau"
+    )
     args = parser.parse_args()
 
     # Fix --dataset flag: sua truc tiep bien module-level thay vi import main
@@ -1136,6 +1148,9 @@ Vi du:
     elif args.dataset == "cifar10":
         current_module._DATASETS = [("cifar10", "cifar")]
     # else both: giu nguyen _DATASETS mac dinh
+
+    # Fresh start flag
+    current_module._FRESH = args.fresh
 
     # EXP A -- Non-IID alpha sweep
     if args.exp == "exp_a1":          exp_a1()

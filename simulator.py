@@ -12,6 +12,7 @@ Mỗi round:
 """
 
 import copy
+import os
 import time
 import numpy as np
 import torch
@@ -211,8 +212,37 @@ class DFLSimulator:
         cfg        = self.cfg
         num_rounds = cfg.get("num_rounds", 50)
         eval_every = cfg.get("eval_every", 5)
+        ckpt_path  = cfg.get("ckpt_path")
 
-        for r in tqdm(range(1, num_rounds + 1), desc="Rounds"):
+        # ── Resume from checkpoint ───────────────────────────────────
+        start_round = 1
+        if ckpt_path and os.path.exists(ckpt_path):
+            if cfg.get("fresh"):
+                os.remove(ckpt_path)
+                print(f"  [checkpoint] Fresh start -- old checkpoint removed")
+            else:
+                print(f"  [checkpoint] Resuming from {ckpt_path}")
+                ckpt = torch.load(ckpt_path, map_location=self.device,
+                                  weights_only=False)
+                start_round = ckpt["round"] + 1
+                for cid in range(self.num_clients):
+                    self.models[cid].load_state_dict(ckpt["models"][cid])
+                self.tracker.history        = ckpt["tracker_history"]
+                self.tracker.total_bytes     = ckpt["tracker_total_bytes"]
+                self.tracker.total_time_s    = ckpt["tracker_total_time_s"]
+                self.tracker.round_times     = ckpt["tracker_round_times"]
+                self.tracker._conv_round     = ckpt["tracker_conv_round"]
+                self.tracker.node_comm_kb    = ckpt.get("node_comm_kb", {})
+                if "node_train_time_s" in ckpt:
+                    self.tracker.node_train_time_s = ckpt["node_train_time_s"]
+                print(f"  [checkpoint] Resumed at round {start_round}/{num_rounds}")
+
+        if start_round > num_rounds:
+            print(f"  [checkpoint] Already complete ({num_rounds} rounds) -- use --fresh to re-run")
+            self.tracker.print_summary()
+            return self.tracker
+
+        for r in tqdm(range(start_round, num_rounds + 1), desc="Rounds"):
             t_round = time.time()
             self.run_round(r)
 
@@ -239,6 +269,21 @@ class DFLSimulator:
                 if hub_f1:
                     tqdm.write(f"         Hub  F1={np.mean(hub_f1):.4f} | "
                                f"Leaf F1={np.mean(leaf_f1):.4f}")
+
+                # ── Save checkpoint ───────────────────────────────────
+                if ckpt_path:
+                    torch.save({
+                        "round": r,
+                        "models": {cid: self.models[cid].state_dict()
+                                   for cid in range(self.num_clients)},
+                        "tracker_history":     self.tracker.history,
+                        "tracker_total_bytes":  self.tracker.total_bytes,
+                        "tracker_total_time_s": self.tracker.total_time_s,
+                        "tracker_round_times":  self.tracker.round_times,
+                        "tracker_conv_round":   self.tracker._conv_round,
+                        "node_comm_kb":         self.tracker.node_comm_kb,
+                        "node_train_time_s":    getattr(self.tracker, 'node_train_time_s', {}),
+                    }, ckpt_path)
 
         self.tracker.print_summary()
         return self.tracker
