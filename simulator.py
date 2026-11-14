@@ -14,7 +14,6 @@ Mỗi round:
 import copy
 import os
 import time
-import threading
 import numpy as np
 import torch
 from tqdm import tqdm
@@ -54,26 +53,15 @@ class DFLSimulator:
         if self.device == "cuda":
             torch.backends.cudnn.benchmark = True
 
-        # ── Hybrid CPU+GPU: chia client giua 2 device ──────────────────
-        # PyTorch nha GIL khi chay CUDA kernel -> 2 thread chay song song
-        self.client_devices = {}
-        if self.device == "cuda" and config.get("hybrid", False):
-            n_gpu = max(1, int(np.ceil(0.6 * self.num_clients)))
-            for cid in range(self.num_clients):
-                self.client_devices[cid] = "cuda" if cid < n_gpu else "cpu"
-        else:
-            for cid in range(self.num_clients):
-                self.client_devices[cid] = self.device
-
-        # So mau tung client
+        # Số mẫu từng client
         self.num_samples = {
             cid: len(client_indices[cid])
             for cid in range(self.num_clients)
         }
 
-        # Khoi tao CNN cho tung client -- moi model tren device rieng
+        # Khởi tạo CNN cho từng client
         self.models = {
-            cid: get_model(config["dataset"]).to(self.client_devices[cid])
+            cid: get_model(config["dataset"]).to(self.device)
             for cid in range(self.num_clients)
         }
 
@@ -117,10 +105,6 @@ class DFLSimulator:
         print(f"  Model size : {model_kb:.1f} KB")
         print(f"  Comm/round : {self.comm_bytes_per_round/1024:.1f} KB")
         print(f"  Num edges  : {num_edges}")
-        if self.device == "cuda" and config.get("hybrid", False):
-            gpu_count = sum(1 for d in self.client_devices.values() if d == "cuda")
-            cpu_count = self.num_clients - gpu_count
-            print(f"  Hybrid    : {gpu_count} GPU + {cpu_count} CPU (parallel)")
         print(f"{'='*55}\n")
 
     # ── Một round ────────────────────────────────────────────────────
@@ -143,53 +127,34 @@ class DFLSimulator:
                 for cid in range(self.num_clients)
             }
 
-        # Bước 2: Local training (song song CPU+GPU neu hybrid)
+        # Bước 2: Local training (tất cả client)
         new_weights = {}
-        def _train_client(cid):
+        for cid in range(self.num_clients):
+            # FedProx: truyền anchor + mu vào local_train
+            # Gossip/FedAvg: w_anchor=None, mu=0 → SGD thuần
             w_anchor = anchors.get(cid) if self.algorithm == "fedprox" else None
             state, _, _tt = local_train(
                 model      = self.models[cid],
                 dataloader = self.client_loaders[cid],
                 epochs     = epochs,
                 lr         = lr,
-                device     = self.client_devices.get(cid, self.device),
+                device     = self.device,
                 w_anchor   = w_anchor,
                 mu         = mu_local if self.algorithm == "fedprox" else 0.0,
             )
-            new_weights[cid] = (state, _tt)
-
-        # Chia 2 nhom: GPU clients + CPU clients, chay song song
-        gpu_cids = [c for c in range(self.num_clients)
-                     if self.client_devices.get(c) == "cuda"]
-        cpu_cids = [c for c in range(self.num_clients)
-                     if self.client_devices.get(c) != "cuda"]
-
-        if gpu_cids and cpu_cids:
-            # Hybrid: 2 thread song song (GIL nha khi CUDA chay)
-            t_gpu = threading.Thread(
-                target=lambda: [_train_client(c) for c in gpu_cids])
-            t_cpu = threading.Thread(
-                target=lambda: [_train_client(c) for c in cpu_cids])
-            t_gpu.start(); t_cpu.start()
-            t_gpu.join(); t_cpu.join()
-        else:
-            # Single device: tuan tu
-            for cid in range(self.num_clients):
-                _train_client(cid)
-
-        # Cap nhat weight sau local train
-        for cid in range(self.num_clients):
-            state, _tt = new_weights[cid]
-            self.models[cid].load_state_dict(state)
+            new_weights[cid] = state
             self.tracker.add_node_train_time(cid, _tt)
 
-        # Bước 3 + 4: Exchange & Aggregate (tất cả trên CPU để trộn weight)
+        # Cập nhật weight sau local train
+        for cid in range(self.num_clients):
+            self.models[cid].load_state_dict(new_weights[cid])
+
+        # Bước 3 + 4: Exchange & Aggregate
         aggregated = {}
         for cid in range(self.num_clients):
             nbs      = self.neighbors[cid]
-            nb_w     = [{k: v.cpu() for k, v in self.models[j].state_dict().items()}
-                        for j in nbs]
-            own_w    = {k: v.cpu() for k, v in self.models[cid].state_dict().items()}
+            nb_w     = [self.models[j].state_dict() for j in nbs]
+            own_w    = self.models[cid].state_dict()
 
             if self.algorithm == "gossip":
                 mixing = [self.W[cid][cid]] + [self.W[cid][j] for j in nbs]
@@ -199,25 +164,21 @@ class DFLSimulator:
                 # FedProx-Gossip: Gossip base + proximal closed-form
                 # w_new = (1/(1+μ))×w_nb_gossip + (μ/(1+μ))×w_anchor
                 mixing = [self.W[cid][cid]] + [self.W[cid][j] for j in nbs]
-                anchor_cpu = ({k: v.cpu() for k, v in anchors[cid].items()}
-                              if mu_agg > 0 and cid in anchors else None)
                 aggregated[cid] = fedprox_gossip_aggregate(
                     own_w, nb_w, mixing,
                     mu       = mu_agg,
-                    w_anchor = anchor_cpu,
+                    w_anchor = anchors.get(cid) if mu_agg > 0 else None,
                 )
 
             elif self.algorithm == "fedprox":
                 nb_sizes = [self.num_samples[j] for j in nbs]
-                anchor_cpu = ({k: v.cpu() for k, v in anchors[cid].items()}
-                              if mu_agg > 0 and cid in anchors else None)
                 # Truyền w_anchor (weight trước local train) vào aggregate
                 # để áp dụng đúng proximal term: w - mu*(w_avg - w_anchor)
                 aggregated[cid] = fedprox_aggregate(
                     own_w, nb_w,
                     [self.num_samples[cid]] + nb_sizes,
                     mu     = mu_agg,
-                    w_anchor = anchor_cpu,
+                    w_anchor = anchors.get(cid) if mu_agg > 0 else None,
                 )
 
             elif self.algorithm == "fedavg":
@@ -227,11 +188,8 @@ class DFLSimulator:
                 all_sizes = [self.num_samples[cid]] + nb_sizes
                 aggregated[cid] = fedavg_aggregate(all_w, all_sizes)
 
-        # Nạp weight sau aggregate (chuyển về device của client)
+        # Nạp weight sau aggregate
         for cid in range(self.num_clients):
-            agg_dev = self.client_devices.get(cid, self.device)
-            if agg_dev != "cpu":
-                aggregated[cid] = {k: v.to(agg_dev) for k, v in aggregated[cid].items()}
             self.models[cid].load_state_dict(aggregated[cid])
 
         # Comm cost tong mang
@@ -248,8 +206,7 @@ class DFLSimulator:
         results = []
         for cid in range(self.num_clients):
             acc, f1, loss = evaluate(
-                self.models[cid], self.test_loader,
-                self.client_devices.get(cid, self.device)
+                self.models[cid], self.test_loader, self.device
             )
             results.append((acc, f1, loss))
         return results
@@ -269,7 +226,7 @@ class DFLSimulator:
                 print(f"  [checkpoint] Fresh start -- old checkpoint removed")
             else:
                 print(f"  [checkpoint] Resuming from {ckpt_path}")
-                ckpt = torch.load(ckpt_path, map_location="cpu",
+                ckpt = torch.load(ckpt_path, map_location=self.device,
                                   weights_only=False)
                 start_round = ckpt["round"] + 1
                 for cid in range(self.num_clients):
