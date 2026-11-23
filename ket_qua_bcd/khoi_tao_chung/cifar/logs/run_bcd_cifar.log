@@ -1,0 +1,20 @@
+start 2026-11-13T16:49:53+07:00 dataset=cifar10 host=desktop-gpu
+torch 2.8.0+cu128 cuda True NVIDIA GeForce RTX 3060
+[run ] exp_b1 2026-11-13T16:49:55+07:00
+[ok  ] exp_b1 136 phut
+[run ] exp_b2 2026-11-13T19:06:16+07:00
+[moved] exp_b2..exp_d5 + combined -> laptop (peace) 2026-11-13T19:06:21+07:00; host chain stopped after exp_b1
+[split] 2026-11-14T12:30:51+07:00 host runs exp_d1..d5 (+ exp_d_combined); laptop runs b3,b4,c1,c3,c4; final b/c combined after gathering here
+start 2026-11-14T12:30:51+07:00 dataset=cifar10 host=desktop-gpu
+torch 2.8.0+cu128 cuda True NVIDIA GeForce RTX 3060
+[run ] exp_d1 2026-11-14T12:30:52+07:00
+[stop] 2026-11-14T12:32:03+07:00 exp_d1 stopped after ~2 min: laptop already finished d1..d3 and runs d4; host runs only exp_d5 now
+start 2026-11-14T12:32:03+07:00 dataset=cifar10 host=desktop-gpu
+torch 2.8.0+cu128 cuda True NVIDIA GeForce RTX 3060
+[run ] exp_d5 2026-11-14T12:32:04+07:00
+[ok  ] exp_d5 72 phut
+done 2026-11-14T13:44:52+07:00
+[ok  ] exp_b_combined
+[ok  ] exp_c_combined
+[ok  ] exp_d_combined
+done (gathered from laptop + host) 2026-11-14T13:45:23+07:00

@@ -1,0 +1,14 @@
+
+==============================================================
+  EXP C -- Combined: label + quantity skew combinations
+==============================================================
+[Visualizer] Saved -> ./results/expc_combined_mnist_f1_curves.png
+[Visualizer] Saved -> ./results/expc_combined_mnist_variance.png
+[Visualizer] Saved -> ./results/expc_combined_mnist_comm_cost.png
+[Visualizer] Saved -> ./results/expc_combined_mnist_final_bar.png
+[Visualizer] Saved -> ./results/expc_combined_mnist_conv_trend.png
+[Visualizer] Saved -> ./results/expc_combined_mnist_round_time_trend.png
+[Visualizer] Saved -> ./results/expc_combined_mnist_hub_leaf_trend.png
+[plot_combined_report] 7 combined plots saved to ./results/expc_combined_mnist_*.png
+
+[DONE] Ket qua luu tai: ./results/

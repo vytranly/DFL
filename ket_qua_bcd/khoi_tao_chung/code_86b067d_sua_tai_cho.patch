@@ -1,0 +1,36 @@
+--- a/main.py
++++ b/main.py
+@@ -1120,12 +1120,14 @@
+     )
+     args = parser.parse_args()
+ 
+-    # Filter _DATASETS based on --dataset flag
+-    import main as _self
++    # Filter _DATASETS based on --dataset flag.
++    # Sua tai cho (slice assignment): khi chay `python main.py`, module la
++    # __main__; `import main` se nap mot ban SAO KHAC nen gan vao do khong
++    # anh huong toi cac ham exp_* dang chay.
+     if args.dataset == "mnist":
+-        _self._DATASETS = [("mnist", "mnist")]
++        _DATASETS[:] = [("mnist", "mnist")]
+     elif args.dataset == "cifar10":
+-        _self._DATASETS = [("cifar10", "cifar")]
++        _DATASETS[:] = [("cifar10", "cifar")]
+     # else: both (default, no change)
+ 
+     # EXP A -- Non-IID alpha sweep
+--- a/simulator.py
++++ b/simulator.py
+@@ -59,6 +59,12 @@
+             cid: get_model(config["dataset"]).to(self.device)
+             for cid in range(self.num_clients)
+         }
++        # Moi node bat dau tu CUNG mot w0 (chuan FL/DFL). Neu khoi tao rieng,
++        # round dau se lay trung binh cac mang doc lap -> model bi pha
++        # (do: CIFAR F1=0.018 sau round 1).
++        w0 = copy.deepcopy(self.models[0].state_dict())
++        for cid in range(1, self.num_clients):
++            self.models[cid].load_state_dict(w0)
+ 
+         # Mixing Matrix W từ topology
+         self.W         = get_mixing_matrix(graph)

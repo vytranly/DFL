@@ -1,0 +1,33 @@
+start 2026-11-20T07:44:02+07:00 dataset=mnist host=desktop-gpu code=nghia bf72c59 (origin/nghia, 14/11) -- khoi tao rieng tung client
+PATCH main.py:587 cfg_kw = {**_EXP_C_BASE, **extra} (bug fix: EXP C TypeError duplicate topology)
+torch 2.8.0+cu128 cuda True NVIDIA GeForce RTX 3060
+[run ] exp_b1 2026-11-20T07:44:03+07:00
+[ok  ] exp_b1 44 phut
+[run ] exp_b2 2026-11-20T08:28:12+07:00
+[ok  ] exp_b2 44 phut
+[run ] exp_b3 2026-11-20T09:13:03+07:00
+[ok  ] exp_b3 44 phut
+[run ] exp_b4 2026-11-20T09:57:34+07:00
+[ok  ] exp_b4 20 phut
+[run ] exp_c1 2026-11-20T10:18:09+07:00
+[ok  ] exp_c1 44 phut
+[run ] exp_c2 2026-11-20T11:02:35+07:00
+[ok  ] exp_c2 20 phut
+[run ] exp_c3 2026-11-20T11:23:18+07:00
+[ok  ] exp_c3 43 phut
+[run ] exp_c4 2026-11-20T12:06:58+07:00
+[ok  ] exp_c4 19 phut
+[run ] exp_d1 2026-11-20T12:26:01+07:00
+[ok  ] exp_d1 44 phut
+[run ] exp_d2 2026-11-20T13:10:04+07:00
+[ok  ] exp_d2 45 phut
+[run ] exp_d3 2026-11-20T13:55:04+07:00
+[ok  ] exp_d3 44 phut
+[run ] exp_d4 2026-11-20T14:39:24+07:00
+[ok  ] exp_d4 44 phut
+[run ] exp_d5 2026-11-20T15:24:21+07:00
+[ok  ] exp_d5 44 phut
+[ok  ] exp_b_combined
+[ok  ] exp_c_combined
+[ok  ] exp_d_combined
+done 2026-11-20T16:08:39+07:00

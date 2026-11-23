@@ -1,0 +1,64 @@
+start 2026-11-20T03:31:35+07:00 dataset=cifar10 host=laptop-gpu code=nghia bf72c59 (origin/nghia, 14/11) -- khoi tao rieng tung client
+torch 2.8.0+cu128 cuda True NVIDIA GeForce RTX 3060 Laptop GPU
+[run ] exp_c1 2026-11-20T03:31:40+07:00
+[FAIL] exp_c1 -- xem logs/exp_c1_cifar.log
+[run ] exp_c2 2026-11-20T03:31:45+07:00
+[FAIL] exp_c2 -- xem logs/exp_c2_cifar.log
+[run ] exp_c3 2026-11-20T03:31:49+07:00
+[FAIL] exp_c3 -- xem logs/exp_c3_cifar.log
+[run ] exp_c4 2026-11-20T03:31:53+07:00
+[FAIL] exp_c4 -- xem logs/exp_c4_cifar.log
+[run ] exp_d1 2026-11-20T03:31:57+07:00
+[stop] 2026-11-20T03:33:04+07:00 all EXP C failed (TypeError topology twice) -> patched main.py, restart; exp_d1 resumes from checkpoint
+start 2026-11-20T03:33:08+07:00 dataset=cifar10 host=laptop-gpu code=nghia bf72c59 (origin/nghia, 14/11) -- khoi tao rieng tung client
+PATCH main.py:587 cfg_kw = {**_EXP_C_BASE, **extra} (bug fix: EXP C TypeError duplicate topology)
+torch 2.8.0+cu128 cuda True NVIDIA GeForce RTX 3060 Laptop GPU
+[run ] exp_c1 2026-11-20T03:33:10+07:00
+[stop] 2026-11-20T03:36:02+07:00 WSL restarted during exp_c1; restart
+start 2026-11-20T03:36:02+07:00 dataset=cifar10 host=laptop-gpu code=nghia bf72c59 (origin/nghia, 14/11) -- khoi tao rieng tung client
+PATCH main.py:587 cfg_kw = {**_EXP_C_BASE, **extra} (bug fix: EXP C TypeError duplicate topology)
+torch 2.8.0+cu128 cuda True NVIDIA GeForce RTX 3060 Laptop GPU
+[run ] exp_c1 2026-11-20T03:36:06+07:00
+[resume] 2026-11-20T03:52:54+07:00 WSL boot -> restart chain
+start 2026-11-20T03:52:55+07:00 dataset=cifar10 host=laptop-gpu code=nghia bf72c59 (origin/nghia, 14/11) -- khoi tao rieng tung client
+PATCH main.py:587 cfg_kw = {**_EXP_C_BASE, **extra} (bug fix: EXP C TypeError duplicate topology)
+torch 2.8.0+cu128 cuda True NVIDIA GeForce RTX 3060 Laptop GPU
+[run ] exp_c1 2026-11-20T03:52:59+07:00
+[ok  ] exp_c1 90 phut
+[run ] exp_c2 2026-11-20T05:23:41+07:00
+[ok  ] exp_c2 48 phut
+[run ] exp_c3 2026-11-20T06:12:27+07:00
+[ok  ] exp_c3 97 phut
+[run ] exp_c4 2026-11-20T07:50:21+07:00
+[resume] 2026-11-20T12:23:07+07:00 WSL boot -> restart chain
+start 2026-11-20T12:23:07+07:00 dataset=cifar10 host=laptop-gpu code=nghia bf72c59 (origin/nghia, 14/11) -- khoi tao rieng tung client
+PATCH main.py:587 cfg_kw = {**_EXP_C_BASE, **extra} (bug fix: EXP C TypeError duplicate topology)
+torch 2.8.0+cu128 cuda True NVIDIA GeForce RTX 3060 Laptop GPU
+[skip] exp_c1 (results/exp_c1_cifar_result.csv da co)
+[skip] exp_c2 (results/exp_c2_cifar_result.csv da co)
+[skip] exp_c3 (results/exp_c3_cifar_result.csv da co)
+[run ] exp_c4 2026-11-20T12:23:11+07:00
+[ok  ] exp_c4 15 phut
+[run ] exp_d1 2026-11-20T12:38:28+07:00
+[ok  ] exp_d1 164 phut
+[run ] exp_d2 2026-11-20T15:22:59+07:00
+[resume] 2026-11-21T04:33:26+07:00 WSL boot -> restart chain
+start 2026-11-21T04:33:26+07:00 dataset=cifar10 host=laptop-gpu code=nghia bf72c59 (origin/nghia, 14/11) -- khoi tao rieng tung client
+PATCH main.py:587 cfg_kw = {**_EXP_C_BASE, **extra} (bug fix: EXP C TypeError duplicate topology)
+torch 2.8.0+cu128 cuda True NVIDIA GeForce RTX 3060 Laptop GPU
+[skip] exp_c1 (results/exp_c1_cifar_result.csv da co)
+[skip] exp_c2 (results/exp_c2_cifar_result.csv da co)
+[skip] exp_c3 (results/exp_c3_cifar_result.csv da co)
+[skip] exp_c4 (results/exp_c4_cifar_result.csv da co)
+[skip] exp_d1 (results/exp_d1_cifar_result.csv da co)
+[run ] exp_d2 2026-11-21T04:33:31+07:00
+[ok  ] exp_d2 23 phut
+[run ] exp_d3 2026-11-21T04:56:53+07:00
+[ok  ] exp_d3 100 phut
+[run ] exp_d4 2026-11-21T06:37:03+07:00
+[ok  ] exp_d4 99 phut
+[run ] exp_d5 2026-11-21T08:16:41+07:00
+[ok  ] exp_d5 98 phut
+[ok  ] exp_c_combined
+[ok  ] exp_d_combined
+done 2026-11-21T09:55:41+07:00

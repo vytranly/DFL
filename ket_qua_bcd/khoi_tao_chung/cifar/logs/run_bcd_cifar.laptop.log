@@ -1,0 +1,30 @@
+start 2026-11-13T17:54:04+07:00 dataset=cifar10 host=laptop-gpu
+torch 2.8.0+cu128 cuda True NVIDIA GeForce RTX 3060 Laptop GPU
+[run ] exp_b2 2026-11-13T17:54:06+07:00
+[ok  ] exp_b2 100 phut
+[run ] exp_b3 2026-11-13T19:35:02+07:00
+[stop] laptop powered off during exp_b3 (~19:43 13/11); restarted 2026-11-14T00:19:47+07:00
+start 2026-11-14T00:19:47+07:00 dataset=cifar10 host=laptop-gpu
+torch 2.8.0+cu128 cuda True NVIDIA GeForce RTX 3060 Laptop GPU
+[skip] exp_b2 (results/exp_b2_cifar_result.csv da co)
+[run ] exp_b3 2026-11-14T00:19:53+07:00
+[ok  ] exp_b3 101 phut
+[run ] exp_b4 2026-11-14T02:01:10+07:00
+[ok  ] exp_b4 49 phut
+[copy] exp_b4 -> exp_c2 (cung cau hinh)
+[run ] exp_c1 2026-11-14T02:50:35+07:00
+[ok  ] exp_c1 99 phut
+[run ] exp_c3 2026-11-14T04:29:52+07:00
+[ok  ] exp_c3 96 phut
+[run ] exp_c4 2026-11-14T06:06:43+07:00
+[ok  ] exp_c4 36 phut
+[run ] exp_d1 2026-11-14T06:43:04+07:00
+[ok  ] exp_d1 98 phut
+[run ] exp_d2 2026-11-14T08:21:26+07:00
+[ok  ] exp_d2 99 phut
+[run ] exp_d3 2026-11-14T10:01:08+07:00
+[ok  ] exp_d3 100 phut
+[run ] exp_d4 2026-11-14T11:41:23+07:00
+[ok  ] exp_d4 100 phut
+[run ] exp_d5 2026-11-14T13:21:59+07:00
+[moved] 2026-11-14T13:22:10+07:00 exp_d5 runs on the GPU host; laptop chain stopped after exp_d4; combined made on the host

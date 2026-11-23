@@ -1,0 +1,14 @@
+
+==============================================================
+  EXP D -- Combined: overlay all 5 topologies
+==============================================================
+[Visualizer] Saved -> ./results/expd_combined_cifar_f1_curves.png
+[Visualizer] Saved -> ./results/expd_combined_cifar_variance.png
+[Visualizer] Saved -> ./results/expd_combined_cifar_comm_cost.png
+[Visualizer] Saved -> ./results/expd_combined_cifar_final_bar.png
+[Visualizer] Saved -> ./results/expd_combined_cifar_conv_trend.png
+[Visualizer] Saved -> ./results/expd_combined_cifar_round_time_trend.png
+[Visualizer] Saved -> ./results/expd_combined_cifar_hub_leaf_trend.png
+[plot_combined_report] 7 combined plots saved to ./results/expd_combined_cifar_*.png
+
+[DONE] Ket qua luu tai: ./results/

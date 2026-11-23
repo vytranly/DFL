@@ -1,0 +1,15 @@
+[split] 2026-11-14T15:33:19+07:00 laptop runs D (d1..d5) + d combined; host runs B+C
+start 2026-11-14T15:33:20+07:00 dataset=mnist host=laptop-gpu
+torch 2.8.0+cu128 cuda True NVIDIA GeForce RTX 3060 Laptop GPU
+[run ] exp_d1 2026-11-14T15:33:23+07:00
+[ok  ] exp_d1 87 phut
+[run ] exp_d2 2026-11-14T17:00:43+07:00
+[ok  ] exp_d2 84 phut
+[run ] exp_d3 2026-11-14T18:25:10+07:00
+[ok  ] exp_d3 82 phut
+[run ] exp_d4 2026-11-14T19:48:08+07:00
+[ok  ] exp_d4 83 phut
+[run ] exp_d5 2026-11-14T21:11:20+07:00
+[ok  ] exp_d5 83 phut
+[ok  ] exp_d_combined
+done 2026-11-14T22:35:00+07:00

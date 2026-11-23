@@ -1,0 +1,2 @@
+nghia bf72c59 (origin/nghia, 14/11) -- khoi tao rieng tung client
+PATCH main.py:587 cfg_kw = {**_EXP_C_BASE, **extra} (bug fix: EXP C TypeError duplicate topology)

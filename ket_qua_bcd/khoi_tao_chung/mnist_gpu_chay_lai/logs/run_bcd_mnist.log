@@ -1,0 +1,21 @@
+[split] 2026-11-14T15:32:01+07:00 host runs B+C (b1..b4, c1, c3, c4; c2 = copy of b4) + b/c combined; laptop runs D (d1..d5) + d combined
+start 2026-11-14T15:32:01+07:00 dataset=mnist host=desktop-gpu
+torch 2.8.0+cu128 cuda True NVIDIA GeForce RTX 3060
+[run ] exp_b1 2026-11-14T15:32:02+07:00
+[ok  ] exp_b1 43 phut
+[run ] exp_b2 2026-11-14T16:15:32+07:00
+[ok  ] exp_b2 43 phut
+[run ] exp_b3 2026-11-14T16:59:11+07:00
+[ok  ] exp_b3 43 phut
+[run ] exp_b4 2026-11-14T17:42:18+07:00
+[ok  ] exp_b4 20 phut
+[copy] exp_b4 -> exp_c2 (cung cau hinh)
+[run ] exp_c1 2026-11-14T18:02:28+07:00
+[ok  ] exp_c1 44 phut
+[run ] exp_c3 2026-11-14T18:46:29+07:00
+[ok  ] exp_c3 43 phut
+[run ] exp_c4 2026-11-14T19:29:48+07:00
+[ok  ] exp_c4 18 phut
+[ok  ] exp_b_combined
+[ok  ] exp_c_combined
+done 2026-11-14T19:48:37+07:00

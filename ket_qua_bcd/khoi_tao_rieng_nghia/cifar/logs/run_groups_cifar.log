@@ -1,0 +1,12 @@
+start 2026-11-20T03:30:08+07:00 dataset=cifar10 host=desktop-gpu code=nghia bf72c59 (origin/nghia, 14/11) -- khoi tao rieng tung client
+torch 2.8.0+cu128 cuda True NVIDIA GeForce RTX 3060
+[run ] exp_b1 2026-11-20T03:30:10+07:00
+[ok  ] exp_b1 73 phut
+[run ] exp_b2 2026-11-20T04:43:20+07:00
+[ok  ] exp_b2 73 phut
+[run ] exp_b3 2026-11-20T05:56:43+07:00
+[ok  ] exp_b3 72 phut
+[run ] exp_b4 2026-11-20T07:09:35+07:00
+[ok  ] exp_b4 34 phut
+[ok  ] exp_b_combined
+done 2026-11-20T07:44:02+07:00

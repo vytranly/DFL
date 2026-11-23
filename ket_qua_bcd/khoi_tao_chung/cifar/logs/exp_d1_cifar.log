@@ -1,0 +1,109 @@
+
+==============================================================
+  EXP D -- Topology sweep | exp-d1 | ring
+  fedprox | alpha=0.1 | equal size | 10 clients | 50 rounds
+  BOTH mnist and cifar10
+==============================================================
+
+  >> EXP-D (ring) | dataset=cifar10
+
+  [Topology: RING]
+  Nodes=10  Edges=10  Connected=True
+  Degree: avg=2.00  max=2  min=2
+  Hub  nodes (0/10 = 0%): []
+  Leaf nodes (10/10 = 100%): [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+  Spectral gap = 0.1273  (lon = hoi tu nhanh, nho = hoi tu cham)
+  Degree per node: N0=2(L)  N1=2(L)  N2=2(L)  N3=2(L)  N4=2(L)  N5=2(L)  N6=2(L)  N7=2(L)  N8=2(L)  N9=2(L)
+
+=======================================================
+  DFL Simulator — RING | FEDPROX | alpha=0.1 | 10 clients
+  Model size : 10388.3 KB
+  Comm/round : 207765.8 KB
+  Num edges  : 10
+=======================================================
+
+Rounds:   0%|          | 0/50 [00:00<?, ?it/s]                                                Round    1 | F1=0.0788 +/- 0.1066 | Acc=0.1616 | Comm=202.9 MB | Time=118.4s
+Rounds:   0%|          | 0/50 [01:58<?, ?it/s]Rounds:   2%|▏         | 1/50 [01:58<1:36:42, 118.41s/it]                                                           Round    2 | F1=0.1580 +/- 0.1158 | Acc=0.2397 | Comm=405.8 MB | Time=117.2s
+Rounds:   2%|▏         | 1/50 [03:55<1:36:42, 118.41s/it]Rounds:   4%|▍         | 2/50 [03:55<1:34:10, 117.73s/it]                                                           Round    3 | F1=0.2134 +/- 0.1071 | Acc=0.2919 | Comm=608.7 MB | Time=117.9s
+Rounds:   4%|▍         | 2/50 [05:53<1:34:10, 117.73s/it]Rounds:   6%|▌         | 3/50 [05:53<1:32:17, 117.83s/it]                                                           Round    4 | F1=0.2462 +/- 0.1034 | Acc=0.3265 | Comm=811.6 MB | Time=117.7s
+Rounds:   6%|▌         | 3/50 [07:51<1:32:17, 117.83s/it]Rounds:   8%|▊         | 4/50 [07:51<1:30:17, 117.77s/it]                                                           Round    5 | F1=0.2467 +/- 0.1064 | Acc=0.3325 | Comm=1014.5 MB | Time=118.5s
+Rounds:   8%|▊         | 4/50 [09:49<1:30:17, 117.77s/it]Rounds:  10%|█         | 5/50 [09:49<1:28:31, 118.03s/it]                                                           Round    6 | F1=0.2806 +/- 0.1018 | Acc=0.3682 | Comm=1217.4 MB | Time=118.3s
+Rounds:  10%|█         | 5/50 [11:48<1:28:31, 118.03s/it]Rounds:  12%|█▏        | 6/50 [11:48<1:26:37, 118.12s/it]                                                           Round    7 | F1=0.2911 +/- 0.1045 | Acc=0.3803 | Comm=1420.3 MB | Time=117.6s
+Rounds:  12%|█▏        | 6/50 [13:45<1:26:37, 118.12s/it]Rounds:  14%|█▍        | 7/50 [13:45<1:24:32, 117.96s/it]                                                           Round    8 | F1=0.2883 +/- 0.1097 | Acc=0.3701 | Comm=1623.2 MB | Time=117.7s
+Rounds:  14%|█▍        | 7/50 [15:43<1:24:32, 117.96s/it]Rounds:  16%|█▌        | 8/50 [15:43<1:22:30, 117.87s/it]                                                           Round    9 | F1=0.3120 +/- 0.0962 | Acc=0.4000 | Comm=1826.1 MB | Time=117.4s
+Rounds:  16%|█▌        | 8/50 [17:40<1:22:30, 117.87s/it]Rounds:  18%|█▊        | 9/50 [17:40<1:20:26, 117.71s/it]                                                           Round   10 | F1=0.3116 +/- 0.1142 | Acc=0.3969 | Comm=2029.0 MB | Time=117.1s
+Rounds:  18%|█▊        | 9/50 [19:37<1:20:26, 117.71s/it]Rounds:  20%|██        | 10/50 [19:37<1:18:21, 117.53s/it]                                                            Round   11 | F1=0.3059 +/- 0.1000 | Acc=0.3898 | Comm=2231.9 MB | Time=117.5s
+Rounds:  20%|██        | 10/50 [21:35<1:18:21, 117.53s/it]Rounds:  22%|██▏       | 11/50 [21:35<1:16:23, 117.53s/it]                                                            Round   12 | F1=0.3292 +/- 0.1036 | Acc=0.4157 | Comm=2434.8 MB | Time=117.5s
+Rounds:  22%|██▏       | 11/50 [23:32<1:16:23, 117.53s/it]Rounds:  24%|██▍       | 12/50 [23:32<1:14:25, 117.51s/it]                                                            Round   13 | F1=0.3249 +/- 0.0893 | Acc=0.4120 | Comm=2637.7 MB | Time=117.9s
+Rounds:  24%|██▍       | 12/50 [25:30<1:14:25, 117.51s/it]Rounds:  26%|██▌       | 13/50 [25:30<1:12:32, 117.63s/it]                                                            Round   14 | F1=0.3060 +/- 0.1097 | Acc=0.3878 | Comm=2840.5 MB | Time=117.2s
+Rounds:  26%|██▌       | 13/50 [27:27<1:12:32, 117.63s/it]Rounds:  28%|██▊       | 14/50 [27:27<1:10:29, 117.49s/it]                                                            Round   15 | F1=0.3209 +/- 0.1019 | Acc=0.4046 | Comm=3043.4 MB | Time=117.3s
+Rounds:  28%|██▊       | 14/50 [29:25<1:10:29, 117.49s/it]Rounds:  30%|███       | 15/50 [29:25<1:08:30, 117.43s/it]                                                            Round   16 | F1=0.3246 +/- 0.1144 | Acc=0.4099 | Comm=3246.3 MB | Time=117.3s
+Rounds:  30%|███       | 15/50 [31:22<1:08:30, 117.43s/it]Rounds:  32%|███▏      | 16/50 [31:22<1:06:31, 117.40s/it]                                                            Round   17 | F1=0.3283 +/- 0.1026 | Acc=0.4160 | Comm=3449.2 MB | Time=117.8s
+Rounds:  32%|███▏      | 16/50 [33:20<1:06:31, 117.40s/it]Rounds:  34%|███▍      | 17/50 [33:20<1:04:38, 117.52s/it]                                                            Round   18 | F1=0.3416 +/- 0.0989 | Acc=0.4255 | Comm=3652.1 MB | Time=118.1s
+Rounds:  34%|███▍      | 17/50 [35:18<1:04:38, 117.52s/it]Rounds:  36%|███▌      | 18/50 [35:18<1:02:46, 117.71s/it]                                                            Round   19 | F1=0.3446 +/- 0.0853 | Acc=0.4325 | Comm=3855.0 MB | Time=118.5s
+Rounds:  36%|███▌      | 18/50 [37:16<1:02:46, 117.71s/it]Rounds:  38%|███▊      | 19/50 [37:16<1:00:56, 117.94s/it]                                                            Round   20 | F1=0.3497 +/- 0.0979 | Acc=0.4329 | Comm=4057.9 MB | Time=119.0s
+Rounds:  38%|███▊      | 19/50 [39:16<1:00:56, 117.94s/it]Rounds:  40%|████      | 20/50 [39:16<59:08, 118.27s/it]                                                            Round   21 | F1=0.3451 +/- 0.0912 | Acc=0.4283 | Comm=4260.8 MB | Time=118.8s
+Rounds:  40%|████      | 20/50 [41:14<59:08, 118.27s/it]Rounds:  42%|████▏     | 21/50 [41:14<57:14, 118.44s/it]                                                          Round   22 | F1=0.3519 +/- 0.0924 | Acc=0.4343 | Comm=4463.7 MB | Time=118.7s
+Rounds:  42%|████▏     | 21/50 [43:13<57:14, 118.44s/it]Rounds:  44%|████▍     | 22/50 [43:13<55:18, 118.53s/it]                                                          Round   23 | F1=0.3661 +/- 0.0918 | Acc=0.4489 | Comm=4666.6 MB | Time=118.6s
+Rounds:  44%|████▍     | 22/50 [45:12<55:18, 118.53s/it]Rounds:  46%|████▌     | 23/50 [45:12<53:20, 118.55s/it]                                                          Round   24 | F1=0.3674 +/- 0.0902 | Acc=0.4507 | Comm=4869.5 MB | Time=118.3s
+Rounds:  46%|████▌     | 23/50 [47:10<53:20, 118.55s/it]Rounds:  48%|████▊     | 24/50 [47:10<51:20, 118.48s/it]                                                          Round   25 | F1=0.3546 +/- 0.0963 | Acc=0.4400 | Comm=5072.4 MB | Time=118.3s
+Rounds:  48%|████▊     | 24/50 [49:08<51:20, 118.48s/it]Rounds:  50%|█████     | 25/50 [49:08<49:20, 118.42s/it]                                                          Round   26 | F1=0.3550 +/- 0.0905 | Acc=0.4391 | Comm=5275.3 MB | Time=118.2s
+Rounds:  50%|█████     | 25/50 [51:06<49:20, 118.42s/it]Rounds:  52%|█████▏    | 26/50 [51:06<47:20, 118.36s/it]                                                          Round   27 | F1=0.3535 +/- 0.0841 | Acc=0.4342 | Comm=5478.2 MB | Time=118.5s
+Rounds:  52%|█████▏    | 26/50 [53:05<47:20, 118.36s/it]Rounds:  54%|█████▍    | 27/50 [53:05<45:23, 118.41s/it]                                                          Round   28 | F1=0.3599 +/- 0.0776 | Acc=0.4377 | Comm=5681.1 MB | Time=118.5s
+Rounds:  54%|█████▍    | 27/50 [55:04<45:23, 118.41s/it]Rounds:  56%|█████▌    | 28/50 [55:04<43:25, 118.44s/it]                                                          Round   29 | F1=0.3654 +/- 0.0846 | Acc=0.4472 | Comm=5884.0 MB | Time=117.8s
+Rounds:  56%|█████▌    | 28/50 [57:01<43:25, 118.44s/it]Rounds:  58%|█████▊    | 29/50 [57:01<41:23, 118.24s/it]                                                          Round   30 | F1=0.3725 +/- 0.0809 | Acc=0.4516 | Comm=6086.9 MB | Time=117.6s
+Rounds:  58%|█████▊    | 29/50 [58:59<41:23, 118.24s/it]Rounds:  60%|██████    | 30/50 [58:59<39:20, 118.04s/it]                                                          Round   31 | F1=0.3731 +/- 0.0922 | Acc=0.4532 | Comm=6289.8 MB | Time=117.4s
+Rounds:  60%|██████    | 30/50 [1:00:56<39:20, 118.04s/it]Rounds:  62%|██████▏   | 31/50 [1:00:56<37:19, 117.85s/it]                                                            Round   32 | F1=0.3756 +/- 0.0866 | Acc=0.4527 | Comm=6492.7 MB | Time=117.4s
+Rounds:  62%|██████▏   | 31/50 [1:02:54<37:19, 117.85s/it]Rounds:  64%|██████▍   | 32/50 [1:02:54<35:19, 117.73s/it]                                                            Round   33 | F1=0.3663 +/- 0.0881 | Acc=0.4477 | Comm=6695.6 MB | Time=117.3s
+Rounds:  64%|██████▍   | 32/50 [1:04:51<35:19, 117.73s/it]Rounds:  66%|██████▌   | 33/50 [1:04:51<33:18, 117.59s/it]                                                            Round   34 | F1=0.3798 +/- 0.0763 | Acc=0.4590 | Comm=6898.5 MB | Time=117.4s
+Rounds:  66%|██████▌   | 33/50 [1:06:48<33:18, 117.59s/it]Rounds:  68%|██████▊   | 34/50 [1:06:48<31:20, 117.53s/it]                                                            Round   35 | F1=0.3725 +/- 0.0863 | Acc=0.4538 | Comm=7101.4 MB | Time=117.3s
+Rounds:  68%|██████▊   | 34/50 [1:08:46<31:20, 117.53s/it]Rounds:  70%|███████   | 35/50 [1:08:46<29:21, 117.45s/it]                                                            Round   36 | F1=0.3779 +/- 0.0909 | Acc=0.4610 | Comm=7304.3 MB | Time=117.5s
+Rounds:  70%|███████   | 35/50 [1:10:43<29:21, 117.45s/it]Rounds:  72%|███████▏  | 36/50 [1:10:43<27:24, 117.45s/it]                                                            Round   37 | F1=0.3765 +/- 0.0842 | Acc=0.4572 | Comm=7507.2 MB | Time=117.6s
+Rounds:  72%|███████▏  | 36/50 [1:12:41<27:24, 117.45s/it]Rounds:  74%|███████▍  | 37/50 [1:12:41<25:27, 117.51s/it]                                                            Round   38 | F1=0.3859 +/- 0.0826 | Acc=0.4681 | Comm=7710.1 MB | Time=118.0s
+Rounds:  74%|███████▍  | 37/50 [1:14:39<25:27, 117.51s/it]Rounds:  76%|███████▌  | 38/50 [1:14:39<23:31, 117.66s/it]                                                            Round   39 | F1=0.3484 +/- 0.0897 | Acc=0.4179 | Comm=7913.0 MB | Time=119.6s
+Rounds:  76%|███████▌  | 38/50 [1:16:38<23:31, 117.66s/it]Rounds:  78%|███████▊  | 39/50 [1:16:38<21:40, 118.25s/it]                                                            Round   40 | F1=0.3863 +/- 0.0744 | Acc=0.4646 | Comm=8115.9 MB | Time=117.9s
+Rounds:  78%|███████▊  | 39/50 [1:18:36<21:40, 118.25s/it]Rounds:  80%|████████  | 40/50 [1:18:36<19:41, 118.14s/it]                                                            Round   41 | F1=0.3726 +/- 0.0937 | Acc=0.4526 | Comm=8318.7 MB | Time=117.8s
+Rounds:  80%|████████  | 40/50 [1:20:34<19:41, 118.14s/it]Rounds:  82%|████████▏ | 41/50 [1:20:34<17:42, 118.03s/it]                                                            Round   42 | F1=0.3810 +/- 0.0894 | Acc=0.4632 | Comm=8521.6 MB | Time=117.6s
+Rounds:  82%|████████▏ | 41/50 [1:22:32<17:42, 118.03s/it]Rounds:  84%|████████▍ | 42/50 [1:22:32<15:43, 117.90s/it]                                                            Round   43 | F1=0.3904 +/- 0.0843 | Acc=0.4697 | Comm=8724.5 MB | Time=118.5s
+Rounds:  84%|████████▍ | 42/50 [1:24:30<15:43, 117.90s/it]Rounds:  86%|████████▌ | 43/50 [1:24:30<13:46, 118.08s/it]                                                            Round   44 | F1=0.3836 +/- 0.0867 | Acc=0.4646 | Comm=8927.4 MB | Time=117.8s
+Rounds:  86%|████████▌ | 43/50 [1:26:28<13:46, 118.08s/it]Rounds:  88%|████████▊ | 44/50 [1:26:28<11:47, 117.98s/it]                                                            Round   45 | F1=0.3839 +/- 0.0731 | Acc=0.4648 | Comm=9130.3 MB | Time=117.3s
+Rounds:  88%|████████▊ | 44/50 [1:28:25<11:47, 117.98s/it]Rounds:  90%|█████████ | 45/50 [1:28:25<09:48, 117.78s/it]                                                            Round   46 | F1=0.3975 +/- 0.0711 | Acc=0.4771 | Comm=9333.2 MB | Time=117.3s
+Rounds:  90%|█████████ | 45/50 [1:30:23<09:48, 117.78s/it]Rounds:  92%|█████████▏| 46/50 [1:30:23<07:50, 117.64s/it]                                                            Round   47 | F1=0.4000 +/- 0.0695 | Acc=0.4797 | Comm=9536.1 MB | Time=117.5s
+Rounds:  92%|█████████▏| 46/50 [1:32:20<07:50, 117.64s/it]Rounds:  94%|█████████▍| 47/50 [1:32:20<05:52, 117.60s/it]                                                            Round   48 | F1=0.3885 +/- 0.0782 | Acc=0.4708 | Comm=9739.0 MB | Time=118.1s
+Rounds:  94%|█████████▍| 47/50 [1:34:18<05:52, 117.60s/it]Rounds:  96%|█████████▌| 48/50 [1:34:18<03:55, 117.75s/it]                                                            Round   49 | F1=0.3925 +/- 0.0710 | Acc=0.4715 | Comm=9941.9 MB | Time=117.7s
+Rounds:  96%|█████████▌| 48/50 [1:36:16<03:55, 117.75s/it]Rounds:  98%|█████████▊| 49/50 [1:36:16<01:57, 117.73s/it]                                                            Round   50 | F1=0.3875 +/- 0.0805 | Acc=0.4684 | Comm=10144.8 MB | Time=117.3s
+Rounds:  98%|█████████▊| 49/50 [1:38:13<01:57, 117.73s/it]Rounds: 100%|██████████| 50/50 [1:38:13<00:00, 117.62s/it]Rounds: 100%|██████████| 50/50 [1:38:13<00:00, 117.87s/it]
+
+==================================================
+  KẾT QUẢ TỔNG HỢP
+==================================================
+  Final F1-macro     : 0.3875
+  Final Accuracy     : 0.4684
+  Final Std (F1)     : 0.0805
+  Convergence round  : -1
+  Total comm cost    : 10144.81 MB
+  Best F1            : 0.4
+  Avg round time     : 117.87 s
+  Total time         : 5893.64 s
+==================================================
+[Metrics] Saved -> ./results/exp_d1_cifar_result.csv
+[Visualizer] Saved -> ./results/exp_d1_cifar_f1_curves.png
+[Visualizer] Saved -> ./results/exp_d1_cifar_acc_curves.png
+[Visualizer] Saved -> ./results/exp_d1_cifar_variance.png
+[Visualizer] Saved -> ./results/exp_d1_cifar_comm_cost.png
+~/dfl-nghia-bcd/visualizer.py:480: UserWarning: Tight layout not applied. The bottom and top margins cannot be made large enough to accommodate all Axes decorations.
+  plt.tight_layout()
+~/dfl-nghia-bcd/visualizer.py:480: UserWarning: The figure layout has changed to tight
+  plt.tight_layout()
+[Visualizer] Saved -> ./results/exp_d1_cifar_final_bar.png
+[Visualizer] Saved -> ./results/exp_d1_cifar_heatmap.png
+[Visualizer] Saved -> ./results/exp_d1_cifar_hub_leaf.png
+[Visualizer] Saved -> ./results/exp_d1_cifar_node_costs.png
+[Visualizer] Saved -> ./results/exp_d1_cifar_round_time.png
+~/dfl-nghia-bcd/visualizer.py:168: UserWarning: constrained_layout not applied because axes sizes collapsed to zero.  Try making figure larger or Axes decorations smaller.
+  fig.savefig(path, dpi=120, bbox_inches='tight')
+[Visualizer] Saved -> ./results/exp_d1_cifar_conv_speed.png
+[plot_full_report] 10 plots saved to ./results/exp_d1_cifar_*.png
+  F1=0.3875  Std=0.0805  Conv=-1
+
+[DONE] Ket qua luu tai: ./results/
