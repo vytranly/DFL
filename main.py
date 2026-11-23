@@ -584,7 +584,7 @@ def _run_expc(idx):
         extra["size_alpha"] = size_alpha
     if max_cs is not None:
         extra["max_client_size"] = max_cs
-    cfg_kw = dict(**_EXP_C_BASE, **extra)
+    cfg_kw = {**_EXP_C_BASE, **extra}   # extra (topology, alpha, ...) ghi de base; dict(**a, **b) bao TypeError khi trung key
     return _run_new_exp(
         label       = f"EXP-C ({comb_label})",
         file_prefix = file_prefix,
